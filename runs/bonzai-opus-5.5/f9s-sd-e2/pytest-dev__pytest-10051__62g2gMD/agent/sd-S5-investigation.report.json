@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 109989,
+ "finalText": "I checked the report against the request and fixed two citations. The finding and verdict stay the same: pytest cuts the hang-dump timeout down to a whole number of seconds, so a 0.5-second setting becomes 0, and 0 turns the dump off.\n\n**What I ran (in a throwaway copy):**\n- A test that sleeps 2 seconds with `faulthandler_timeout = 0.5` printed only `1 passed in 2.00s` and no dump. With the setting at `1`, it printed `Timeout (0:00:01)!` and the thread stack.\n- Calling `get_timeout_config_value` with `\"0.5\"` returned `0`.\n- The existing faulthandler tests pass (9 passed, 1 skipped). They miss this because the one test that checks a dump actually appears, `test_timeout[True]`, is skipped (`sometimes crashes on CI (#7022)`).\n\n**Corrections to the report:**\n- The skip marker is on line 75 of `testing/test_faulthandler.py`, not 74.\n- The probe quote I cited for the `0` result wasn't text the probe printed, so I replaced that citation with the run output above.\n\n**Not deliberate:** the help text and reference docs describe the timeout in seconds with no whole-second limit, the setting's own test uses `0.01`, and no changelog entry mentions rounding.\n\n**Fix:** drop the `int()` at `src/_pytest/faulthandler.py:64` and add a test that a 0.5 setting comes out as 0.5.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Timeouts under 1 second turn off hang dumps\",\n  \"cause\": \"get_timeout_config_value in src/_pytest/faulthandler.py wraps the configured value in int(), so faulthandler_timeout = 0.5 becomes 0. pytest_runtest_protocol only arms faulthandler.dump_traceback_later when timeout > 0, so any timeout under one second silently disables the thread dump, and fractional values above 1 are truncated.\",\n  \"files\": [\n    {\"path\": \"src/_pytest/faulthandler.py\", \"why\": \"get_timeout_config_value truncates the float timeout with int(), turning 0.5 into 0, which disables dumping\"},\n    {\"path\": \"testing/test_faulthandler.py\", \"why\": \"The only end-to-end check that a dump happens (test_timeout[True]) is skipped, so no test asserts sub-second timeouts are honoured; add a unit test for the parsed value\"}\n  ],\n  \"plan\": [\n    \"Change get_timeout_config_value to return float(config.getini(\\\"faulthandler_timeout\\\") or 0.0), dropping the int() truncation\",\n    \"Add a test asserting faulthandler_timeout = 0.5 parses to 0.5, plus a pytester test that a sub-second timeout produces 'most recent call first' on stderr\",\n    \"Add a changelog entry under changelog/ for the bug fix\"\n  ],\n  \"verification\": [\n    \"New unit test: ini faulthandler_timeout=0.5 -> get_timeout_config_value returns 0.5 (fails today with 0)\",\n    \"Run a test that sleeps 2s with faulthandler_timeout=0.5 and check stderr contains 'Timeout' and 'most recent call first'\",\n    \"python -m pytest testing/test_faulthandler.py passes\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small (one-line change plus a test)\",\n  \"risk\": \"low\",\n  \"confidence\": 0.95,\n  \"fixType\": \"silentFailure\",\n  \"intendedBehavior\": \"With faulthandler_timeout = 0.5, a test that runs longer than 0.5 seconds prints a traceback dump of all threads to stderr.\",\n  \"intent\": {\n    \"deliberate\": false,\n    \"evidence\": \"The ini help says 'more than TIMEOUT seconds' and the reference docs say 'longer than ``X`` seconds'. The function is annotated to return float, and the existing test_timeout uses faulthandler_timeout = 0.01. No changelog or docs entry says values are rounded to whole seconds.\"\n  },\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"The timeout value is truncated to an integer, so 0.5 becomes 0.\", \"role\": \"rootCause\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"src/_pytest/faulthandler.py:64\", \"quote\": \"return int(float(config.getini(\\\"faulthandler_timeout\\\") or 0.0))\"},\n      {\"type\": \"code\", \"ref\": \"src/_pytest/faulthandler.py:63\", \"quote\": \"def get_timeout_config_value(config: Config) -> float:\"}\n    ]},\n    {\"id\": \"c2\", \"text\": \"The traceback dump is only scheduled when the parsed timeout is greater than zero, so a truncated 0 disables it silently.\", \"role\": \"rootCause\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"src/_pytest/faulthandler.py:71\", \"quote\": \"if timeout > 0 and stderr is not None:\"},\n      {\"type\": \"code\", \"ref\": \"src/_pytest/faulthandler.py:74\", \"quote\": \"faulthandler.dump_traceback_later(timeout, file=stderr)\"}\n    ]},\n    {\"id\": \"c3\", \"text\": \"A 2-second test with faulthandler_timeout=0.5 produced no dump, while faulthandler_timeout=1 produced one, matching the report that the 0.5s job lost dumps but the 5s job did not.\", \"role\": \"impact\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:pytest run with faulthandler_timeout 0.5 then 1\", \"quote\": \"1 passed in 2.00s\\nTimeout (0:00:01)!\\nThread 0x00007fcd9c200440 (most recent call first):\"},\n      {\"type\": \"evidence\", \"ref\": \"ev_s5\", \"quote\": \"Hanging tests no longer produce thread dumps in our job configured with a 0.5-second timeout.\"}\n    ]},\n    {\"id\": \"c4\", \"text\": \"The only test that checks a dump actually appears is skipped, so the truncation went unnoticed.\", \"role\": \"other\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"testing/test_faulthandler.py:75\", \"quote\": \"True, marks=pytest.mark.skip(reason=\\\"sometimes crashes on CI (#7022)\\\")\"},\n      {\"type\": \"code\", \"ref\": \"testing/test_faulthandler.py:95\", \"quote\": \"faulthandler_timeout = 0.01\"}\n    ]},\n    {\"id\": \"c5\", \"text\": \"The documented contract is a timeout in seconds with no whole-second restriction.\", \"role\": \"other\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"src/_pytest/faulthandler.py:21\", \"quote\": \"\\\"more than TIMEOUT seconds to finish\\\"\"},\n      {\"type\": \"doc\", \"ref\": \"doc/en/reference/reference.rst\", \"quote\": \"Dumps the tracebacks of all threads if a test takes longer than ``X`` seconds to run\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"Faulthandler is not enabled or stderr is not available in that job\", \"why\": \"Running with a 1-second timeout in the same setup dumped tracebacks, so enabling and stderr work and only the timeout value differs\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:pytest run with faulthandler_timeout 1\", \"quote\": \"Timeout (0:00:01)!\\nThread 0x00007fcd9c200440 (most recent call first):\"}\n    ]},\n    {\"hypothesis\": \"Rounding to whole seconds was an intentional, documented change\", \"why\": \"The changelog and docs mention faulthandler_timeout only as a duration in seconds, and the test suite itself uses 0.01, so sub-second values are meant to work\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"testing/test_faulthandler.py:95\", \"quote\": \"faulthandler_timeout = 0.01\"}\n    ]}\n  ],\n  \"plain\": {\n    \"headline\": \"Teams that set a hang-detection timeout under one second get no report of where a stuck test hangs, because the timeout is cut down to zero seconds.\",\n    \"happened\": \"The setting tells pytest how long to wait before printing what every thread in a stuck test is doing. Before using it, pytest drops everything after the decimal point, so half a second becomes zero. Zero means 'off', so the report is never printed.\",\n    \"matters\": \"Anyone who sets this timeout under one second loses hang reports with no warning, and values like 1.5 are quietly cut to 1.\",\n    \"fix\": \"Keep the decimal part of the timeout and add a test so a half-second setting still prints the report.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 11,
+  "inputTokens": {
+   "avg": 18385,
+   "max": 25474
+  },
+  "mainUsage": {
+   "inputTokens": 202235,
+   "cachedInputTokens": 183761,
+   "outputTokens": 8805
+  },
+  "cacheHitPercent": 90.86508270081835,
+  "wallSeconds": 109.5090000629425,
+  "tools": {
+   "read": 2,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 7
+  },
+  "reads": 2,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.30519620000000003,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.30519620000000003
+}

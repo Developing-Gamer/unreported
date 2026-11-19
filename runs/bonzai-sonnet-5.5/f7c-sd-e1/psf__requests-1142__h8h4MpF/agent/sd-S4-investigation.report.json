@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 24091,
+ "finalText": "```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"GET requests always send a Content-Length header\",\n  \"cause\": \"When a request is prepared, the code sets 'Content-Length: 0' before it checks whether there is a body. That means every request without a body, including GET and HEAD, gets the header. Some servers, such as amazon.com in the report, reject GETs that carry it with a 503. Nothing in the changelog or tests shows this was chosen.\",\n  \"files\": [\n    {\"path\": \"requests/models.py\", \"why\": \"prepare_content_length() unconditionally sets Content-Length to '0' (line 389). prepare_body() calls it for every non-stream request, and prepare_auth() calls it again after auth runs.\"}\n  ],\n  \"plan\": [\n    \"In prepare_content_length, stop setting the '0' default up front. Keep the seek/tell and len(body) branches as they are.\",\n    \"Add a final branch: when body is None and self.method is not GET or HEAD, set Content-Length to '0'. prepare_method runs before prepare_body, so the method is already known there.\",\n    \"Leave the explicit-Content-Length streaming path alone.\",\n    \"Add tests: a GET and a HEAD without data have no Content-Length in the prepared request. A POST without data still sends 'Content-Length: 0'. A POST with data still sends the correct length.\"\n  ],\n  \"verification\": [\n    \"New test: requests.Request('GET', url).prepare().headers has no 'Content-Length'.\",\n    \"New test: requests.Request('POST', url).prepare().headers['Content-Length'] == '0'.\",\n    \"Run the existing test_requests.py suite, including the auth tests, which recompute the length.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.9,\n  \"intendedBehavior\": \"A prepared GET or HEAD request without a body has no Content-Length header, while a body-less POST or PUT still sends 'Content-Length: 0'.\",\n  \"intent\": {\n    \"deliberate\": false,\n    \"evidence\": \"HISTORY.rst has no entry about Content-Length. test_requests.py has no test that asserts a Content-Length header on bodyless GETs. The header comes from an unconditional default that does not look at the HTTP method.\"\n  },\n  \"fixType\": \"error\",\n  \"claims\": [\n    {\n      \"id\": \"c1\",\n      \"text\": \"prepare_content_length sets Content-Length to '0' unconditionally, regardless of method or body.\",\n      \"role\": \"rootCause\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"requests/models.py:389\", \"quote\": \"self.headers['Content-Length'] = '0'\"}\n      ]\n    },\n    {\n      \"id\": \"c2\",\n      \"text\": \"prepare_body calls it for every non-stream request, including a GET with no data.\",\n      \"role\": \"rootCause\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"requests/models.py:380\", \"quote\": \"self.prepare_content_length(body)\"}\n      ]\n    },\n    {\n      \"id\": \"c3\",\n      \"text\": \"The method is set before the body is prepared, so the method check can be made inside prepare_content_length.\",\n      \"role\": \"other\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"requests/models.py:220\", \"quote\": \"p.prepare_method(self.method)\"}\n      ]\n    }\n  ],\n  \"ruledOut\": [\n    {\n      \"hypothesis\": \"The adapter adds the header.\",\n      \"why\": \"adapters.py only reads Content-Length to decide whether to use chunked encoding. It does not set it.\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"requests/adapters.py:157\", \"quote\": \"chunked = not (request.body is None or 'Content-Length' in request.headers)\"}\n      ]\n    }\n  ],\n  \"plain\": {\n    \"headline\": \"Some websites refused plain page requests because the library always attached an unneeded 'body size' label.\",\n    \"happened\": \"Every request the library built was stamped with a body-size label of zero, even simple page fetches that have no body. Some sites, such as amazon.com, answer those fetches with an error. The reporter hit this when fetching amazon.com.\",\n    \"matters\": \"Anyone using the library to fetch pages from servers that dislike this label gets errors for ordinary page loads.\",\n    \"fix\": \"Only add the zero body-size label to request types that normally carry a body, and leave it off page fetches and header-only checks.\"\n  }\n}\n```\n\nI read the code only. I did not run probe, so I did not run the tests or reproduce the 503.",
+ "totals": {
+  "turns": 1,
+  "requests": 5,
+  "inputTokens": {
+   "avg": 12939.6,
+   "max": 14471
+  },
+  "mainUsage": {
+   "inputTokens": 64698,
+   "cachedInputTokens": 57239,
+   "outputTokens": 2323
+  },
+  "cacheHitPercent": 88.47105010974064,
+  "wallSeconds": 18.504000186920166,
+  "tools": {
+   "read": 7,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 0
+  },
+  "reads": 7,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 1,
+   "readFile": 1,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.0495958,
+   "partial": false,
+   "estimated": true
+  }
+ },
+ "costUsd": 0.0495958
+}

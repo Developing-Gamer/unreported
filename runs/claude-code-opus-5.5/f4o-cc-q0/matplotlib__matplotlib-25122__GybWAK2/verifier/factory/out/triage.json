@@ -1,0 +1,37 @@
+[
+  {
+    "source": "S1",
+    "decision": "skip",
+    "reason": "OOM kill in an external `export-job` service's own modules (export/worker.py, export/csv_writer.py); nothing in this report points at matplotlib code."
+  },
+  {
+    "source": "S2",
+    "decision": "skip",
+    "reason": "Already fixed in this checkout: dates._wrap_in_tex now wraps the whole label in \\mathdefault, escapes '-' and ':' as {-}/{:}, and turns spaces into \\;, so usetex date tick labels keep their 3.3-style spacing."
+  },
+  {
+    "source": "S3",
+    "decision": "skip",
+    "reason": "Too vague to act on: it names no API, rcParam, version, or reproducer for which custom styling values are ignored."
+  },
+  {
+    "source": "S4",
+    "decision": "fix",
+    "reason": "qt_compat checked for an already-imported PyQt5 before PySide6, which contradicts its documented order (PyQt6, PySide6, PyQt5, PySide2), so sessions with both PySide6 and PyQt5 loaded picked Qt5."
+  },
+  {
+    "source": "S5",
+    "decision": "fix",
+    "reason": "mlab._spectral_helper normalized by np.abs(window).sum(), which gives wrong scaling for windows with negative values such as flattop; it should use window.sum()."
+  },
+  {
+    "source": "S6",
+    "decision": "skip",
+    "reason": "Already fixed in this checkout: AnnotationBbox.draw calls renderer.open_group(..., gid=self.get_gid()), so the gid is written to the SVG."
+  },
+  {
+    "source": "S7",
+    "decision": "skip",
+    "reason": "No data or full reproducer; 2048 bins over ~500 axis pixels are sub-pixel, so narrow bands vanishing is a rasterization/aliasing difference in pcolormesh rendering, not an identifiable defect in hist2d's binning."
+  }
+]

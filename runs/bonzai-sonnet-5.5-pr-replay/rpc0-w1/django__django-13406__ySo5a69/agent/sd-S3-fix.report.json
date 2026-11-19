@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 197912,
+ "finalText": "A queryset built from an unpickled `values()`/`annotate()` query now returns dicts, not broken model instances. The check below passes, and everything is left uncommitted in the working tree.\n\nI re-ran the exact reproduction command, `cd tests && PYTHONPATH=/testbed python runtests.py queryset_pickle`. All 34 tests pass, including the new regression test. Before the fix it failed with `AttributeError(\"'NoneType' object has no attribute 'attname'\")`.\n\n- **Cause:** the `QuerySet.query` setter only stored the query and left the queryset building model instances from the values-only columns.\n- **Change:** in `django/db/models/query.py`, the setter now switches the queryset to `ValuesIterable` when the assigned query has `values_select`.\n- **Test:** `test_values_queryset_from_pickled_query` in `tests/queryset_pickle/tests.py`.\n- **Wider runs:** the `queries`, `expressions_case`, `annotations`, `aggregation` and `lookup` suites also pass (run with `--parallel=1`).\n- **`values_list()`:** a reassigned `values_list()` query comes back as dicts, not tuples, because the query doesn't record that shape. I noted this in the PR text.\n- **Docs:** I did not add the docs note the investigation suggested.\n- **PR text:** it is in `.factory/pr-S3.md`.\n\n```json\n{\"kind\":\"fix\",\"outcome\":\"ready\",\"checks\":[{\"command\":\"cd tests && PYTHONPATH=/testbed python runtests.py queryset_pickle\",\"passed\":true},{\"command\":\"cd tests && PYTHONPATH=/testbed python runtests.py queryset_pickle queries expressions_case annotations aggregation lookup --parallel=1\",\"passed\":true}],\"visual\":false,\"reproductionSteps\":\"Build Event.objects.values('group').annotate(n=Count('id')), pickle/unpickle its .query, assign it to Event.objects.all().query, and evaluate the queryset: it returns broken model instances raising AttributeError ('NoneType' object has no attribute 'attname') instead of dicts.\",\"reproductionTest\":{\"path\":\"tests/queryset_pickle/tests.py\",\"command\":\"cd tests && PYTHONPATH=/testbed python runtests.py queryset_pickle\",\"signature\":\"AttributeError(\\\"'NoneType' object has no attribute 'attname'\\\")\"}}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 16,
+  "inputTokens": {
+   "avg": 22501.4375,
+   "max": 26705
+  },
+  "mainUsage": {
+   "inputTokens": 360023,
+   "cachedInputTokens": 347198,
+   "outputTokens": 4986
+  },
+  "cacheHitPercent": 96.43772758962622,
+  "wallSeconds": 196.19700002670288,
+  "tools": {
+   "read": 5,
+   "edit": 4,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 3,
+   "subagent": 0,
+   "other": 6
+  },
+  "reads": 5,
+  "edits": 4,
+  "runs": 6,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 4,
+  "editOperations": 4,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1513441,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1513441
+}

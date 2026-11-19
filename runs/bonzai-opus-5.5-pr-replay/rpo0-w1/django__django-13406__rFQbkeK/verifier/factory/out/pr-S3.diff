@@ -1,0 +1,42 @@
+diff --git a/django/db/models/query.py b/django/db/models/query.py
+index b48d0df9c0..85cd8311a7 100644
+--- a/django/db/models/query.py
++++ b/django/db/models/query.py
+@@ -210,6 +210,8 @@ class QuerySet:
+ 
+     @query.setter
+     def query(self, value):
++        if value.values_select:
++            self._iterable_class = ValuesIterable
+         self._query = value
+ 
+     def as_manager(cls):
+diff --git a/tests/queryset_pickle/tests.py b/tests/queryset_pickle/tests.py
+index a58e45caed..a3ea144607 100644
+--- a/tests/queryset_pickle/tests.py
++++ b/tests/queryset_pickle/tests.py
+@@ -259,6 +259,24 @@ class PickleabilityTestCase(TestCase):
+         event.edition_set.create()
+         self.assert_pickles(event.edition_set.order_by('event'))
+ 
++    def test_query_pickled_values(self):
++        Group.objects.create(name='a')
++        Group.objects.create(name='a')
++        Group.objects.create(name='b')
++        querysets = [
++            (Group.objects.values('name').order_by('name', 'id'), [{'name': 'a'}, {'name': 'a'}, {'name': 'b'}]),
++            (Group.objects.values_list('name').order_by('name', 'id'), [{'name': 'a'}, {'name': 'a'}, {'name': 'b'}]),
++            (
++                Group.objects.values('name').annotate(c=models.Count('id')).order_by('name'),
++                [{'name': 'a', 'c': 2}, {'name': 'b', 'c': 1}],
++            ),
++        ]
++        for qs, expected in querysets:
++            with self.subTest(query=str(qs.query)):
++                reloaded = Group.objects.all()
++                reloaded.query = pickle.loads(pickle.dumps(qs.query))
++                self.assertEqual(list(reloaded), expected)
++
+ 
+ class InLookupTests(TestCase):
+ 

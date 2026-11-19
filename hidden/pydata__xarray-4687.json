@@ -1,0 +1,30 @@
+{
+ "task": "pydata__xarray-4687",
+ "kept": [
+  {
+   "path": "xarray/backends/pseudonetcdf_.py",
+   "category": "silent wrong result (a value or output that is subtly wrong, no exception)",
+   "defect_patch": "diff --git a/xarray/backends/pseudonetcdf_.py b/xarray/backends/pseudonetcdf_.py\nindex da178926..840bc6a1 100644\n--- a/xarray/backends/pseudonetcdf_.py\n+++ b/xarray/backends/pseudonetcdf_.py\n@@ -149,7 +149,7 @@ class PseudoNetCDFBackendEntrypoint(BackendEntrypoint):\n                 decode_coords=decode_coords,\n                 drop_variables=drop_variables,\n                 use_cftime=use_cftime,\n-                decode_timedelta=decode_timedelta,\n+                decode_timedelta=decode_times,\n             )\n         return ds\n \n",
+   "test_code": "import numpy as np\n\nfrom xarray import Variable\nfrom xarray.backends import pseudonetcdf_ as backend\nfrom xarray.backends.common import AbstractDataStore\n\n\nclass MemoryStore(AbstractDataStore):\n    def get_variables(self):\n        return {\n            \"forecast_period\": Variable(\n                (\"step\",),\n                np.array([0, 6, 12], dtype=np.int64),\n                {\"units\": \"hours\"},\n            )\n        }\n\n    def get_attrs(self):\n        return {}\n\n    def get_dimensions(self):\n        return {\"step\": 3}\n\n    def get_encoding(self):\n        return {}\n\n    def close(self):\n        pass\n\n\ndef test_duration_decoding_can_be_disabled_independently(monkeypatch):\n    store = MemoryStore()\n\n    def open_store(cls, filename, **kwargs):\n        return store\n\n    monkeypatch.setattr(\n        backend.PseudoNetCDFDataStore, \"open\", classmethod(open_store)\n    )\n\n    with backend.PseudoNetCDFBackendEntrypoint().open_dataset(\n        \"unused.pnc\", decode_times=True, decode_timedelta=False\n    ) as ds:\n        assert ds[\"forecast_period\"].dtype == np.dtype(\"int64\")\n        np.testing.assert_array_equal(ds[\"forecast_period\"].values, [0, 6, 12])\n        assert ds[\"forecast_period\"].attrs[\"units\"] == \"hours\"\n",
+   "signal": {
+    "kind": "user",
+    "source": "forecast-data-support",
+    "text": "Forecast lead-time columns that used to contain 6 and 12 are now coming through as six-hour and twelve-hour durations. The calendar timestamps still look normal, and our pipeline settings haven't changed."
+   },
+   "summary": "The backend forwards decode_times in place of decode_timedelta, silently ignoring independent duration-decoding settings."
+  },
+  {
+   "path": "xarray/backends/plugins.py",
+   "category": "silent wrong result (a value or output that is subtly wrong, no exception)",
+   "defect_patch": "diff --git a/xarray/backends/plugins.py b/xarray/backends/plugins.py\nindex 0a9ffcbd..f460005e 100644\n--- a/xarray/backends/plugins.py\n+++ b/xarray/backends/plugins.py\n@@ -78,7 +78,7 @@ def set_missing_parameters(backend_entrypoints):\n \n def sort_backends(backend_entrypoints):\n     ordered_backends_entrypoints = {}\n-    for be_name in STANDARD_BACKENDS_ORDER:\n+    for be_name in sorted(STANDARD_BACKENDS_ORDER):\n         if backend_entrypoints.get(be_name, None) is not None:\n             ordered_backends_entrypoints[be_name] = backend_entrypoints.pop(be_name)\n     ordered_backends_entrypoints.update(\n",
+   "test_code": "from xarray.backends import plugins\nfrom xarray.backends.common import BackendEntrypoint\n\n\nclass NetCDF4Backend(BackendEntrypoint):\n    available = True\n    open_dataset_parameters = (\"filename_or_obj\",)\n\n    def guess_can_open(self, filename_or_obj):\n        return isinstance(filename_or_obj, str) and filename_or_obj.endswith(\".nc\")\n\n\nclass H5NetCDFBackend(NetCDF4Backend):\n    pass\n\n\ndef test_automatic_selection_preserves_standard_backend_priority(monkeypatch):\n    # Both installed readers recognize this input, so their priority matters.\n    monkeypatch.setattr(\n        plugins,\n        \"BACKEND_ENTRYPOINTS\",\n        {\"h5netcdf\": H5NetCDFBackend, \"netcdf4\": NetCDF4Backend},\n    )\n    engines = plugins.build_engines([])\n    monkeypatch.setattr(plugins, \"list_engines\", lambda: engines)\n\n    assert plugins.guess_engine(\"climate.nc\") == \"netcdf4\"\n",
+   "signal": {
+    "kind": "user",
+    "source": "data-ingestion-support",
+    "text": "Recent ingestion runs record h5netcdf in the reader metadata where the same inputs previously recorded netcdf4. Both readers are still installed, and the jobs finish normally."
+   },
+   "summary": "Alphabetically sorting the standard backend names incorrectly gives h5netcdf precedence over netcdf4 when both recognize an input."
+  }
+ ],
+ "rejected": []
+}

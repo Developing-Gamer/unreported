@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 85455,
+ "finalText": "The check against the request is done. The bug in the issue is already fixed in the current code: `clone` now copies an estimator that has a class (not an instance) as a parameter. I changed no files and ran commands only through probe.\n\n**Why it used to fail:** `clone` treated any parameter with a `get_params` attribute as an estimator instance. A class has that attribute too, so older versions tried to clone it like an instance and crashed. That is what the reporter hit while wrapping estimators in sklearn-xarray.\n\n**Where the fix is now** (in `sklearn/base.py`):\n- In `_clone_parametrized` (line 81), classes are now matched with `isinstance(estimator, type)` and simply copied. Parameters are cloned with `safe=False`, so the class is kept as it is.\n- `get_params(deep=True)` (line 184) also skips classes when it goes into nested parameters.\n- Calling `clone` on a class itself still raises a clear error asking for an instance. That is intended.\n- `test_clone_estimator_types` in `sklearn/tests/test_base.py` covers this case.\n\n**What I ran** (built environment, sklearn 1.3.dev0):\n- The reporter's case, `clone(StandardScaler(with_mean=StandardScaler))`, returned a new `StandardScaler` that still holds the `StandardScaler` class.\n- `get_params(deep=True)` on the same estimator returned the class without crashing.\n- `pytest sklearn/tests/test_base.py -k clone`: 10 passed, 1 failed. The failure is `test_clone_sparse_matrices`. Its own setup line raised `TypeError: 'module' object is not callable` before `clone` ran, most likely because of the installed SciPy version. It has nothing to do with this issue.\n\n**What I couldn't find:** the repository history is one squashed commit, and the changelog has no entry for this fix. So I can't name the commit or the first release that fixed it. The report must come from an older version; anyone on the current code won't hit it.\n\n```json\n{\n  \"verdict\": \"covered\",\n  \"title\": \"Cloning with a class as a parameter already works\",\n  \"cause\": \"Older versions of clone treated any parameter with a get_params attribute as an estimator instance, so an estimator class passed as a parameter was cloned recursively and estimator.get_params(deep=False) was called on the unbound method, raising TypeError. The current _clone_parametrized sends classes (isinstance(estimator, type)) to the deepcopy path, and since parameters are cloned with safe=False the class is kept unchanged; get_params(deep=True) also skips classes.\",\n  \"files\": [\n    {\"path\": \"sklearn/base.py\", \"why\": \"_clone_parametrized and BaseEstimator.get_params now treat classes as plain values, not estimators\"},\n    {\"path\": \"sklearn/tests/test_base.py\", \"why\": \"test_clone_estimator_types tests this exact scenario\"}\n  ],\n  \"plan\": [\"No change needed; users on older versions should upgrade.\"],\n  \"verification\": [\n    \"clone(StandardScaler(with_mean=StandardScaler)) returns StandardScaler(with_mean=<class 'sklearn.preprocessing._data.StandardScaler'>) on 1.3.dev0\",\n    \"pytest sklearn/tests/test_base.py -k clone: 10 passed, including test_clone_estimator_types; the one failure, test_clone_sparse_matrices, failed in its own setup (cls(np.eye(5)) raised TypeError: 'module' object is not callable) before clone ran, so it is unrelated\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"none\",\n  \"risk\": \"none\",\n  \"confidence\": 0.9,\n  \"fixType\": \"error\",\n  \"fixedIn\": {\"commit\": \"unknown (history squashed into snapshot eae680095)\", \"release\": \"unknown; present in the 1.3.dev0 checkout\"},\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"trigger\", \"text\": \"The user passes an estimator class, not an instance, as a parameter and calls clone.\", \"citations\": [{\"type\": \"evidence\", \"ref\": \"ev_s3\", \"quote\": \"`clone` fails when one or more instance parameters are estimator types (i.e. not instances, but classes)\"}]},\n    {\"id\": \"c2\", \"role\": \"rootCause\", \"text\": \"The current clone sends classes to the deepcopy path, not the recursive get_params path, which removes the old crash.\", \"citations\": [{\"type\": \"code\", \"ref\": \"sklearn/base.py:81\", \"quote\": \"elif not hasattr(estimator, \\\"get_params\\\") or isinstance(estimator, type):\"}, {\"type\": \"code\", \"ref\": \"sklearn/base.py:102\", \"quote\": \"new_object_params[name] = clone(param, safe=False)\"}]},\n    {\"id\": \"c3\", \"role\": \"other\", \"text\": \"Deep get_params also skips class-valued parameters.\", \"citations\": [{\"type\": \"code\", \"ref\": \"sklearn/base.py:184\", \"quote\": \"if deep and hasattr(value, \\\"get_params\\\") and not isinstance(value, type):\"}]},\n    {\"id\": \"c4\", \"role\": \"other\", \"text\": \"A regression test covers cloning with class-valued parameters, and it passes.\", \"citations\": [{\"type\": \"code\", \"ref\": \"sklearn/tests/test_base.py:202\", \"quote\": \"def test_clone_estimator_types():\"}]},\n    {\"id\": \"c5\", \"role\": \"impact\", \"text\": \"Only users on older releases still hit the error; running the reporter's case on the current code succeeds.\", \"citations\": [{\"type\": \"query\", \"ref\": \"probe:python\", \"quote\": \"StandardScaler(with_mean=<class 'sklearn.preprocessing._data.StandardScaler'>)\"}]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"The current code still crashes on class-valued parameters\", \"why\": \"Running the reporter's reproduction on 1.3.dev0 succeeds, and test_clone_estimator_types passes\", \"citations\": [{\"type\": \"code\", \"ref\": \"sklearn/base.py:85\", \"quote\": \"if isinstance(estimator, type):\"}]},\n    {\"hypothesis\": \"The failing test_clone_sparse_matrices is related\", \"why\": \"It failed in its own setup line, cls(np.eye(5)), before clone ran (TypeError: 'module' object is not callable), most likely a SciPy version difference\", \"citations\": [{\"type\": \"code\", \"ref\": \"sklearn/tests/test_base.py:195\", \"quote\": \"sparse_matrix = cls(np.eye(5))\"}]}\n  ],\n  \"intendedBehavior\": \"clone(StandardScaler(with_mean=StandardScaler)) returns a new StandardScaler whose with_mean is the same StandardScaler class, while clone(StandardScaler) on the class itself raises a TypeError asking for an instance.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"The old crash was an unhandled case, not a design choice; the current code handles it on purpose and test_clone_estimator_types asserts it.\"},\n  \"plain\": {\n    \"headline\": \"Copying a model setup used to crash when one of its settings was a kind of model rather than an actual model. That's fixed in the current code.\",\n    \"happened\": \"A user building a wrapper library stored model types as settings. The copy step mistook those types for real models, tried to read their settings, and crashed. The current code recognises types, keeps them as they are, and the copy works.\",\n    \"matters\": \"Only people on older versions who keep model types as settings still hit it.\",\n    \"fix\": \"Nothing to change; users on an older version should upgrade.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 12,
+  "inputTokens": {
+   "avg": 17495.583333333332,
+   "max": 23584
+  },
+  "mainUsage": {
+   "inputTokens": 209947,
+   "cachedInputTokens": 193361,
+   "outputTokens": 7829
+  },
+  "cacheHitPercent": 92.09991092990136,
+  "wallSeconds": 84.4670000076294,
+  "tools": {
+   "read": 5,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 6
+  },
+  "reads": 5,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.2781542,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.2781542
+}

@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 219308,
+ "finalText": "The fix is in place and uncommitted, as the benchmark note asked. Legends for large numeric ranges now show the full values. For example, 2.7e6\u20136.3e6 now shows full-magnitude labels instead of `3`, `4`, `5`, `6`.\n\n- **Cause:** matplotlib's `ScalarFormatter` moved a shared multiplier or offset out of each label, and seaborn never draws that offset text in legends. The investigation's diagnosis held for both paths: `seaborn.objects` (`ContinuousBase._setup`) and the classic `scatterplot`/`lineplot` brief legends (`locator_to_legend_entries`).\n- **Fix:** both paths now turn off the formatter's offset and scientific notation before building legend labels. It only affects legend labels. The change is in `seaborn/_core/scales.py` and `seaborn/utils.py`.\n- **Tests and docs:** I added `test_legend_large_values_no_offset` in `tests/_core/test_scales.py` and `test_locator_to_legend_entries_large_values` in `tests/test_utils.py`. Both failed on the starting commit, for example `['1', '3', '4']` instead of `['1000001', ...]`, and pass now. I also added a whatsnew entry in `doc/whatsnew/v0.12.2.rst`.\n- **Checks:** I ran `tests/_core`, `tests/test_utils.py` and `tests/test_relational.py`: 631 passed, 6 xfailed, 1 failed. The failure is `tests/_core/test_moves.py::TestDodge::test_gap`, which fails the same way on the base commit and is unrelated. I did not run the issue's exact `so.Plot(...)` example; the tests cover the same code paths.\n\nThe PR description is at `.factory/pr-S1.md`.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"checks\": [\n    {\"command\": \"python -m pytest tests/_core tests/test_utils.py tests/test_relational.py -q\", \"passed\": false, \"alsoOnBase\": true, \"note\": \"Only tests/_core/test_moves.py::TestDodge::test_gap fails, identically on the base commit; 631 passed.\"},\n    {\"command\": \"python -m pytest tests/_core/test_scales.py tests/test_utils.py -q -k large_values\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"reproductionSteps\": [\n    \"Run so.Plot(df, x='x', y='y', pointsize='s').add(so.Dot()).plot() with s between 2.7e6 and 6.3e6; legend texts are ['3','4','5','6'].\",\n    \"Call utils.locator_to_legend_entries(MaxNLocator(nbins=3), (1000001, 1000005), int); labels are ['1','3','4'].\"\n  ],\n  \"reproductionTest\": {\n    \"path\": \"tests/test_utils.py\",\n    \"command\": \"python -m pytest tests/_core/test_scales.py tests/test_utils.py -q -k large_values\",\n    \"signature\": \"AssertionError: assert ['1', '3', '4'] == ['1000001', '...3', '1000004']\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 25,
+  "inputTokens": {
+   "avg": 26390.52,
+   "max": 33408
+  },
+  "mainUsage": {
+   "inputTokens": 659763,
+   "cachedInputTokens": 640217,
+   "outputTokens": 8302
+  },
+  "cacheHitPercent": 97.03742101330326,
+  "wallSeconds": 218.58700013160706,
+  "tools": {
+   "read": 13,
+   "edit": 9,
+   "test": 0,
+   "verify": 0,
+   "git": 1,
+   "exec-poll": 5,
+   "subagent": 0,
+   "other": 4
+  },
+  "reads": 13,
+  "edits": 9,
+  "runs": 5,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 7,
+  "editOperations": 9,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.25990139999999995,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.25990139999999995
+}

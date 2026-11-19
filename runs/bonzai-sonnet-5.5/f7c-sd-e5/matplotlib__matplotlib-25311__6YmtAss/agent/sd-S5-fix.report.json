@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 103988,
+ "finalText": "Malformed font patterns such as `Helvetica-Bold` and `serif-12pt` now raise `ValueError` instead of being accepted as an unknown font family. The change is uncommitted in the working tree, and the PR title and description are in `/testbed/.factory/pr-S5.md`.\n\nThe cause matched the investigation. `parse_fontconfig_pattern` in `lib/matplotlib/_fontconfig_pattern.py` returned `{\"family\": [pattern]}` for any unparseable pattern without a colon. I removed that fallback. `validate_font_properties` now rejects `Helvetica-Bold`, while `serif` and `DejaVu Sans` still validate.\n\nI added `test_fontconfig_invalid_pattern` to `lib/matplotlib/tests/test_fontconfig_pattern.py`. It checks that both `FontProperties(...)` and `parse_fontconfig_pattern(...)` raise `ValueError` for `serif-12pt` and `Helvetica-Bold`. Before the fix it failed with \"DID NOT RAISE ValueError\"; after the fix it passes.\n\nI ran the fontconfig, rcparams, mathtext, font_manager and text test files. 1385 passed and 535 were skipped. Two tests failed, `test_rcparams_update` and `test_rcparams_init`. Both fail the same way on the base commit, because they expect a \"validate\" warning that isn't emitted.\n\nI did not load a style containing `mathtext.rm: serif-12pt` to see the bad-value warning, which was the investigation's last verification step.\n\n```json\n{\"outcome\":\"ready\",\"kind\":\"fix\",\"pullRequest\":null,\"checks\":[{\"name\":\"pytest test_fontconfig_pattern.py test_rcparams.py test_mathtext.py test_font_manager.py test_text.py\",\"passed\":false,\"alsoOnBase\":true,\"note\":\"only test_rcparams_update and test_rcparams_init fail; they fail identically on base and are unrelated\"}],\"visual\":false,\"reproductionSteps\":[\"FontProperties('serif-12pt') or rcsetup.validate_font_properties('Helvetica-Bold') returned an unknown family without raising\"],\"reproductionTest\":{\"path\":\"lib/matplotlib/tests/test_fontconfig_pattern.py\",\"command\":\"/opt/miniconda3/envs/testbed/bin/python -m pytest lib/matplotlib/tests/test_fontconfig_pattern.py\",\"signature\":\"Failed: DID NOT RAISE <class 'ValueError'>\"}}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 14,
+  "inputTokens": {
+   "avg": 22766,
+   "max": 27697
+  },
+  "mainUsage": {
+   "inputTokens": 318724,
+   "cachedInputTokens": 304911,
+   "outputTokens": 4484
+  },
+  "cacheHitPercent": 95.66615629823923,
+  "wallSeconds": 102.85700011253357,
+  "tools": {
+   "read": 7,
+   "edit": 3,
+   "test": 0,
+   "verify": 0,
+   "git": 1,
+   "exec-poll": 1,
+   "subagent": 0,
+   "other": 3
+  },
+  "reads": 7,
+  "edits": 3,
+  "runs": 4,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 1,
+  "editOperations": 1,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1403387,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1403387
+}

@@ -1,0 +1,144 @@
+diff --git a/doc/whats_new/v0.20.rst b/doc/whats_new/v0.20.rst
+index 4daae8857..bb50ffc46 100755
+--- a/doc/whats_new/v0.20.rst
++++ b/doc/whats_new/v0.20.rst
+@@ -36,6 +36,11 @@ Changelog
+   threaded when `n_jobs > 1` or `n_jobs = -1`.
+   :issue:`13005` by :user:`Prabakaran Kumaresshan <nixphix>`.
+ 
++- |Fix| Fixed a bug in :class:`decomposition.TruncatedSVD` where
++  ``explained_variance_ratio_`` was computed with the wrong total variance
++  (per-sample instead of per-feature variances) for sparse input, so it
++  differed from the result on the equivalent dense input.
++
+ :mod:`sklearn.impute`
+ .....................
+ 
+@@ -52,6 +57,12 @@ Changelog
+   :class:`linear_model.MultiTaskLasso` which were breaking when
+   ``warm_start = True``. :issue:`12360` by :user:`Aakanksha Joshi <joaak>`.
+ 
++- |Fix| Fixed a bug in :class:`linear_model.BayesianRidge` where
++  ``predict(X, return_std=True)`` did not center ``X`` (it only scaled it when
++  ``normalize=True`` and did nothing otherwise) before computing the
++  predictive standard deviation, which inflated it when the features had
++  non-zero means.
++
+ :mod:`sklearn.preprocessing`
+ ............................
+ 
+@@ -281,6 +292,11 @@ Changelog
+   if the convergence criterion is too loose or not met. :issue:`12451`
+   by :user:`Olivier Grisel <ogrisel>`.
+ 
++- |Fix| Fixed a bug in :class:`mixture.GaussianMixture` and
++  :class:`mixture.BayesianGaussianMixture` where ``fit_predict`` returned
++  labels computed with the parameters of the last initialization instead of
++  the best one when ``n_init > 1``, making it disagree with ``predict``.
++
+ :mod:`sklearn.neighbors`
+ ........................
+ 
+diff --git a/sklearn/decomposition/truncated_svd.py b/sklearn/decomposition/truncated_svd.py
+index d808ed4df..cbaa5e190 100755
+--- a/sklearn/decomposition/truncated_svd.py
++++ b/sklearn/decomposition/truncated_svd.py
+@@ -184,7 +184,7 @@ class TruncatedSVD(BaseEstimator, TransformerMixin):
+         X_transformed = U * Sigma
+         self.explained_variance_ = exp_var = np.var(X_transformed, axis=0)
+         if sp.issparse(X):
+-            _, full_var = mean_variance_axis(X, axis=1)
++            _, full_var = mean_variance_axis(X, axis=0)
+             full_var = full_var.sum()
+         else:
+             full_var = np.var(X, axis=0).sum()
+diff --git a/sklearn/linear_model/bayes.py b/sklearn/linear_model/bayes.py
+index fd01b4441..a985e39dd 100755
+--- a/sklearn/linear_model/bayes.py
++++ b/sklearn/linear_model/bayes.py
+@@ -294,8 +294,10 @@ class BayesianRidge(LinearModel, RegressorMixin):
+         if return_std is False:
+             return y_mean
+         else:
+-            if self.normalize:
+-                X = X / self.X_scale_
++            # sigma_ was estimated on the centred (fit_intercept) and scaled
++            # (normalize) data; X_offset_ is 0 and X_scale_ is 1 when the
++            # corresponding option is off.
++            X = (X - self.X_offset_) / self.X_scale_
+             sigmas_squared_data = (np.dot(X, self.sigma_) * X).sum(axis=1)
+             y_std = np.sqrt(sigmas_squared_data + (1. / self.alpha_))
+             return y_mean, y_std
+diff --git a/sklearn/linear_model/tests/test_bayes.py b/sklearn/linear_model/tests/test_bayes.py
+index 389984085..01a37897e 100755
+--- a/sklearn/linear_model/tests/test_bayes.py
++++ b/sklearn/linear_model/tests/test_bayes.py
+@@ -218,3 +218,19 @@ def test_return_std():
+         m2.fit(X, y)
+         y_mean2, y_std2 = m2.predict(X_test, return_std=True)
+         assert_array_almost_equal(y_std2, noise_mult, decimal=decimal)
++
++
++def test_bayesian_ridge_return_std_normalize():
++    # return_std must centre X when normalize=True, otherwise the predictive
++    # std is inflated by features with large non-zero means
++    rng = np.random.RandomState(0)
++    X = rng.randn(200, 3) + np.array([50., 100., -80.])
++    y = np.dot(X, [1., 2., -1.]) + 0.1 * rng.randn(200)
++
++    clf = BayesianRidge(normalize=True).fit(X, y)
++    _, std_norm = clf.predict(X, return_std=True)
++    assert_array_less(std_norm, 0.2)
++
++    clf_raw = BayesianRidge(normalize=False).fit(X, y)
++    _, std_raw = clf_raw.predict(X, return_std=True)
++    assert_array_almost_equal(std_norm, std_raw, decimal=1)
+diff --git a/sklearn/mixture/base.py b/sklearn/mixture/base.py
+index bd34333c0..748fe0fa2 100755
+--- a/sklearn/mixture/base.py
++++ b/sklearn/mixture/base.py
+@@ -257,11 +257,6 @@ class BaseMixture(DensityMixin, BaseEstimator, metaclass=ABCMeta):
+                 best_params = self._get_parameters()
+                 best_n_iter = n_iter
+ 
+-        # Always do a final e-step to guarantee that the labels returned by
+-        # fit_predict(X) are always consistent with fit(X).predict(X)
+-        # for any value of max_iter and tol (and any random_state).
+-        _, log_resp = self._e_step(X)
+-
+         if not self.converged_:
+             warnings.warn('Initialization %d did not converge. '
+                           'Try different init parameters, '
+@@ -273,6 +268,12 @@ class BaseMixture(DensityMixin, BaseEstimator, metaclass=ABCMeta):
+         self.n_iter_ = best_n_iter
+         self.lower_bound_ = max_lower_bound
+ 
++        # Always do a final e-step, with the best parameters, to guarantee
++        # that the labels returned by fit_predict(X) are always consistent
++        # with fit(X).predict(X) for any value of max_iter and tol (and any
++        # random_state).
++        _, log_resp = self._e_step(X)
++
+         return log_resp.argmax(axis=1)
+ 
+     def _e_step(self, X):
+diff --git a/sklearn/mixture/tests/test_gaussian_mixture.py b/sklearn/mixture/tests/test_gaussian_mixture.py
+index 4d549ccd7..830ea27fe 100755
+--- a/sklearn/mixture/tests/test_gaussian_mixture.py
++++ b/sklearn/mixture/tests/test_gaussian_mixture.py
+@@ -598,6 +598,15 @@ def test_gaussian_mixture_fit_predict(seed, max_iter, tol):
+         assert_greater(adjusted_rand_score(Y, Y_pred2), .95)
+ 
+ 
++def test_gaussian_mixture_fit_predict_n_init():
++    # fit_predict(X) must agree with fit(X).predict(X) when n_init > 1
++    X = np.random.RandomState(0).randn(1000, 5)
++    gm = GaussianMixture(n_components=5, n_init=5, random_state=0)
++    y_pred1 = gm.fit_predict(X)
++    y_pred2 = gm.predict(X)
++    assert_array_equal(y_pred1, y_pred2)
++
++
+ def test_gaussian_mixture_fit():
+     # recover the ground truth
+     rng = np.random.RandomState(0)

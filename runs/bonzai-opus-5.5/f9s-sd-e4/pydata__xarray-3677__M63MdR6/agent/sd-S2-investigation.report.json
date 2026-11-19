@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 229300,
+ "finalText": "I re-checked the report against the request. Every quote I cite matches the code, evidence or probe output word for word, so the finding stands.\n\n**Verdict: fixable.** The bug the user reported is in xarray's code and still happens today. When you assign a value into an array that holds arbitrary Python objects, xarray first replaces any value that has a `values` attribute with that attribute. That step is meant only for pandas and xarray objects, but it catches the user's own objects too. So `bad_indexed.loc[{'dim_0': 0}] = HasValues()` quietly stores `5` instead of the object, with no error.\n\n**Where:** In [variable.py](file:///testbed/xarray/core/variable.py), `as_compatible_data` runs `data = getattr(data, \"values\", data)` at line 202 on every input. `Variable.__setitem__` calls it at line 765. The comment and docstring there say the unwrapping is for \"pandas or xarray object[s]\" only, and no test expects any other object to be unwrapped, so this behaviour was not intended.\n\n**What I ran (probe only; nothing in the repository was changed):**\n- **Reproduction:** on the current code, the issue's example prints `array([set()], dtype=object) array([5], dtype=object)`. Assigning straight into a Variable gives the same result.\n- **Existing tests:** `test_variable.py` passes (279 passed, 11 xfailed). No test covers this case.\n- **Trial fix:** with the change below applied, the user's object is stored as given. pandas Series and DataArray inputs still give `[1 2]`. The variable, dataarray and dataset test files had 557 passed and 1 failed. That one failure (`test_rolling_wrapped_dask[8-1-True-mean]`) also fails on the unchanged code, so the change didn't cause it.\n\n**The fix:**\n- Only unwrap `pd.Series`, `pd.Index` and `pd.DataFrame` through `.values`.\n- Handle DataArray the same way Variable already is, returning its `.data`.\n- Add a regression test in `test_variable.py` that assigns a `HasValues()` object.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Assigning an object with a .values attribute stores the attribute\",\n  \"cause\": \"as_compatible_data in xarray/core/variable.py runs `data = getattr(data, \\\"values\\\", data)` on every input, meant only to unwrap pandas/xarray containers. Any user object exposing a `values` attribute is therefore replaced by that attribute, so Variable.__setitem__ (and DataArray.loc assignment) silently stores e.g. 5 instead of the object in an object-dtype array.\",\n  \"files\": [\n    {\"path\": \"xarray/core/variable.py\", \"why\": \"as_compatible_data duck-types on `.values` (line 202) instead of checking for pandas/xarray types; Variable.__setitem__ calls it at line 765\"},\n    {\"path\": \"xarray/tests/test_variable.py\", \"why\": \"needs a regression test that assigns an object with a `values` attribute into an object-dtype Variable\"}\n  ],\n  \"plan\": [\n    \"In as_compatible_data, replace `data = getattr(data, \\\"values\\\", data)` with `if isinstance(data, (pd.Series, pd.Index, pd.DataFrame)): data = data.values`.\",\n    \"Handle DataArray explicitly next to Variable (lazy import of DataArray; `if isinstance(data, (Variable, DataArray)): return data.data`) so DataArray inputs keep being unwrapped, including dask-backed ones.\",\n    \"Add a test in test_variable.py: a Variable of [None] with dtype object; `v[0] = HasValues()` with `class HasValues: values = 5` must store the instance itself. Also a DataArray.loc variant.\"\n  ],\n  \"verification\": [\n    \"Probe on current code: the issue's example prints `array([set()], dtype=object) array([5], dtype=object)`, which reproduces the bug.\",\n    \"Probe with the patch applied: bad_indexed.values becomes `array([<__main__.HasValues object ...>], dtype=object)`; Variable('x', pd.Series([1,2])) and Variable('x', DataArray([1,2])) still give [1 2].\",\n    \"test_variable.py, test_dataarray.py and test_dataset.py with the patch: 557 passed, 1 failed. The one failure (test_rolling_wrapped_dask[8-1-True-mean]) also fails on unpatched code and is unrelated.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.9,\n  \"fixType\": \"silentFailure\",\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"as_compatible_data unconditionally replaces any input that has a `values` attribute with that attribute, not just pandas/xarray objects.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"xarray/core/variable.py:202\", \"quote\": \"data = getattr(data, \\\"values\\\", data)\"},\n      {\"type\": \"code\", \"ref\": \"xarray/core/variable.py:201\", \"quote\": \"# we don't want nested self-described arrays\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"trigger\", \"text\": \"Variable.__setitem__ passes every non-Variable assigned value through as_compatible_data, so .loc/[] assignment hits the unwrapping.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"xarray/core/variable.py:764\", \"quote\": \"if not isinstance(value, Variable):\\n            value = as_compatible_data(value)\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"impact\", \"text\": \"The user's object is silently replaced by its attribute value; running the reporter's example stores 5 instead of the HasValues instance.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s2\", \"quote\": \"bad_indexed.values =\u203a array([array(5)], dtype=object)\"},\n      {\"type\": \"query\", \"ref\": \"probe:python reproduction\", \"quote\": \"array([set()], dtype=object) array([5], dtype=object)\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"other\", \"text\": \"The documented contract only covers unwrapping pandas or xarray objects, so the broader duck-typing is not intended.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"xarray/core/variable.py:176\", \"quote\": \"- If data is already a pandas or xarray object (other than an Index), just\\n      use the values.\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"Existing tests assert that any object with .values should be unwrapped (deliberate design)\", \"why\": \"test_variable.py passes (279 passed) and no test covers it; the docstring limits unwrapping to pandas/xarray objects\", \"citations\": [{\"type\": \"query\", \"ref\": \"probe:pytest test_variable.py\", \"quote\": \"279 passed, 11 xfailed in 30.41s\"}]},\n    {\"hypothesis\": \"Restricting unwrapping breaks pandas/DataArray inputs\", \"why\": \"With the patch, Series and DataArray inputs still give [1 2], and the only failure in the broader test run already fails on unpatched code\", \"citations\": [{\"type\": \"query\", \"ref\": \"probe:patched run\", \"quote\": \"1 failed, 557 passed, 1 skipped, 12 xfailed, 1 xpassed in 37.32s\"}]}\n  ],\n  \"intendedBehavior\": \"Assigning an arbitrary Python object that has a `values` attribute into an object-dtype DataArray/Variable stores that object itself, while pandas Series/Index/DataFrame and DataArray inputs are still unwrapped to their arrays.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"The comment ('we don't want nested self-described arrays') and the docstring ('If data is already a pandas or xarray object ... just use the values') show the unwrapping was meant for pandas/xarray containers only; unwrapping arbitrary user objects was never chosen and no test asserts it.\"},\n  \"plain\": {\n    \"headline\": \"Storing your own object in a general-purpose array silently stores one of its fields instead, if that field is named 'values'.\",\n    \"happened\": \"A user put one of their own objects into an array that can hold any Python object. Before storing anything, the library checks whether the item has a field called 'values' and, if so, keeps only that field, a step meant for table and labeled-array data. The user's object had such a field, so the number 5 was stored instead of the object, with no error.\",\n    \"matters\": \"Anyone storing their own objects with a field named 'values' loses those objects silently and gets the wrong data back.\",\n    \"fix\": \"Only unwrap the library's own labeled arrays and pandas tables, and store every other object exactly as given.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 14,
+  "inputTokens": {
+   "avg": 16938.714285714286,
+   "max": 22974
+  },
+  "mainUsage": {
+   "inputTokens": 237142,
+   "cachedInputTokens": 221162,
+   "outputTokens": 9230
+  },
+  "cacheHitPercent": 93.26142142682444,
+  "wallSeconds": 228.2099997997284,
+  "tools": {
+   "read": 3,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 4,
+   "subagent": 0,
+   "other": 6
+  },
+  "reads": 3,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.3087004,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.3087004
+}

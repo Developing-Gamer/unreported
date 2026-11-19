@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 17406,
+ "finalText": "This repository does not contain the code behind this error, so it is not actionable here.\n\n```json\n{\n  \"verdict\": \"notActionable\",\n  \"title\": \"Webhook relay timeout is not from this repo\",\n  \"cause\": \"The error comes from a separate service called webhook-relay. Its stack points at relay/deliver.py (post_webhook) and aiohttp, and its upstream call to api.github.com did not answer within 30 s. This repository is Django itself. A search for post_webhook, webhook-relay, api.github.com and aiohttp found no matches, and there is no relay/ directory. The timeout is a slow or unresponsive upstream seen from that service, so nothing in this repository can fix it.\",\n  \"files\": [],\n  \"plan\": [],\n  \"verification\": [\n    \"Searched the whole repository for post_webhook, webhook-relay, api.github.com and aiohttp: no matches.\",\n    \"Looked for a relay/ directory: none exists.\",\n    \"I did not use probe to run tests or reproduce the call.\"\n  ],\n  \"userFacing\": false,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"none\",\n  \"risk\": \"none\",\n  \"confidence\": 0.9,\n  \"deliberate\": false,\n  \"fixType\": \"dependency\",\n  \"claims\": [\n    {\n      \"id\": \"c1\",\n      \"text\": \"The code the error points at (relay/deliver.py, aiohttp) is not in this repository.\",\n      \"role\": \"other\",\n      \"citations\": [\n        {\n          \"type\": \"evidence\",\n          \"ref\": \"ev_s6\",\n          \"quote\": \"TimeoutError: Upstream api.github.com did not answer within 30 s while delivering webhook 8812 at asyncio/tasks.py in wait_for at aiohttp/client.py in _request at relay/deliver.py in post_webhook\"\n        }\n      ]\n    }\n  ],\n  \"ruledOut\": [\n    {\n      \"hypothesis\": \"The timeout is caused by code in this repository.\",\n      \"why\": \"No file here mentions post_webhook, webhook-relay, api.github.com or aiohttp, and there is no relay/ directory.\"\n    }\n  ],\n  \"intendedBehavior\": \"Not applicable to this repository. The webhook-relay service should retry or report a slow api.github.com response in its own code.\",\n  \"plain\": {\n    \"headline\": \"A webhook delivery to GitHub timed out, and the cause is in a separate relay service, not in this project.\",\n    \"happened\": \"The relay service waited 30 seconds for GitHub to answer and gave up. This project (Django) has no code that sends webhooks to GitHub.\",\n    \"matters\": \"It affects only that service's own deliveries and nothing in this project.\",\n    \"fix\": \"The team that owns the webhook relay service should check its timeout and retry handling and whether GitHub was slow at that time.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 2,
+  "inputTokens": {
+   "avg": 12037,
+   "max": 12227
+  },
+  "mainUsage": {
+   "inputTokens": 24074,
+   "cachedInputTokens": 18865,
+   "outputTokens": 1199
+  },
+  "cacheHitPercent": 78.36254880784249,
+  "wallSeconds": 16.53600001335144,
+  "tools": {
+   "read": 3,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 0
+  },
+  "reads": 3,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.0287825,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.0287825
+}

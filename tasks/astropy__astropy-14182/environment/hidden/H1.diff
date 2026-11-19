@@ -1,0 +1,13 @@
+diff --git a/astropy/timeseries/core.py b/astropy/timeseries/core.py
+index 664578aee..ff91e83e1 100755
+--- a/astropy/timeseries/core.py
++++ b/astropy/timeseries/core.py
+@@ -80,7 +80,7 @@ class BaseTimeSeries(QTable):
+                     " series has no columns"
+                 )
+ 
+-            elif self.colnames[: len(required_columns)] != required_columns:
++            elif not set(required_columns).issubset(self.colnames):
+                 raise ValueError(
+                     f"{self.__class__.__name__} object is invalid - expected"
+                     f" {as_scalar_or_list_str(required_columns)} as the first"

@@ -1,0 +1,10 @@
+[
+  {"source": "S1", "decision": "skip", "reason": "Already fixed: Colormap.__call__ now casts to int before assigning _i_under/_i_over/_i_bad, and the repro emits no warnings under -W error with NumPy 1.25."},
+  {"source": "S2", "decision": "skip", "reason": "Already fixed: with density=True, histtype='step' and histtype='bar' now autoscale to identical y-limits on the reported repro."},
+  {"source": "S3", "decision": "skip", "reason": "OOM kill in an external export-job service (export/worker.py, csv_writer.py), which is not code in this repository."},
+  {"source": "S4", "decision": "skip", "reason": "Not a defect: y is a figure fraction (default 0.01), and the gap comes from the default subplot bottom margin, which layout='constrained' already handles (label placed at y~0.002 next to the axes)."},
+  {"source": "S5", "decision": "skip", "reason": "Too vague to act on: no font value, API or repro is given, and the font/rcParams/fontconfig validation code and tests behave as expected."},
+  {"source": "S6", "decision": "skip", "reason": "Too vague to act on: the 'smoothing preset' and pipeline are unidentified, there is no repro, and the image interpolation tests pass."},
+  {"source": "S7", "decision": "skip", "reason": "Expected behavior: Figure.__setstate__ deliberately warns when a pickle was created with a different matplotlib version, which is a usage issue, not a defect."},
+  {"source": "S8", "decision": "skip", "reason": "Already fixed: DraggableBase uses picklable canvas callbacks, and figures with a draggable legend or annotation now pickle successfully."}
+]

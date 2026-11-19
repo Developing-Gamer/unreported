@@ -1,0 +1,37 @@
+[
+  {
+    "source": "S1",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The stack points at export/worker.py and export/csv_writer.py, and at a Kubernetes pod called export-job that the kubelet killed for running out of memory. None of these exist in /testbed. A search fo"
+  },
+  {
+    "source": "S2",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: In 3.4, date tick labels under text.usetex were not wrapped in math mode with protected separators, so spacing between date and time parts looked wrong. At v3.6.0, _wrap_in_tex braces '-' and ':' and "
+  },
+  {
+    "source": "S3",
+    "decision": "fix",
+    "reason": "Axis.clear() (run for every new Axes) calls label._reset_visual_defaults(), which resets the axis label to the general font.* and text.color settings. It never reapplies axes.labelsize, axes.labelweig"
+  },
+  {
+    "source": "S4",
+    "decision": "fix",
+    "reason": "The binding picker checks for already-imported Qt bindings in the order PyQt6, PyQt5, PySide6, PySide2. Its own docstring and the rest of the Qt code use the order PyQt6, PySide6, PyQt5, PySide2. When"
+  },
+  {
+    "source": "S5",
+    "decision": "fix",
+    "reason": "In mlab._spectral_helper the window normalisation uses np.abs(window) when it should use the signed window. The psd scale_by_freq=False branch divides by np.abs(window).sum()**2, and the magnitude and"
+  },
+  {
+    "source": "S6",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: Older versions of AnnotationBbox.draw never called open_group with the artist's gid, so set_gid had no effect in SVG output. The current code opens a group with the gid before drawing the arrow, patch"
+  },
+  {
+    "source": "S7",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: hist2d draws through pcolormesh, whose mesh is snapped to pixel boundaries by default since 3.4.0 (rcParam pcolormesh.snap=True). Bins narrower than about a pixel can collapse, so narrow bands visible"
+  }
+]

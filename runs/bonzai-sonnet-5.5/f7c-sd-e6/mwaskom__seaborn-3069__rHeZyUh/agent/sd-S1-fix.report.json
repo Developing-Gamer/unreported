@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 1501914,
+ "finalText": "The fix for the removed `mode.use_inf_as_null` option is in the working tree, uncommitted. The new test fails on the base commit with the production error and passes with the fix. I did not run the whole suite, since it takes over 10 minutes here. I ran `tests/test_relational.py`, `tests/test_core.py`, `tests/test_categorical.py` and `tests/_core` on pandas 2.0.0 instead.\n\n**Cause:** pandas removed the `mode.use_inf_as_null` option in 2.0. Seaborn used it in three places: `Plot` layer splitting, the classic `comp_data`, and `_lv_box_ends` for boxenplot.\n\n**Fix:** infinities are now replaced with NaN explicitly instead of through the pandas option.\n- `seaborn/_core/plot.py`: `split_generator` does the replace before the existing NaN handling. I also added the missing `numpy` import.\n- `seaborn/_oldcore.py`: `comp_data` replaces infinities with NaN before `dropna`.\n- `seaborn/categorical.py`: `_lv_box_ends` replaces infinities with NaN and drops them through a `pd.Series`, which still handles object arrays from nullable dtypes.\n\nI did not use `mode.use_inf_as_na`, since pandas 3.0 removes it too. I also left the pandas pin, the CI matrix and the release note alone, since the fix doesn't need them.\n\n**Test results:** 1025 passed and 4 failed. None of the 4 failures comes from this change:\n- **`test_comp_data_missing`:** 3 variants with `pd.NA` fail in `variable_type`. The same test has 6 failures on the base commit, and 3 of those are now fixed.\n- **`TestCatPlot::test_share_xy`:** on the base commit it fails with the same OptionError. It still fails with the fix, now on a numpy 1.25 `np.find_common_type` DeprecationWarning that the run turns into an error.\n\nThe reproduction test is `tests/_core/test_plot.py::TestPlotting::test_infinite_values_dropped`. The failing line before the fix was `pandas._config.config.OptionError: \"No such keys(s): 'mode.use_inf_as_null'\"`.\n\nThe pull request description is in `.factory/pr-S1.md`.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"visual\": false,\n  \"checks\": [\n    {\"command\": \"pytest -q -x tests/_core/test_plot.py -k infinite_values\", \"passed\": true},\n    {\"command\": \"pytest -q tests/test_relational.py tests/test_core.py tests/test_categorical.py tests/_core -n 6\", \"passed\": false, \"alsoOnBase\": true, \"note\": \"1025 passed; 4 failures not caused by this change: 3 pd.NA test_comp_data_missing variants fail on base (6 failed on base), test_share_xy fails on base with this OptionError and now on an unrelated numpy 1.25 DeprecationWarning\"}\n  ],\n  \"missingEnv\": [],\n  \"reproductionSteps\": \"On pandas 2.0.0, run so.Plot(x=[1, np.inf, 3, -np.inf], y=[1, 2, 3, 4]).add(mark).plot(); it raises OptionError: No such keys(s): 'mode.use_inf_as_null' from split_generator.\",\n  \"reproductionTest\": {\n    \"path\": \"tests/_core/test_plot.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest -q -x tests/_core/test_plot.py -k infinite_values\",\n    \"signature\": \"pandas._config.config.OptionError: \\\"No such keys(s): 'mode.use_inf_as_null'\\\"\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 37,
+  "inputTokens": {
+   "avg": 30857.72972972973,
+   "max": 42214
+  },
+  "mainUsage": {
+   "inputTokens": 1141736,
+   "cachedInputTokens": 1091153,
+   "outputTokens": 11630
+  },
+  "cacheHitPercent": 95.5696413181331,
+  "wallSeconds": 1500.7969999313354,
+  "tools": {
+   "read": 9,
+   "edit": 5,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 14,
+   "subagent": 0,
+   "other": 14
+  },
+  "reads": 9,
+  "edits": 5,
+  "runs": 14,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 2,
+   "readFileIgnoringRange": 2
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 4,
+  "editOperations": 4,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.4609491,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.4609491
+}

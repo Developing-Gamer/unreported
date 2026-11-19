@@ -1,0 +1,31 @@
+diff --git a/testing/test_conftest.py b/testing/test_conftest.py
+index 9888f5457..d654630ac 100644
+--- a/testing/test_conftest.py
++++ b/testing/test_conftest.py
+@@ -150,6 +150,26 @@ def test_conftestcutdir(testdir):
+     assert values[0].__file__.startswith(str(unique_path(conf)))
+ 
+ 
++def test_conftest_import_preserves_case(testdir, monkeypatch):
++    """The conftest must be imported using its real path: the normalized
++    (lower-cased on Windows) path is only meant to be a dictionary key (#5792).
++
++    Simulate a case-insensitive file system normalization on any platform."""
++    monkeypatch.setattr("_pytest.pathlib.normcase", lambda s: s.lower())
++    pkg = testdir.tmpdir.ensure("MixedCasePkg", "Sub", dir=True)
++    pkg.ensure("__init__.py")
++    pkg.dirpath().ensure("__init__.py")
++    conf = pkg.join("conftest.py")
++    conf.write("x = 1")
++    conftest = PytestPluginManager()
++    conftest_setinitial(conftest, [pkg])
++    values = conftest._getconftestmodules(pkg)
++    assert len(values) == 1
++    assert values[0].__name__ == "MixedCasePkg.Sub.conftest"
++    assert values[0].__file__.startswith(str(pkg.realpath()))
++    assert unique_path(conf) in conftest._conftestpath2mod
++
++
+ def test_conftestcutdir_inplace_considered(testdir):
+     conf = testdir.makeconftest("")
+     conftest = PytestPluginManager()

@@ -1,0 +1,7 @@
+[
+{"source":"S1","decision":"skip","reason":"Vague report about an account page after sign-out; no Flask code is identified and nothing here is actionable."},
+{"source":"S2","decision":"skip","reason":"Upstream timeout from a webhook relay service calling api.github.com; not a defect in this repository."},
+{"source":"S3","decision":"skip","reason":"This checkout has no requests_in_progress metric; it belongs to a separate worker/metrics system."},
+{"source":"S4","decision":"skip","reason":"Flask's datetime.now(timezone.utc) is correct; the failure comes from freezegun/pendulum/MySQL interactions in other libraries."},
+{"source":"S5","decision":"fix","reason":"Blueprint accepted an empty name; it now raises ValueError."}
+]

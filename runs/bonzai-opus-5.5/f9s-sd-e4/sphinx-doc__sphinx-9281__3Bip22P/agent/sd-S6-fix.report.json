@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 42407,
+ "finalText": "`escape_abbr` in `sphinx/util/texescape.py` now adds `\\@{}` after a period that is followed by any whitespace, not only a space. I re-ran the new test against the original code: it fails with `AssertionError: assert 'e.g.\\nnext' == 'e.g.\\\\@{}\\nnext'`, which matches the signature in the report.\n\nThe fix, the new `tests/test_util_texescape.py`, the `CHANGES` entry and `.factory/pr-S6.md` are all in place and uncommitted. The new test plus `tests/test_build_latex.py` give 73 passed, 8 skipped.\n\n`git status` also shows changes to other files, such as `sphinx/domains/c.py` and `sphinx/util/inspect.py`. They were already in the working tree and I did not touch them. They look like the work from the other open PRs, so check what you include if you commit.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest tests/test_util_texescape.py tests/test_build_latex.py -q\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"reproduction\": \"Call sphinx.util.texescape.escape_abbr('e.g.\\\\nnext'); before the fix it returns the text unchanged (no \\\\@{} after the period), so LaTeX adds a wide sentence gap.\",\n  \"reproductionTest\": {\n    \"path\": \"tests/test_util_texescape.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest tests/test_util_texescape.py -q\",\n    \"signature\": \"AssertionError: assert 'e.g.\\\\nnext' == 'e.g.\\\\\\\\@{}\\\\nnext'\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 11,
+  "inputTokens": {
+   "avg": 22194.454545454544,
+   "max": 25629
+  },
+  "mainUsage": {
+   "inputTokens": 244139,
+   "cachedInputTokens": 232400,
+   "outputTokens": 4183
+  },
+  "cacheHitPercent": 95.19167359577945,
+  "wallSeconds": 40.82299995422363,
+  "tools": {
+   "read": 6,
+   "edit": 5,
+   "test": 0,
+   "verify": 0,
+   "git": 1,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 4
+  },
+  "reads": 6,
+  "edits": 5,
+  "runs": 5,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 5,
+  "editOperations": 5,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.11764450000000001,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.11764450000000001
+}

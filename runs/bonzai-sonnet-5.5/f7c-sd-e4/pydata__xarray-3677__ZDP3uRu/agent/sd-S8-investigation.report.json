@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 67113,
+ "finalText": "The cause is in this repository. The accessor descriptor in `xarray/core/extensions.py` turns an `AttributeError` raised while building a custom accessor into `None` and caches it. I could not run anything: the probe environment has no numpy. I read the code and checked it against an existing test, `test_broken_accessor`, which expects a `RuntimeError` and would fail on the current code.\n\nThe signal describes a \"calibration helper\" on incoming datasets. I read that as a user-registered accessor, which is an assumption: no code in the repository mentions calibration.\n\n- **Cause:** `_CachedAccessor.__get__` catches `AttributeError` from the accessor's `__init__`, sets the accessor to `None`, and stores that in the per-object cache. A dataset missing something the helper expects therefore gives `None` with no error and no log line. Every later access on the same dataset returns the cached `None`.\n- **Intent:** this was not chosen. The GH933 regression test `test_broken_accessor` asserts that a failing accessor raises `RuntimeError(\"error initializing ...\")`.\n- **Fix:** in `xarray/core/extensions.py`, raise `RuntimeError(\"error initializing %r accessor.\")` chained from the original error, and do not write anything to the cache when setup fails.\n- **Ruled out:** the scale/offset decoding code does not produce `None` here. `pop_to` returns `None` only when an attribute is absent, and the decode path raises on real errors. There is a separate minor bug nearby: the float dtype is chosen after `add_offset` has been popped, so it ignores the offset. It does not cause this symptom.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Broken accessor silently returns None instead of erroring\",\n  \"cause\": \"The descriptor that serves custom accessors (such as a calibration helper registered on Dataset) catches AttributeError from the accessor's __init__, sets the accessor to None, and caches that None on the object. A missing attribute inside the accessor's setup therefore gives no error and no log line, and every later access on the same dataset returns the cached None. The regression test test_broken_accessor (GH933) expects RuntimeError('error initializing ...'), so current code contradicts its own test.\",\n  \"files\": [\n    {\"path\": \"xarray/core/extensions.py\", \"why\": \"_CachedAccessor.__get__ swallows AttributeError and caches None.\"},\n    {\"path\": \"xarray/tests/test_extensions.py\", \"why\": \"test_broken_accessor already asserts RuntimeError('error initializing'); it should fail on current code.\"}\n  ],\n  \"plan\": [\n    \"In _CachedAccessor.__get__, replace `except AttributeError: accessor_obj = None` with `except AttributeError as err: raise RuntimeError('error initializing %r accessor.' % self._name) from err`, with a comment that Dataset.__getattr__ would otherwise swallow the AttributeError (GH933).\",\n    \"Make sure nothing is written to the cache when initialization fails, so a later attempt can succeed.\",\n    \"Run test_extensions.py.\"\n  ],\n  \"verification\": [\n    \"Run xarray/tests/test_extensions.py; test_broken_accessor should pass.\",\n    \"Register an accessor whose __init__ raises AttributeError, access it twice on a dataset lacking the attribute, and confirm RuntimeError both times with the original error chained.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"likely\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.8,\n  \"intendedBehavior\": \"When a registered accessor's constructor raises AttributeError, accessing it on a Dataset or DataArray raises RuntimeError('error initializing <name> accessor.') on every access, and never returns None or caches a failure.\",\n  \"intent\": {\"deliberate\": false, \"note\": \"The None fallback was not chosen; the GH933 regression test expects a RuntimeError.\"},\n  \"fixType\": \"silentFailure\",\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"A failing accessor constructor is converted to None and cached, so the failure is silent and repeats on every later access.\", \"role\": \"rootCause\",\n     \"citations\": [{\"type\": \"code\", \"ref\": \"xarray/core/extensions.py:36\", \"quote\": \"accessor_obj = self._accessor(obj)\"}, {\"type\": \"code\", \"ref\": \"xarray/core/extensions.py:40\", \"quote\": \"cache[self._name] = accessor_obj\"}]},\n    {\"id\": \"c2\", \"text\": \"The existing regression test expects a RuntimeError, not None.\", \"role\": \"other\",\n     \"citations\": [{\"type\": \"code\", \"ref\": \"xarray/tests/test_extensions.py:87\", \"quote\": \"with raises_regex(RuntimeError, \\\"error initializing\\\"):\"}]},\n    {\"id\": \"c3\", \"text\": \"The report matches this: None with no error, repeated on retry because the result is cached.\", \"role\": \"impact\",\n     \"citations\": [{\"type\": \"evidence\", \"ref\": \"ev_s8\", \"quote\": \"Later attempts on the same dataset keep giving None.\"}]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"Scale/offset decoding returns None for the calibration values.\",\n     \"why\": \"pop_to returns None only when the attribute is absent and the decode path raises on real errors. A separate minor dtype issue (dtype chosen after add_offset is popped) does not produce None.\",\n     \"citations\": [{\"type\": \"code\", \"ref\": \"xarray/coding/variables.py:122\", \"quote\": \"A convenience function which pops a key k from source to dest.\"}]}\n  ],\n  \"plain\": {\n    \"headline\": \"A custom helper attached to a dataset quietly came back empty because an error while setting it up was hidden.\",\n    \"happened\": \"When the helper's setup hit a missing attribute on certain datasets, the library swallowed the error and handed back nothing. It then remembered that empty result for the dataset, so every retry gave the same empty answer. Nothing appeared in the job logs.\",\n    \"matters\": \"Anyone using custom helpers on datasets that lack something the helper expects gets a silent empty value instead of a clear error.\",\n    \"fix\": \"Raise a clear 'error initializing accessor' failure instead of returning nothing, and never remember a failed setup.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 15,
+  "inputTokens": {
+   "avg": 21370.2,
+   "max": 30855
+  },
+  "mainUsage": {
+   "inputTokens": 320553,
+   "cachedInputTokens": 296690,
+   "outputTokens": 8406
+  },
+  "cacheHitPercent": 92.55567722030366,
+  "wallSeconds": 66.7480001449585,
+  "tools": {
+   "read": 14,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 1
+  },
+  "reads": 14,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 2,
+   "readFileIgnoringRange": 2
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.2030385,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.2030385
+}

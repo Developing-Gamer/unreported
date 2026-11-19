@@ -1,0 +1,23 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_________________ test_prepended_skip_marker_takes_precedence __________________
+
+request = <FixtureRequest for <Function test_prepended_skip_marker_takes_precedence>>
+
+    def test_prepended_skip_marker_takes_precedence(request):
+        node = Node("example", parent=request.session)
+        node.add_marker(pytest.mark.skip(reason="default environment policy"))
+        node.add_marker(pytest.mark.xfail(reason="known intermittent failure"))
+        node.add_marker(
+            pytest.mark.skip(reason="case-specific environment policy"),
+            append=False,
+        )
+    
+        marker = node.get_closest_marker("skip")
+>       assert marker.kwargs["reason"] == "case-specific environment policy"
+E       AssertionError: assert 'default environment policy' == 'case-specifi...onment policy'
+E         - default environment policy
+E         + case-specific environment policy
+
+/tmp/test_hidden_S2.py:15: AssertionError
+1 failed in 0.02s

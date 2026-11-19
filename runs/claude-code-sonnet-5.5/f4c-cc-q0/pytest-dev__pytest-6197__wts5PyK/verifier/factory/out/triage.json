@@ -1,0 +1,42 @@
+[
+  {
+    "source": "S1",
+    "decision": "fix",
+    "reason": "Package.collect unconditionally imported __init__.py, so non-test __init__.py files were imported and could error during collection; now imported only once the package yields a collectable node."
+  },
+  {
+    "source": "S2",
+    "decision": "fix",
+    "reason": "Node.add_marker(append=False) inserted at index 1 instead of 0, so an existing skip marker's reason won over the plugin-supplied one."
+  },
+  {
+    "source": "S3",
+    "decision": "skip",
+    "reason": "skip() rejecting an unknown keyword with TypeError is correct behavior; the error comes from user test code (test_invalid_skip_keyword_parameter.py), not a library defect."
+  },
+  {
+    "source": "S4",
+    "decision": "skip",
+    "reason": "Already fixed: EncodedFile.mode strips 'b' from the underlying buffer mode in this checkout."
+  },
+  {
+    "source": "S5",
+    "decision": "fix",
+    "reason": "pytest_report_header was declared firstresult=True, so only one implementation's header lines were shown and others (build metadata) were dropped."
+  },
+  {
+    "source": "S6",
+    "decision": "skip",
+    "reason": "Already fixed: num_mock_patch_args uses identity checks (is) against the mock sentinels rather than 'in', so array 'new' values no longer raise."
+  },
+  {
+    "source": "S7",
+    "decision": "skip",
+    "reason": "Timeout from an external webhook-relay service talking to api.github.com; unrelated to this repository."
+  },
+  {
+    "source": "S8",
+    "decision": "skip",
+    "reason": "pytest_make_parametrize_id is intentionally firstresult; returning None for other arguments falls back to the default id, so this is expected behavior/usage confusion rather than a code defect."
+  }
+]

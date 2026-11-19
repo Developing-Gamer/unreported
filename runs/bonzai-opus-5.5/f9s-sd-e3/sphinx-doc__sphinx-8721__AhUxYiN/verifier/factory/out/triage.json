@@ -1,0 +1,37 @@
+[
+  {
+    "source": "S1",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: The issue asks for :private-members: to take a list of names, like :members:. The current code already does this: the option is parsed with members_option, and a private member is kept only if its nam"
+  },
+  {
+    "source": "S2",
+    "decision": "fix",
+    "reason": "In Catalog.add (sphinx/builders/gettext.py) the line that appends (source, line, uid) to self.metadata[msg] is indented inside the `if msg not in self.metadata:` block, so a location is only recorded "
+  },
+  {
+    "source": "S3",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The error comes from the webhook-relay service: relay/deliver.py post_webhook timed out after 30 s waiting for api.github.com through aiohttp. This repository is the Sphinx documentation generator. It"
+  },
+  {
+    "source": "S4",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: Before Sphinx 3.0.2, the Python domain's annotation unparser always removed the trailing ', ' after the items of a tuple, even when the tuple had no items. So `Tuple[()]` raised IndexError: pop from e"
+  },
+  {
+    "source": "S5",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: `make latexpdf` runs latexmk in the existing LaTeX build folder and reuses the files from the last build on purpose. When a step such as xindy fails, latexmk stops and the PDF left over from the last "
+  },
+  {
+    "source": "S6",
+    "decision": "fix",
+    "reason": "viewcode's doctree_read skips epub builders when viewcode_enable_epub is False, but collect_pages (the html-collect-pages handler) has no such check and only tests whether env._viewcode_modules exists"
+  },
+  {
+    "source": "S7",
+    "decision": "fix",
+    "reason": "SearchDutch.stem calls the Snowball Dutch stemmer on the word with its original capitals and lowercases only afterwards (`stemWord(word).lower()`). The Snowball Dutch stemmer only recognises lowercase"
+  }
+]

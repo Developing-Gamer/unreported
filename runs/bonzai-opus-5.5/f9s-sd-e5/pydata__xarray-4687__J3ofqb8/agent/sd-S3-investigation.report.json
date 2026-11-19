@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 162842,
+ "finalText": "I checked the work against the request and nothing needed changing. I only read code and ran commands with probe in its throwaway copy, and edited no files. The verdict is backed by a reproduction, and the report is the JSON block at the end, as the benchmark note asks.\n\n**Finding:** `xr.where` drops every attribute from a DataArray, such as units and descriptions. The cause is in this repository, and a small change fixes it.\n\n- **What people see:** using `xr.where` to keep some values of labelled data (and fill the rest) gives back data with empty attributes. The method form, `da.where(...)`, keeps them, so the two ways of doing the same thing give different results. Unless people notice and copy the attributes back by hand, files they save later are missing their metadata.\n- **Cause:**\n  - `where` in `xarray/core/computation.py` calls `apply_ufunc` without `keep_attrs`, and doesn't take that argument itself.\n  - So `apply_ufunc` falls back to the global option, which defaults to False and becomes `\"drop\"`.\n  - `apply_dataarray_vfunc` then sets the result's attributes to `{}` (via `merge_attrs`).\n- **Reproduced with probe** (after installing numpy<2 and pandas<2 in the throwaway copy), on a DataArray with `attrs={'units':'m'}`:\n  - `xr.where(da>0, da, 0).attrs` \u2192 `{}`\n  - the same call with the global `keep_attrs=True` setting \u2192 `{'units': 'm'}`\n  - `da.where(da>0, 0).attrs` \u2192 `{'units': 'm'}`\n- **Not deliberate:** `test_where` only covers data with no attributes, and neither the docstring nor the changelog says attributes are dropped.\n- **Fix:** add a `keep_attrs=None` argument to `where`. When it is unset, fall back to the global option. When it is True, take the attributes from `x` (the data being kept) rather than from `cond`, which the global setting would use. Pass it on to `apply_ufunc`, and add tests plus a changelog entry. `merge_attrs` already accepts a function for this.\n\nI didn't run the existing test suite.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"xr.where drops attributes from DataArrays\",\n  \"cause\": \"xr.where calls apply_ufunc without a keep_attrs argument and accepts none itself, so apply_ufunc falls back to the global keep_attrs option (default False), which becomes 'drop'. apply_dataarray_vfunc then sets the result's attrs to {}. So units and other metadata are lost, unlike DataArray.where, which keeps them.\",\n  \"files\": [\n    {\"path\": \"xarray/core/computation.py\", \"why\": \"where() (lines 1730-1820) calls apply_ufunc without keep_attrs; apply_ufunc's default turns into 'drop'.\"},\n    {\"path\": \"xarray/tests/test_computation.py\", \"why\": \"test_where only checks a DataArray with no attrs; it needs a case that checks attrs are kept.\"},\n    {\"path\": \"doc/whats-new.rst\", \"why\": \"Changelog entry for the new keep_attrs argument.\"}\n  ],\n  \"plan\": [\n    \"Add a keep_attrs=None argument to xr.where and describe it in the docstring.\",\n    \"If keep_attrs is None, set it to _get_keep_attrs(default=False); if it is True, replace it with `lambda attrs, context: getattr(x, 'attrs', {})` so the result takes the attrs of x, not cond.\",\n    \"Pass keep_attrs to the apply_ufunc call in where.\",\n    \"Add tests: xr.where(cond, x, y, keep_attrs=True) keeps x.attrs; the default behaviour follows the global option.\"\n  ],\n  \"verification\": [\n    \"With da = xr.DataArray(np.ones((2,2)), dims=['x','y'], attrs={'units':'m'}), xr.where(da>0, da, 0, keep_attrs=True).attrs == {'units': 'm'}.\",\n    \"With cond carrying different attrs, the result's attrs equal x.attrs.\",\n    \"Run pytest xarray/tests/test_computation.py -k where.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.9,\n  \"fixType\": \"silentFailure\",\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"xr.where calls apply_ufunc without passing keep_attrs and has no keep_attrs argument of its own.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"xarray/core/computation.py:1730\", \"quote\": \"def where(cond, x, y):\"},\n      {\"type\": \"code\", \"ref\": \"xarray/core/computation.py:1812\", \"quote\": \"    return apply_ufunc(\\n        duck_array_ops.where,\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"rootCause\", \"text\": \"In apply_ufunc a missing keep_attrs falls back to the global option with default False, which becomes 'drop'.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"xarray/core/computation.py:1117\", \"quote\": \"keep_attrs = _get_keep_attrs(default=False)\"},\n      {\"type\": \"code\", \"ref\": \"xarray/core/computation.py:1120\", \"quote\": \"keep_attrs = \\\"override\\\" if keep_attrs else \\\"drop\\\"\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"rootCause\", \"text\": \"apply_dataarray_vfunc sets the result's attrs from merge_attrs, which returns {} for 'drop'.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"xarray/core/computation.py:302\", \"quote\": \"attrs = merge_attrs([x.attrs for x in objs], combine_attrs=keep_attrs)\"},\n      {\"type\": \"code\", \"ref\": \"xarray/core/merge.py:524\", \"quote\": \"elif combine_attrs == \\\"drop\\\":\\n        return {}\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"impact\", \"text\": \"A probe shows xr.where returns empty attrs while DataArray.where keeps them for the same input.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:python\", \"quote\": \"xr.where: {}\\nxr.where keep_attrs option: {'units': 'm'}\\nda.where: {'units': 'm'}\"}\n    ]},\n    {\"id\": \"c5\", \"role\": \"trigger\", \"text\": \"A user reported that xr.where on a DataArray with attributes returns a DataArray with no attributes.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s3\", \"quote\": \"Using `xr.where` on a DataArray with attributes results in a new DataA\"}\n    ]},\n    {\"id\": \"c6\", \"role\": \"other\", \"text\": \"merge_attrs already accepts a callable, so where can pick the attrs of x.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"xarray/core/merge.py:522\", \"quote\": \"if callable(combine_attrs):\\n        return combine_attrs(variable_attrs, context=context)\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"Dropping attrs in xr.where is asserted by a test as intended behaviour\", \"why\": \"The only test_where checks a DataArray without attrs; no test asserts that attrs are dropped.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"xarray/tests/test_computation.py:1919\", \"quote\": \"cond = xr.DataArray([True, False], dims=\\\"x\\\")\"}\n    ]},\n    {\"hypothesis\": \"The global keep_attrs=True option is an adequate fix\", \"why\": \"With 'override' it takes the attrs of the first DataArray argument (cond), not the data x, and users must change a global setting.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"xarray/core/computation.py:284\", \"quote\": \"first_obj = _first_of_type(args, DataArray)\"}\n    ]}\n  ],\n  \"intendedBehavior\": \"xr.where(cond, x, y, keep_attrs=True) returns a result whose attrs equal x.attrs, and keep_attrs can be set for xr.where without changing global options.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"apply_ufunc's keep_attrs=False default is a general design, but xr.where never chose it: it has no keep_attrs argument, its docstring says nothing about attrs, no test asserts the dropping, and DataArray.where keeps attrs.\"},\n  \"plain\": {\n    \"headline\": \"Masking data with the top-level 'where' function silently throws away its labels, such as units, because that function never asks to keep them.\",\n    \"happened\": \"A user picked values from labelled data with the top-level 'where' function. The result came back with all labels removed, such as units and descriptions. The same operation done as a method on the data keeps them.\",\n    \"matters\": \"Anyone using the top-level 'where' loses the data's labels without warning, so files they save later are missing their metadata unless they copy it back by hand.\",\n    \"fix\": \"Give the top-level 'where' a keep-labels option that copies the labels from the data being kept, matching the method version.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 13,
+  "inputTokens": {
+   "avg": 17524.76923076923,
+   "max": 24527
+  },
+  "mainUsage": {
+   "inputTokens": 227822,
+   "cachedInputTokens": 210291,
+   "outputTokens": 8867
+  },
+  "cacheHitPercent": 92.30495737900642,
+  "wallSeconds": 161.78200006484985,
+  "tools": {
+   "read": 6,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 3,
+   "subagent": 0,
+   "other": 3
+  },
+  "reads": 6,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 3,
+   "readFileIgnoringRange": 2
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.3070232,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.3070232
+}

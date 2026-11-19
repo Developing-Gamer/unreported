@@ -1,0 +1,19 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_____________________ test_invalid_radius_unit_is_rejected _____________________
+
+    def test_invalid_radius_unit_is_rejected():
+        rejected = False
+        try:
+            uniform_spherical_random_volume(size=4, max_radius="10 kiloparsecc")
+        except ValueError:
+            rejected = True
+    
+>       assert rejected, "An unrecognized radius unit must raise rather than silently use a default"
+E       AssertionError: An unrecognized radius unit must raise rather than silently use a default
+E       assert False
+
+/tmp/test_hidden_S7.py:11: AssertionError
+=========================== short test summary info ============================
+FAILED ../tmp/test_hidden_S7.py::test_invalid_radius_unit_is_rejected - Asser...
+1 failed in 0.34s

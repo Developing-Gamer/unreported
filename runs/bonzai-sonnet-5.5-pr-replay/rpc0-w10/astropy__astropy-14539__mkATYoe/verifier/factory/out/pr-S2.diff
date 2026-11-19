@@ -1,0 +1,65 @@
+diff --git a/astropy/io/fits/diff.py b/astropy/io/fits/diff.py
+index 100cdf1b8..b419b5a91 100644
+--- a/astropy/io/fits/diff.py
++++ b/astropy/io/fits/diff.py
+@@ -1449,12 +1449,13 @@ class TableDataDiff(_BaseDiff):
+                 arrb.dtype, np.floating
+             ):
+                 diffs = where_not_allclose(arra, arrb, rtol=self.rtol, atol=self.atol)
+-            elif "P" in col.format:
++            elif "P" in col.format or "Q" in col.format:
+                 diffs = (
+                     [
+                         idx
+                         for idx in range(len(arra))
+-                        if not np.allclose(
++                        if np.shape(arra[idx]) != np.shape(arrb[idx])
++                        or not np.allclose(
+                             arra[idx], arrb[idx], rtol=self.rtol, atol=self.atol
+                         )
+                     ],
+diff --git a/astropy/io/fits/tests/test_diff.py b/astropy/io/fits/tests/test_diff.py
+index adfebe6a5..b2e602a60 100644
+--- a/astropy/io/fits/tests/test_diff.py
++++ b/astropy/io/fits/tests/test_diff.py
+@@ -923,3 +923,32 @@ def test_rawdatadiff_diff_with_rtol(tmp_path):
+ 
+     assert "...and at 1 more indices." in str1
+     assert "...and at 1 more indices." not in str2
++
++
++@pytest.mark.parametrize("fmt", ["PD", "QD"])
++def test_fitsdiff_vla_identical(tmp_path, fmt):
++    path = tmp_path / "test.fits"
++    col = Column("a", format=fmt, array=[[0], [0, 0]])
++    hdu = BinTableHDU.from_columns([col])
++    hdu.writeto(path)
++
++    assert FITSDiff(path, path).identical
++    with fits.open(path) as hdul:
++        assert FITSDiff(hdul, hdul).identical
++        assert TableDataDiff(hdul[1].data, hdul[1].data).identical
++
++
++@pytest.mark.parametrize("fmt", ["PD", "QD"])
++def test_fitsdiff_vla_different(tmp_path, fmt):
++    path1 = tmp_path / "a.fits"
++    path2 = tmp_path / "b.fits"
++    for path, arr in ((path1, [[0], [0, 0]]), (path2, [[0], [0, 1]])):
++        BinTableHDU.from_columns([Column("a", format=fmt, array=arr)]).writeto(path)
++    assert not FITSDiff(path1, path2).identical
++
++    # rows with different lengths are different, not an error
++    path3 = tmp_path / "c.fits"
++    BinTableHDU.from_columns(
++        [Column("a", format=fmt, array=[[0], [0, 0, 0]])]
++    ).writeto(path3)
++    assert not FITSDiff(path1, path3).identical
+diff --git a/docs/changes/io.fits/14539.bugfix.rst b/docs/changes/io.fits/14539.bugfix.rst
+new file mode 100644
+index 000000000..fb28ebf0c
+--- /dev/null
++++ b/docs/changes/io.fits/14539.bugfix.rst
+@@ -0,0 +1,2 @@
++Fix ``FITSDiff`` and ``TableDataDiff`` reporting differences (or raising) when comparing
++identical files with 64-bit variable-length array columns (``Q`` format).

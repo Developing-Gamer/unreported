@@ -1,0 +1,30 @@
+{
+ "task": "sphinx-doc__sphinx-8721",
+ "kept": [
+  {
+   "path": "sphinx/search/nl.py",
+   "category": "silent wrong result (a value or output that is subtly wrong, no exception)",
+   "defect_patch": "diff --git a/sphinx/search/nl.py b/sphinx/search/nl.py\nindex f98cdf8ad..5cd47f3f5 100755\n--- a/sphinx/search/nl.py\n+++ b/sphinx/search/nl.py\n@@ -136,4 +136,4 @@ class SearchDutch(SearchLanguage):\n         self.stemmer = snowballstemmer.stemmer('dutch')\n \n     def stem(self, word: str) -> str:\n-        return self.stemmer.stemWord(word.lower())\n+        return self.stemmer.stemWord(word).lower()\n",
+   "test_code": "import pytest\n\nfrom sphinx.search.nl import SearchDutch\n\n\n@pytest.mark.parametrize('word', ['boeken', 'BOEKEN', 'boeKEN'])\ndef test_dutch_stemming_is_case_insensitive(word):\n    language = SearchDutch({})\n    assert language.stem(word) == 'boek'\n",
+   "signal": {
+    "kind": "user",
+    "source": "Documentation search feedback",
+    "text": "Some pages with all-caps Dutch headings no longer appear when I search for words in those headings. The same words still find pages where the headings use ordinary capitalization."
+   },
+   "summary": "Moving lowercasing after stemming leaves uppercase Dutch suffixes unrecognized, producing incorrect stems for some capitalized words."
+  },
+  {
+   "path": "sphinx/builders/gettext.py",
+   "category": "silent wrong result (a value or output that is subtly wrong, no exception)",
+   "defect_patch": "diff --git a/sphinx/builders/gettext.py b/sphinx/builders/gettext.py\nindex 75c95c0bc..60c5036f9 100755\n--- a/sphinx/builders/gettext.py\n+++ b/sphinx/builders/gettext.py\n@@ -86,7 +86,7 @@ class Catalog:\n         if msg not in self.metadata:  # faster lookup in hash\n             self.messages.append(msg)\n             self.metadata[msg] = []\n-        self.metadata[msg].append((origin.source, origin.line, origin.uid))  # type: ignore\n+            self.metadata[msg].append((origin.source, origin.line, origin.uid))  # type: ignore\n \n     def __iter__(self) -> Generator[Message, None, None]:\n         for message in self.messages:\n",
+   "test_code": "from sphinx.builders.gettext import Catalog, MsgOrigin\n\n\ndef test_repeated_message_preserves_each_source_occurrence():\n    catalog = Catalog()\n    first = MsgOrigin('intro.rst', 10)\n    second = MsgOrigin('guide/setup.rst', 32)\n\n    catalog.add('Save your changes before continuing.', first)\n    catalog.add('Save your changes before continuing.', second)\n\n    messages = list(catalog)\n    assert len(messages) == 1\n    assert messages[0].text == 'Save your changes before continuing.'\n    assert messages[0].locations == [\n        ('intro.rst', 10),\n        ('guide/setup.rst', 32),\n    ]\n    assert messages[0].uuids == [first.uid, second.uid]\n",
+   "signal": {
+    "kind": "user",
+    "source": "Translation team support channel",
+    "text": "A phrase used on several documentation pages now has only one source link in our translation tool. Other strings look normal."
+   },
+   "summary": "Recording source metadata only when a message is first inserted silently drops later locations and UUIDs for repeated messages."
+  }
+ ],
+ "rejected": []
+}

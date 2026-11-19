@@ -1,0 +1,13 @@
+diff --git a/requests/packages/urllib3/packages/ordered_dict.py b/requests/packages/urllib3/packages/ordered_dict.py
+index 7f8ee15..63ae24b 100644
+--- a/requests/packages/urllib3/packages/ordered_dict.py
++++ b/requests/packages/urllib3/packages/ordered_dict.py
+@@ -175,7 +175,7 @@ class OrderedDict(dict):
+ 
+     __marker = object()
+ 
+-    def pop(self, key, default=__marker):
++    def pop(self, key, default=None):
+         '''od.pop(k[,d]) -> v, remove specified key and return the corresponding value.
+         If key is not found, d is returned if given, otherwise KeyError is raised.
+ 

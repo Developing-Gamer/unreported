@@ -1,0 +1,27 @@
+[
+  {
+    "source": "S1",
+    "decision": "fix",
+    "reason": "When a continuous scale builds its legend, it calls the axis's default ScalarFormatter to format the tick values. For large numbers such as body_mass_mg (3,000,000 to 6,000,000) that formatter turns o"
+  },
+  {
+    "source": "S2",
+    "decision": "skip",
+    "reason": "Self-Driving verdict unknown: "
+  },
+  {
+    "source": "S3",
+    "decision": "skip",
+    "reason": "Self-Driving verdict unknown: "
+  },
+  {
+    "source": "S4",
+    "decision": "skip",
+    "reason": "Self-Driving verdict unknown: "
+  },
+  {
+    "source": "S5",
+    "decision": "skip",
+    "reason": "Self-Driving verdict unknown: "
+  }
+]

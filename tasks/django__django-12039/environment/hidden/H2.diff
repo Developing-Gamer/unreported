@@ -1,0 +1,13 @@
+diff --git a/django/core/management/commands/showmigrations.py b/django/core/management/commands/showmigrations.py
+index 48bea1f3f0..e60e8ccfb9 100644
+--- a/django/core/management/commands/showmigrations.py
++++ b/django/core/management/commands/showmigrations.py
+@@ -121,7 +121,7 @@ class Command(BaseCommand):
+         # Generate the plan
+         for target in targets:
+             for migration in graph.forwards_plan(target):
+-                if migration not in seen:
++                if migration not in seen and (not app_names or migration[0] in app_names):
+                     node = graph.node_map[migration]
+                     plan.append(node)
+                     seen.add(migration)

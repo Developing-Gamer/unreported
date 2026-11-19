@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 70001,
+ "finalText": "**Verdict: already fixed (covered).** The current code accepts keyword-only tag arguments that have defaults, and gives the right error when one is supplied twice. The issue came from an older version. I made no file changes.\n\n**Why it used to fail.** When Django reads a custom tag's arguments, it checked whether a named argument was allowed against a list that left out keyword-only arguments with defaults. So `greeting='hi'` was rejected as \"unexpected\", and a repeated keyword got that same wrong message. The check in [library.py](file:///testbed/django/template/library.py) at line 264 now uses the full list of keyword-only arguments, and the \"multiple values\" check runs right after it.\n\n**What I ran (in a throwaway copy):**\n- With the issue's two tags, `{% hello greeting='hi' %}` rendered `hi world` and `{% hello %}` rendered `hello world`.\n- Supplying `greeting` twice raised `'hi' received multiple values for keyword argument 'greeting'`.\n- The existing custom-tag tests passed (22 tests, OK). [test_custom.py](file:///testbed/tests/template_tests/test_custom.py) lines 110\u2013114 already expect the correct error for this case.\n\n**What I couldn't pin down.** The repository's history is a single \"Snapshot\" commit, and the release notes don't mention this fix. So I can't name the commit, release or pull request that fixed it, only that it is fixed in this 3.2 alpha checkout.\n\n```json\n{\n  \"kind\": \"investigation\",\n  \"sourceId\": \"S5\",\n  \"verdict\": \"covered\",\n  \"title\": \"Keyword-only tag arguments with defaults already work\",\n  \"cause\": \"In older Django releases, parse_bits checked a supplied keyword only against params and unhandled_kwargs, which leaves out keyword-only arguments that have defaults. So `greeting='hi'` was reported as unexpected, and a repeated keyword hit that check before the 'multiple values' check. The current code checks against the full `kwonly` list, so both cases now behave correctly.\",\n  \"files\": [\n    {\"path\": \"django/template/library.py\", \"why\": \"parse_bits validates template tag keyword arguments; line 264 now checks against kwonly\"},\n    {\"path\": \"tests/template_tests/test_custom.py\", \"why\": \"Existing tests assert the correct 'multiple values' error for keyword-only arguments with defaults\"}\n  ],\n  \"plan\": [\n    \"No code change needed; users hitting this should upgrade to a release that includes the fixed parse_bits check.\"\n  ],\n  \"verification\": [\n    \"Probe: registered `hello(*, greeting='hello')`; `{% hello greeting='hi' %}` rendered 'hi world' and `{% hello %}` rendered 'hello world'.\",\n    \"Probe: `{% hi greeting='hi' greeting='hello' %}` raised \\\"'hi' received multiple values for keyword argument 'greeting'\\\".\",\n    \"Probe: `PYTHONPATH=.. python3 runtests.py template_tests.test_custom` ran 22 tests, OK.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"none\",\n  \"risk\": \"none\",\n  \"confidence\": 0.93,\n  \"fixType\": \"error\",\n  \"fixedIn\": {\"release\": \"unknown (present in the 3.2 alpha checkout; history is a single snapshot commit)\"},\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"The issue reports that keyword-only tag arguments with defaults were rejected as unexpected, and that duplicated keywords got the wrong error message.\", \"role\": \"trigger\", \"citations\": [{\"type\": \"evidence\", \"ref\": \"ev_s5\", \"quote\": \"Raises \u201c'hello' received unexpected keyword argument 'greeting'\u201d\"}]},\n    {\"id\": \"c2\", \"text\": \"The current code checks a supplied keyword against all keyword-only arguments, defaults included, so these arguments are no longer rejected.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"django/template/library.py:264\", \"quote\": \"if param not in params and param not in kwonly and varkw is None:\"}]},\n    {\"id\": \"c3\", \"text\": \"A duplicated keyword now reaches the 'multiple values' error.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"django/template/library.py:272\", \"quote\": \"\\\"'%s' received multiple values for keyword argument '%s'\\\" %\"}]},\n    {\"id\": \"c4\", \"text\": \"Existing tests assert the correct error for a duplicated keyword-only argument that has a default.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"tests/template_tests/test_custom.py:111\", \"quote\": \"\\\"'simple_keyword_only_default' received multiple values for \\\"\"}]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"The current code still rejects keyword-only arguments with defaults\", \"why\": \"A probe rendering the issue's own tag returned 'hi world', and the custom-tag test suite passed (22 tests OK).\", \"citations\": [{\"type\": \"code\", \"ref\": \"django/template/library.py:264\", \"quote\": \"if param not in params and param not in kwonly and varkw is None:\"}]}\n  ],\n  \"intendedBehavior\": \"A simple_tag defined as hello(*, greeting='hello') renders 'hi world' for {% hello greeting='hi' %}, and supplying greeting twice raises \\\"received multiple values for keyword argument 'greeting'\\\".\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"Release notes for 2.0 say 'Custom template tags may now accept keyword-only arguments.'; the old rejection was a bug, and it is now fixed and covered by tests.\"},\n  \"plain\": {\n    \"headline\": \"Custom page tags used to reject optional named settings, but the current version already handles them correctly.\",\n    \"happened\": \"A developer wrote a custom page tag with an optional named setting, and passing that setting failed with an 'unexpected setting' error. Passing a setting twice also gave a confusing message. The current code accepts the setting and gives the right message for duplicates.\",\n    \"matters\": \"Only people on an older release still hit this when building custom page tags.\",\n    \"fix\": \"No change needed; anyone still seeing it should upgrade to the current release.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 9,
+  "inputTokens": {
+   "avg": 15179.444444444445,
+   "max": 19142
+  },
+  "mainUsage": {
+   "inputTokens": 136615,
+   "cachedInputTokens": 124477,
+   "outputTokens": 6424
+  },
+  "cacheHitPercent": 91.11517768912638,
+  "wallSeconds": 69.29299998283386,
+  "tools": {
+   "read": 6,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 2
+  },
+  "reads": 6,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.2140434,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.2140434
+}

@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 85607,
+ "finalText": "I rechecked the report against the request. The verdict holds, but three quotes were under the 20-character minimum and one quote cited the wrong probe, so I've corrected those in the JSON below.\n\npytest 4.6.0 already fixed this issue, and this checkout (5.1.2) does not have it.\n\n**What the reporter hit:** youtube-dl decides whether to write bytes or text by checking for `b` in the output stream's `mode`. pytest's captured-output wrapper (`EncodedFile`) used to report the mode of the binary file underneath it (`rb+`), while its `write()` only accepts text. So youtube-dl sent bytes and pytest raised `TypeError`. It broke any test whose code logs this way under output capture.\n\n**Current code:** `EncodedFile` now has its own `mode` property, `return self.buffer.mode.replace(\"b\", \"\")`, in `src/_pytest/capture.py`. The 4.6.0 changelog has the matching entry, #5257: \"Ensure that `sys.stdout.mode` does not include `'b'` as it is a text stream.\" There is also a test for it, `test_capfd_sys_stdout_mode`.\n\n**Checks I ran** (in a throwaway copy, after installing pytest's missing dependencies there):\n- I wrapped a file opened as `wb+`. The file underneath reported `'rb+'`; the wrapper reported `'r+'`. Text writes worked. Writing bytes still raised \"write() argument must be str, not bytes\", which is correct now that the mode says text.\n- The related capture tests passed: 4 passed, 108 deselected. I had to run them with `--assert=plain`, because pytest 5.1.2's assertion rewriting crashes on this machine's newer Python, which has nothing to do with this issue. I did not run the whole test suite.\n\n**What I couldn't confirm:**\n- The git history here is one squashed snapshot, so I can't name the fixing commit or pull request. The changelog entry is the only record.\n- The issue doesn't state the reporter's pytest version. I'm assuming it was older than 4.6.0, since that is the first release with the fix.\n\nNo code change is needed; the reporter only has to upgrade to 4.6.0 or later.\n\n```json\n{\n  \"verdict\": \"covered\",\n  \"title\": \"Captured output said binary mode but only took text\",\n  \"cause\": \"Before pytest 4.6.0, the wrapper pytest puts around captured stdout/stderr (EncodedFile) passed `mode` through to the binary file underneath ('rb+'), while its write() only accepts str. Libraries like youtube-dl check for 'b' in the mode, write bytes and get a TypeError. The current code has its own `mode` property that removes the 'b', added in 4.6.0 (changelog #5257).\",\n  \"files\": [\n    {\"path\": \"src/_pytest/capture.py\", \"why\": \"EncodedFile.mode (lines 438-440) now strips 'b' from the mode of the file underneath; write() (420-427) accepts only str\"},\n    {\"path\": \"CHANGELOG.rst\", \"why\": \"The pytest 4.6.0 section records the fix as #5257\"},\n    {\"path\": \"testing/test_capture.py\", \"why\": \"test_capfd_sys_stdout_mode (line 1001) asserts that 'b' is not in sys.stdout.mode\"}\n  ],\n  \"plan\": [\n    \"No code change needed: tell the reporter to upgrade to pytest 4.6.0 or later\"\n  ],\n  \"verification\": [\n    \"Probe: safe_text_dupfile(open(path,'wb+'),'wb+') gives buffer.mode 'rb+' and f.mode 'r+'; writing str works and bytes raise TypeError\",\n    \"Probe: testing/test_capture.py -k 'mode or Encoded or dupfile' run with --assert=plain: 4 passed, 108 deselected\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"none\",\n  \"risk\": \"none\",\n  \"confidence\": 0.9,\n  \"fixedIn\": {\"release\": \"4.6.0\"},\n  \"fixType\": \"error\",\n  \"intendedBehavior\": \"Under pytest output capture, sys.stdout.mode has no 'b', so libraries that pick bytes or text from the mode write text and do not crash.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"Reporting the binary file's mode was never a choice; changelog entry #5257 in 4.6.0 fixed it on purpose so the text stream does not report 'b'.\"},\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"trigger\", \"text\": \"The reporter saw youtube-dl crash because pytest's capture wrapper reported a binary mode but rejected bytes.\", \"citations\": [{\"type\": \"evidence\", \"ref\": \"ev_s1\", \"quote\": \"`_pytest.capture.EncodedFile` incorrectly advertises `rb+`, the mode of the underlying stream. Its `write()` method raises an exception when passed `bytes`.\"}]},\n    {\"id\": \"c2\", \"role\": \"rootCause\", \"text\": \"The wrapper's write() accepts only text, so bytes sent because the mode said 'b' raise TypeError.\", \"citations\": [{\"type\": \"code\", \"ref\": \"src/_pytest/capture.py:425\", \"quote\": \"\\\"write() argument must be str, not {}\\\".format(type(obj).__name__)\"}, {\"type\": \"query\", \"ref\": \"probe:python\", \"quote\": \"bytes: write() argument must be str, not bytes\"}]},\n    {\"id\": \"c3\", \"role\": \"other\", \"text\": \"The current code overrides mode to remove 'b', so the wrapper no longer reports a binary mode.\", \"citations\": [{\"type\": \"code\", \"ref\": \"src/_pytest/capture.py:440\", \"quote\": \"return self.buffer.mode.replace(\\\"b\\\", \\\"\\\")\"}]},\n    {\"id\": \"c4\", \"role\": \"other\", \"text\": \"The fix shipped in pytest 4.6.0 according to the project changelog.\", \"citations\": [{\"type\": \"doc\", \"ref\": \"CHANGELOG.rst\"}, {\"type\": \"query\", \"ref\": \"probe:CHANGELOG.rst\", \"quote\": \"Ensure that ``sys.stdout.mode`` does not include ``'b'`` as it is a text stream.\"}]},\n    {\"id\": \"c5\", \"role\": \"other\", \"text\": \"An existing test asserts that the captured sys.stdout mode has no 'b', and the related capture tests pass on this code.\", \"citations\": [{\"type\": \"code\", \"ref\": \"testing/test_capture.py:1002\", \"quote\": \"assert \\\"b\\\" not in sys.stdout.mode\"}, {\"type\": \"query\", \"ref\": \"probe:pytest\", \"quote\": \"4 passed, 108 deselected in 0.18s\"}]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"The current code still reports the binary mode of the file underneath\", \"why\": \"EncodedFile.mode strips 'b', a probe returned 'r+' over an 'rb+' file, and the mode test passes\", \"citations\": [{\"type\": \"code\", \"ref\": \"src/_pytest/capture.py:440\", \"quote\": \"return self.buffer.mode.replace(\\\"b\\\", \\\"\\\")\"}]}\n  ],\n  \"plain\": {\n    \"headline\": \"A video-download tool crashed inside tests because pytest's captured output said it wanted raw bytes but only accepted text.\",\n    \"happened\": \"When pytest captures what a test prints, it used to say the captured output was in binary form. youtube-dl believed that and sent raw bytes. pytest only accepts text there, so it threw an error and the test failed.\",\n    \"matters\": \"Anyone on pytest older than 4.6 whose code picks bytes or text this way gets failing tests when output is captured.\",\n    \"fix\": \"Already fixed in pytest 4.6.0, which reports captured output as text; the reporter only needs to upgrade.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 9,
+  "inputTokens": {
+   "avg": 15994.333333333334,
+   "max": 20927
+  },
+  "mainUsage": {
+   "inputTokens": 143949,
+   "cachedInputTokens": 130026,
+   "outputTokens": 7867
+  },
+  "cacheHitPercent": 90.32782443782173,
+  "wallSeconds": 85.01300001144409,
+  "tools": {
+   "read": 1,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 6
+  },
+  "reads": 1,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.2529382,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.2529382
+}

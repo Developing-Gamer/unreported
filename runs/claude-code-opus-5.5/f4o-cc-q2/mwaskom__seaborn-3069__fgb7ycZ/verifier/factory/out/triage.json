@@ -1,0 +1,8 @@
+[
+  {"source": "S1", "decision": "fix", "reason": "seaborn uses the pandas option 'mode.use_inf_as_null', which no longer exists in pandas 2.0 (installed here), so Plot.plot(), comp_data and boxenplot raise OptionError; replaced with explicit inf-as-missing handling."},
+  {"source": "S2", "decision": "fix", "reason": "Plot with Nominal (including inferred) scales still uses normal margins, keeps the grid and does not invert the y axis, unlike seaborn's categorical plots; added this handling in Plotter._finalize_figure."},
+  {"source": "S3", "decision": "skip", "reason": "An OOMKilled pod in an export-job service (export/worker.py, export/csv_writer.py) is a problem outside this repository."},
+  {"source": "S4", "decision": "fix", "reason": "seaborn.widgets._update_lut rewrites only the 256 LUT colors and leaves the over/under/bad entries from the initial Greys colormap, so values above vmax show as near-black instead of the chosen palette's end color."},
+  {"source": "S5", "decision": "skip", "reason": "Stacking the KDE curves with multiple='stack' is intended: densities go through the same _resolve_multiple step as the histograms so each curve tracks its stacked bars, so this is not a defect."},
+  {"source": "S6", "decision": "fix", "reason": "utils.locator_to_legend_entries used a strict '<' on the upper limit, so a tick equal to the data maximum (e.g. 100) was dropped from brief numeric legends."}
+]

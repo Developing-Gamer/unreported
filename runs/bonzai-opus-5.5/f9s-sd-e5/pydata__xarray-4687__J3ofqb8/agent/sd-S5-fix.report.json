@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 120231,
+ "finalText": "I fixed the pseudonetcdf backend so `decode_timedelta=False` is now respected. Variables with units like `hours` stay as plain numbers (6 and 12) instead of becoming durations. A final re-check just now confirmed the one-line change and that the regression test passes.\n\nThe cause was as the investigation described. `PseudoNetCDFBackendEntrypoint.open_dataset` in `xarray/backends/pseudonetcdf_.py` passed `decode_times` where `decode_timedelta` belongs. I changed that one line. When `decode_timedelta` is unset, decoding still falls back to `decode_times`, so the default is unchanged.\n\n- **Before the fix:** the new test `test_decode_timedelta_false` failed with `AssertionError: assert 'm' == 'i'`, meaning the lead variable came back as a timedelta instead of an integer.\n- **After the fix:** `xarray/tests/test_backends.py -k TestPseudoNetCDFFormat` gives 4 passed, 1 skipped, 1 xfailed.\n- **Test method:** the test calls xarray's own `PseudoNetCDFBackendEntrypoint` directly. The `PseudoNetCDF` 3.5.0 I installed registers its own `pseudonetcdf` plugin, which shadows xarray's through `engine=\"pseudonetcdf\"`. With that version installed, `engine=\"pseudonetcdf\"` already honoured `decode_timedelta=False` and never reached the buggy line.\n- **Environment:** `PseudoNetCDF` and `pytest` were not installed, so I pip-installed them. `test_dataset.py` also fails to import under the installed pandas 1.5.3, so I ran pytest with a small shim in scratch space. That import problem is not part of this change.\n- **Other open PRs:** #1000 and #1001 cover backend ordering and `xr.where`, not this bug. The working tree already contained their changes, which I left alone.\n- **Files:** I added a `doc/whats-new.rst` entry and wrote the pull request text to `.factory/pr-S5.md`. Nothing is committed, as instructed.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"command\": \"python -m pytest -p shim xarray/tests/test_backends.py -k TestPseudoNetCDFFormat -p no:cacheprovider\", \"passed\": true, \"note\": \"4 passed, 1 skipped, 1 xfailed; the shim only works around an unrelated pandas import error in test_dataset.py\"}\n  ],\n  \"visual\": false,\n  \"missingEnv\": [],\n  \"reproductionSteps\": [\n    \"Save a NetCDF3 file with an int variable 'lead' = [6, 12] and units='hours'\",\n    \"Open it with xarray.backends.pseudonetcdf_.PseudoNetCDFBackendEntrypoint().open_dataset(path, decode_timedelta=False)\",\n    \"Before the fix lead is timedelta64[ns]; after the fix it is int32 [6, 12]\"\n  ],\n  \"reproductionTest\": {\n    \"path\": \"xarray/tests/test_backends.py\",\n    \"command\": \"python -m pytest -p shim xarray/tests/test_backends.py -k \\\"TestPseudoNetCDFFormat and decode_timedelta\\\" -p no:cacheprovider\",\n    \"signature\": \"AssertionError: assert 'm' == 'i'\"\n  },\n  \"prDescriptionPath\": \"/testbed/.factory/pr-S5.md\"\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 19,
+  "inputTokens": {
+   "avg": 25380.78947368421,
+   "max": 32630
+  },
+  "mainUsage": {
+   "inputTokens": 482235,
+   "cachedInputTokens": 463479,
+   "outputTokens": 7896
+  },
+  "cacheHitPercent": 96.1106099723164,
+  "wallSeconds": 119.28799986839294,
+  "tools": {
+   "read": 6,
+   "edit": 3,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 1,
+   "subagent": 0,
+   "other": 11
+  },
+  "reads": 6,
+  "edits": 3,
+  "runs": 11,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 2,
+  "editOperations": 2,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.2185248,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.2185248
+}

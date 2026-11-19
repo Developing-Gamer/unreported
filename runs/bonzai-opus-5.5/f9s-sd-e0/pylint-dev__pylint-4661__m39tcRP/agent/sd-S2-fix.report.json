@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 69993,
+ "finalText": "Pylint now stores its run data in the user cache folder, `$XDG_CACHE_HOME/pylint` (`~/.cache/pylint` on Linux), instead of `~/.pylint.d`. Both new tests failed on the starting commit and pass now, and `tests/lint/unittest_lint.py` plus `tests/test_self.py` pass together (157 passed). I did not run the wider test suite, and I did not reproduce the investigation's `HOME`/`XDG_CACHE_HOME` scenario by hand. The new `test_save_results_creates_nested_home` covers the equivalent save-and-load.\n\n- **Cause:** `pylint/config/__init__.py` hard-coded `~/.pylint.d`, and `save_results` used `os.mkdir`, which cannot create a nested path.\n- **Fix:** `PYLINT_HOME` is now `platformdirs.user_cache_dir(\"pylint\")`. `PYLINTHOME` still overrides it, and the `.pylint.d` fallback in the current directory is kept for when no home folder is found. `save_results` now uses `os.makedirs(..., exist_ok=True)`.\n- **Other files:** `platformdirs>=2.2.0` is added to `setup.cfg`. The `PYLINTHOME` help text, FAQ 3.2 and the ChangeLog are updated.\n- **Existing data:** an existing `~/.pylint.d` is no longer read or written. It only holds cached stats from earlier runs, so it can be deleted. I skipped the investigation's optional one-time notice about it.\n- **Issue number:** the ChangeLog entry says `Closes #3878`. That number is from memory of the upstream issue and is not in the evidence, so please confirm it.\n- **Open PR #1000:** it only touches `pylint/checkers/classes.py` and its functional test, so it does not cover this issue. Its edits were already uncommitted in the working tree and I left them alone.\n- **Test environment:** the default `python` has no pytest or astroid, so I ran everything with the `testbed` conda environment at `/opt/miniconda3/envs/testbed/bin`.\n- **Not committed:** per the benchmark note, nothing is committed, pushed or opened as a PR. The PR text is in `/testbed/.factory/pr-S2.md`.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"name\": \"pytest tests/lint/unittest_lint.py tests/test_self.py\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"reproductionSteps\": [\n    \"Run with HOME set and no PYLINTHOME: config.PYLINT_HOME was ~/.pylint.d instead of the XDG cache dir\",\n    \"Call config.save_results with a nested non-existing PYLINT_HOME: os.mkdir fails with 'Unable to create directory'\"\n  ],\n  \"reproductionTest\": {\n    \"path\": \"tests/lint/unittest_lint.py\",\n    \"command\": \"python -m pytest tests/lint/unittest_lint.py -k \\\"pylint_home or nested_home\\\" -q\",\n    \"signature\": \"Unable to create directory .../.cache/pylint (and test_pylint_home: assert config.PYLINT_HOME == platformdirs.user_cache_dir('pylint') failed)\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 14,
+  "inputTokens": {
+   "avg": 26568.785714285714,
+   "max": 33233
+  },
+  "mainUsage": {
+   "inputTokens": 371963,
+   "cachedInputTokens": 352614,
+   "outputTokens": 6872
+  },
+  "cacheHitPercent": 94.79813852453067,
+  "wallSeconds": 68.91799998283386,
+  "tools": {
+   "read": 8,
+   "edit": 4,
+   "test": 4,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 1
+  },
+  "reads": 8,
+  "edits": 4,
+  "runs": 5,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 1,
+  "editOperations": 3,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.18759930000000002,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.18759930000000002
+}

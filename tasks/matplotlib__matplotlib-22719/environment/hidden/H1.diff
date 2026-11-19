@@ -1,0 +1,14 @@
+diff --git a/lib/matplotlib/bezier.py b/lib/matplotlib/bezier.py
+index 1c92487b9b..60f344d39f 100644
+--- a/lib/matplotlib/bezier.py
++++ b/lib/matplotlib/bezier.py
+@@ -161,7 +161,8 @@ def find_bezier_t_intersecting_with_closedpath(
+     while True:
+ 
+         # return if the distance is smaller than the tolerance
+-        if np.hypot(start[0] - end[0], start[1] - end[1]) < tolerance:
++        if ((start[0] - end[0]) ** 2
++                + (start[1] - end[1]) ** 2) < tolerance:
+             return t0, t1
+ 
+         # calculate the middle point

@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 33155,
+ "finalText": "The huge gap is expected behaviour, not a defect in this repository, so I'm calling it notActionable. I only read the code; I did not run the reproduction with probe.\n\n**What the code does.** `supxlabel` places the text at `y=0.01` in figure coordinates, which is a fixed fraction of the figure height. This is documented in the function's docstring (`figure.py:312-315`, `figure.py:399`).\n\n**Why the gap grows.** In the reported call, `plt.subplots(20, 1, figsize=(10, 20))`, no layout engine is active. The axes therefore keep the default `figure.subplot.bottom` of 0.11 (`matplotlibrc:573`), and 11% of a 20-inch-tall figure is about 2.2 inches. The label sits at 1% of the height and the axes start at 11%, so the gap scales with figure height. The `y` argument works as documented; it is the unmanaged axes margin that depends on `figsize`.\n\n**What already handles it.** With `layout=\"constrained\"` or `tight_layout`, the label is positioned automatically and the bottom margin is sized to fit it. That logic is in `_constrained_layout.py:464-470` and `_tight_layout.py:111-117`. The reporter can use either layout, or set `y` and `subplots_adjust(bottom=...)` themselves.\n\n**Who feels it.** The reporter and anyone using `supxlabel` on tall figures without a layout engine. They get a wide gap but a correct figure, and the workaround is one argument.\n\nI can't see a change history here (the repository has a single snapshot commit at v3.7.0). The same fixed-fraction placement exists across the suplabel family, so it looks like long-standing design rather than a recent regression. A request for automatic placement without a layout engine would be a new feature, which is a product decision for the team.\n\n```json\n{\n  \"verdict\": \"notActionable\",\n  \"title\": \"supxlabel gap on tall figures is expected\",\n  \"cause\": \"supxlabel is placed at a fixed figure fraction (y=0.01), as documented. Without a layout engine the axes keep the default bottom margin of 0.11 of the figure height, which is about 2.2 inches on a 20-inch figure. The label is therefore far from the axes. Constrained layout and tight_layout size the bottom margin to fit the label automatically.\",\n  \"files\": [\n    {\"path\": \"lib/matplotlib/figure.py\", \"why\": \"_suplabels/supxlabel place the text at a fixed figure-fraction y (0.01) and only mark it as auto-positioned\"},\n    {\"path\": \"lib/matplotlib/_constrained_layout.py\", \"why\": \"make_margin_suptitles positions and reserves space for the supxlabel when constrained layout is used\"},\n    {\"path\": \"lib/matplotlib/_tight_layout.py\", \"why\": \"tight_layout adds the supxlabel height to the bottom margin\"},\n    {\"path\": \"lib/matplotlib/mpl-data/matplotlibrc\", \"why\": \"default figure.subplot.bottom of 0.11 produces the large fixed-fraction gap\"}\n  ],\n  \"plan\": [\"No code change. Tell the reporter to use layout='constrained' (or tight_layout), or to set y and subplots_adjust(bottom=...) explicitly.\"],\n  \"verification\": [\"Run plt.subplots(20,1,figsize=(10,20), layout='constrained') then fig.supxlabel('x'); the label sits just under the bottom axes.\"],\n  \"userFacing\": true,\n  \"certainty\": \"likely\",\n  \"effort\": \"none\",\n  \"risk\": \"none\",\n  \"confidence\": 0.8,\n  \"intendedBehavior\": \"supxlabel with no y is placed at figure fraction 0.01 without a layout engine, and just below the axes with constrained layout or tight_layout.\",\n  \"intent\": {\"deliberate\": true, \"text\": \"The docstring defines x and y as figure coordinates with default y=0.01. Layout engines handle automatic placement (_constrained_layout.py:464-470, _tight_layout.py:111-117). The gap comes from the default subplot bottom margin of 0.11 (matplotlibrc:573).\"},\n  \"fixType\": \"frustration\",\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"supxlabel's y is a figure-fraction coordinate with default 0.01, so it does not adapt to the axes position.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"lib/matplotlib/figure.py:399\", \"quote\": \"info = {'name': '_supxlabel', 'x0': 0.5, 'y0': 0.01,\"}]},\n    {\"id\": \"c2\", \"text\": \"Without a layout engine the axes keep the default bottom margin of 0.11 of the figure height, which creates the large gap on tall figures.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"lib/matplotlib/mpl-data/matplotlibrc:573\", \"quote\": \"#figure.subplot.bottom: 0.11   # the bottom of the subplots of the figure\"}]},\n    {\"id\": \"c3\", \"text\": \"Constrained layout repositions the supxlabel and reserves bottom margin for it.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"lib/matplotlib/_constrained_layout.py:467\", \"quote\": \"fig._supxlabel.set_position((p[0], h_pad_local))\"}]},\n    {\"id\": \"c4\", \"text\": \"tight_layout adds the supxlabel height to the bottom margin.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"lib/matplotlib/_tight_layout.py:117\", \"quote\": \"margin_bottom += rel_height + pad_inch/fig_height_inch\"}]}\n  ],\n  \"ruledOut\": [\n    {\"why\": \"Constrained layout positioning is not at fault: it overrides y when it is auto-positioned, and the reported call does not use it.\", \"hypothesis\": \"A bug in constrained layout positioning of supxlabel\", \"citations\": [{\"type\": \"code\", \"ref\": \"lib/matplotlib/_constrained_layout.py:466\", \"quote\": \"if getattr(fig._supxlabel, '_autopos', False):\"}]}\n  ],\n  \"plain\": {\n    \"headline\": \"A shared bottom label sits far from the plots on very tall figures because it is placed at a fixed fraction of the page height.\",\n    \"happened\": \"The label is placed 1% up from the bottom of the figure, as documented. The plots keep the default bottom margin of 11% of the height. On a 20-inch figure that is over two inches of blank space. The automatic layout modes close the gap by themselves.\",\n    \"matters\": \"It affects people who build tall multi-row figures without enabling an automatic layout mode.\",\n    \"fix\": \"No code change is needed: turn on constrained or tight layout, or set the label height and bottom margin by hand.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 6,
+  "inputTokens": {
+   "avg": 15018.333333333334,
+   "max": 18519
+  },
+  "mainUsage": {
+   "inputTokens": 90110,
+   "cachedInputTokens": 78601,
+   "outputTokens": 3472
+  },
+  "cacheHitPercent": 87.22783264898457,
+  "wallSeconds": 32.079999923706055,
+  "tools": {
+   "read": 7,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 0
+  },
+  "reads": 7,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.0792057,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.0792057
+}

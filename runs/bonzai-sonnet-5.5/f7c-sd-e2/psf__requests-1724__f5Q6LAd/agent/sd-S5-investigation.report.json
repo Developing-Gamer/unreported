@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 70122,
+ "finalText": "The investigation is complete. The cause is in this repository, and I reproduced it on the testbed's Python 2.7. I changed no files.\n\n**Cause.** On Python 2, `Session.request` and `PreparedRequest.prepare_method` only call `.upper()` on the HTTP method, so a unicode method such as `u'POST'` stays unicode. httplib then builds a unicode header block and appends the non-ASCII byte body. Python decodes that body as ASCII and raises `UnicodeDecodeError`, matching the stack in the evidence.\n\n**Reproduction.** `requests.request(u'POST', url, data=b'\\xc3\\xa9'*10)` raised `UnicodeDecodeError('ascii', ..., 'ordinal not in range(128)')`. I did not run the same request with a plain `str` method for comparison.\n\n**What a person experiences.** The request fails with an exception and is never sent. That is 359 events and 7 users in 7 days.\n\n**Fix.** Convert the method with `builtin_str(...)` in both places.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Unicode HTTP method breaks requests with non-ASCII bodies\",\n  \"cause\": \"On Python 2, Session.request and PreparedRequest.prepare_method only call method.upper(), so a unicode method (u'POST') stays unicode. httplib then builds a unicode header block and appends the non-ASCII byte body, which triggers an implicit ASCII decode and raises UnicodeDecodeError. Reproduced locally with requests.request(u'POST', url, data=b'\\\\xc3\\\\xa9'*10).\",\n  \"files\": [\n    {\"path\": \"requests/sessions.py\", \"why\": \"Session.request passes method.upper() through without converting to a native str (line ~314)\"},\n    {\"path\": \"requests/models.py\", \"why\": \"prepare_method only upper-cases the method and keeps it unicode on Python 2 (line ~310)\"},\n    {\"path\": \"requests/compat.py\", \"why\": \"builtin_str is available here for the conversion\"}\n  ],\n  \"plan\": [\n    \"In Session.request, set method = builtin_str(method) before building the Request.\",\n    \"In PreparedRequest.prepare_method, convert to builtin_str after upper().\",\n    \"Add a regression test that sends a unicode method with a non-ASCII byte body on Python 2.\"\n  ],\n  \"verification\": [\n    \"Run requests.request(u'POST', url, data=b'\\\\xc3\\\\xa9'*10) on Python 2.7 against a local socket and confirm no UnicodeDecodeError.\",\n    \"Run test_requests.py on Python 2.7 and Python 3.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.9,\n  \"fixType\": \"error\",\n  \"intendedBehavior\": \"A request made with a unicode method string and a non-ASCII byte body is sent successfully instead of raising UnicodeDecodeError on Python 2.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"No comment, test or changelog entry says unicode methods should fail. Only upper() is applied and the unicode type is never converted, so the failure is an unhandled case.\"},\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"Session.request upper-cases the method but never converts it to a native str, so a unicode method stays unicode on Python 2.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"requests/sessions.py:314\", \"quote\": \"method = method.upper(),\"}]},\n    {\"id\": \"c2\", \"text\": \"PreparedRequest.prepare_method also keeps the unicode type.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"requests/models.py:310\", \"quote\": \"self.method = self.method.upper()\"}]},\n    {\"id\": \"c3\", \"text\": \"On Python 2, builtin_str is str, so it can be used to coerce the method.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"requests/compat.py:95\", \"quote\": \"builtin_str = str\"}]},\n    {\"id\": \"c4\", \"text\": \"The production error is a UnicodeDecodeError raised inside httplib while sending the request.\", \"role\": \"impact\", \"citations\": [{\"type\": \"evidence\", \"ref\": \"ev_s5\", \"quote\": \"UnicodeDecodeError: 'ascii' codec can't decode byte 0xc3 in position 12331: ordinal not in range(128)\"}]}\n  ],\n  \"ruledOut\": [],\n  \"plain\": {\n    \"headline\": \"Some web requests crashed instead of being sent because the request type was stored as a kind of text that cannot be mixed with non-English characters in the request data.\",\n    \"happened\": \"When the request type (such as POST) was supplied as unicode text, the library kept it that way. The low-level sender then combined it with the request contents, which contained accented or other non-English characters. That combination failed with a decoding error and the request never went out.\",\n    \"matters\": \"It hits anyone whose code passes the request type as unicode text and sends non-English data, which is 7 users and about 360 failures in a week.\",\n    \"fix\": \"Convert the request type to plain text before sending, and add a test for this case.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 8,
+  "inputTokens": {
+   "avg": 14962.5,
+   "max": 18413
+  },
+  "mainUsage": {
+   "inputTokens": 119700,
+   "cachedInputTokens": 108293,
+   "outputTokens": 5417
+  },
+  "cacheHitPercent": 90.47034252297411,
+  "wallSeconds": 69.92900013923645,
+  "tools": {
+   "read": 3,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 1,
+   "subagent": 0,
+   "other": 4
+  },
+  "reads": 3,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1043361,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1043361
+}

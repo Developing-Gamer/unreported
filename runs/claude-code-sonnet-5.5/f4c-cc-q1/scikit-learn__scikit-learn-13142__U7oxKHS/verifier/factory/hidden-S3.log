@@ -1,0 +1,36 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_______ test_normalized_predictive_uncertainty_is_translation_invariant ________
+
+    def test_normalized_predictive_uncertainty_is_translation_invariant():
+        rng = np.random.RandomState(20)
+        X = rng.normal(size=(48, 3))
+        y = X.dot(np.array([1.8, -0.7, 0.4])) + 0.3 * rng.normal(size=48)
+        queries = rng.normal(size=(7, 3))
+        shift = np.array([9.0, -5.0, 4.0])
+    
+        original = BayesianRidge(normalize=True).fit(X, y)
+        translated = BayesianRidge(normalize=True).fit(X + shift, y)
+    
+        mean, std = original.predict(queries, return_std=True)
+        translated_mean, translated_std = translated.predict(
+            queries + shift, return_std=True
+        )
+    
+        assert_allclose(translated_mean, mean, rtol=1e-9, atol=1e-11)
+>       assert_allclose(translated_std, std, rtol=1e-9, atol=1e-11)
+E       AssertionError: 
+E       Not equal to tolerance rtol=1e-09, atol=1e-11
+E       
+E       Mismatched elements: 7 / 7 (100%)
+E       Max absolute difference: 0.32669047
+E       Max relative difference: 1.04801608
+E        x: array([0.604529, 0.59853 , 0.565408, 0.638413, 0.568683, 0.600526,
+E              0.560922])
+E        y: array([0.306963, 0.319277, 0.31342 , 0.311723, 0.311981, 0.316657,
+E              0.31883 ])
+
+/tmp/test_hidden_S3.py:22: AssertionError
+=========================== short test summary info ============================
+FAILED ../tmp/test_hidden_S3.py::test_normalized_predictive_uncertainty_is_translation_invariant
+1 failed in 0.40s

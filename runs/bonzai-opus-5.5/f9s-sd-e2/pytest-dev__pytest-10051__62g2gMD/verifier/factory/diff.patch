@@ -1,0 +1,133 @@
+diff --git a/changelog/3297.bugfix.rst b/changelog/3297.bugfix.rst
+new file mode 100644
+index 000000000..bb3b25b38
+--- /dev/null
++++ b/changelog/3297.bugfix.rst
+@@ -0,0 +1 @@
++Fixed ``caplog.get_records(when)`` going out of sync with ``caplog.records`` after ``caplog.clear()``: it is now cleared too and keeps receiving new records.
+diff --git a/changelog/9751.bugfix.rst b/changelog/9751.bugfix.rst
+new file mode 100644
+index 000000000..0507a140f
+--- /dev/null
++++ b/changelog/9751.bugfix.rst
+@@ -0,0 +1 @@
++Fixed :confval:`faulthandler_timeout` truncating its value to an integer, which made timeouts below one second silently disable the traceback dump and dropped the fractional part of larger values.
+diff --git a/src/_pytest/compat.py b/src/_pytest/compat.py
+index 1faf9ec1b..d0cb07b22 100644
+--- a/src/_pytest/compat.py
++++ b/src/_pytest/compat.py
+@@ -200,7 +200,7 @@ def get_default_arg_names(function: Callable[..., Any]) -> Tuple[str, ...]:
+ 
+ 
+ _non_printable_ascii_translate_table = {
+-    i: f"\\x{i:02x}" for i in range(128) if i not in range(32, 128)
++    i: f"\\x{i:02x}" for i in range(128) if i not in range(32, 127)
+ }
+ _non_printable_ascii_translate_table.update(
+     {ord("\t"): "\\t", ord("\r"): "\\r", ord("\n"): "\\n"}
+diff --git a/src/_pytest/faulthandler.py b/src/_pytest/faulthandler.py
+index e7422e62b..b9c925582 100644
+--- a/src/_pytest/faulthandler.py
++++ b/src/_pytest/faulthandler.py
+@@ -61,7 +61,7 @@ def get_stderr_fileno() -> int:
+ 
+ 
+ def get_timeout_config_value(config: Config) -> float:
+-    return int(float(config.getini("faulthandler_timeout") or 0.0))
++    return float(config.getini("faulthandler_timeout") or 0.0)
+ 
+ 
+ @pytest.hookimpl(hookwrapper=True, trylast=True)
+diff --git a/src/_pytest/logging.py b/src/_pytest/logging.py
+index a4f4214b1..c76a04e00 100644
+--- a/src/_pytest/logging.py
++++ b/src/_pytest/logging.py
+@@ -341,6 +341,10 @@ class LogCaptureHandler(logging_StreamHandler):
+         self.records.append(record)
+         super().emit(record)
+ 
++    def clear(self) -> None:
++        self.records.clear()
++        self.stream = StringIO()
++
+     def reset(self) -> None:
+         self.records = []
+         self.stream = StringIO()
+@@ -440,7 +444,7 @@ class LogCaptureFixture:
+ 
+     def clear(self) -> None:
+         """Reset the list of log records and the captured log text."""
+-        self.handler.reset()
++        self.handler.clear()
+ 
+     def set_level(self, level: Union[int, str], logger: Optional[str] = None) -> None:
+         """Set the level of a logger for the duration of a test.
+diff --git a/testing/logging/test_fixture.py b/testing/logging/test_fixture.py
+index bcb20de58..18850c97f 100644
+--- a/testing/logging/test_fixture.py
++++ b/testing/logging/test_fixture.py
+@@ -151,6 +151,19 @@ def test_clear(caplog):
+     assert not caplog.text
+ 
+ 
++def test_clear_keeps_get_records_in_sync(caplog):
++    caplog.set_level(logging.INFO)
++    assert caplog.get_records("call") == caplog.records == []
++    logger.info("bū")
++    assert len(caplog.get_records("call")) == 1
++    assert caplog.get_records("call") == caplog.records
++    caplog.clear()
++    assert caplog.get_records("call") == caplog.records == []
++    logger.info("bū")
++    assert len(caplog.get_records("call")) == 1
++    assert caplog.get_records("call") == caplog.records
++
++
+ @pytest.fixture
+ def logging_during_setup_and_teardown(caplog):
+     caplog.set_level("INFO")
+diff --git a/testing/test_compat.py b/testing/test_compat.py
+index 8a80fd625..4038ff559 100644
+--- a/testing/test_compat.py
++++ b/testing/test_compat.py
+@@ -263,3 +263,12 @@ def test_assert_never_literal() -> None:
+         pass
+     else:
+         assert_never(x)
++
++
++def test_ascii_escaped_bytes_del() -> None:
++    from _pytest.compat import ascii_escaped
++
++    assert ascii_escaped(b"a\x7fb") == r"a\x7fb"
++    assert ascii_escaped("a\x7fb") == r"a\x7fb"
++    assert ascii_escaped(b"a\x00\x1fb") == r"a\x00\x1fb"
++    assert ascii_escaped(b"a b~") == "a b~"
+diff --git a/testing/test_faulthandler.py b/testing/test_faulthandler.py
+index 5b7911f21..0c132f478 100644
+--- a/testing/test_faulthandler.py
++++ b/testing/test_faulthandler.py
+@@ -107,6 +107,23 @@ def test_timeout(pytester: Pytester, enabled: bool) -> None:
+     assert result.ret == 0
+ 
+ 
++@pytest.mark.parametrize("value, expected", [("0.5", 0.5), ("2.5", 2.5), ("3", 3.0)])
++def test_timeout_config_value_is_not_truncated(
++    pytester: Pytester, value: str, expected: float
++) -> None:
++    """Sub-second and fractional timeouts must be honoured, not truncated to int."""
++    from _pytest.faulthandler import get_timeout_config_value
++
++    pytester.makeini(
++        f"""
++        [pytest]
++        faulthandler_timeout = {value}
++        """
++    )
++    config = pytester.parseconfig()
++    assert get_timeout_config_value(config) == expected
++
++
+ @pytest.mark.parametrize("hook_name", ["pytest_enter_pdb", "pytest_exception_interact"])
+ def test_cancel_timeout_on_hook(monkeypatch, hook_name) -> None:
+     """Make sure that we are cancelling any scheduled traceback dumping due

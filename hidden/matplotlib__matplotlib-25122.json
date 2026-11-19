@@ -1,0 +1,30 @@
+{
+ "task": "matplotlib__matplotlib-25122",
+ "kept": [
+  {
+   "path": "lib/matplotlib/backends/qt_compat.py",
+   "category": "silent wrong result (a value or output that is subtly wrong, no exception)",
+   "defect_patch": "diff --git a/lib/matplotlib/backends/qt_compat.py b/lib/matplotlib/backends/qt_compat.py\nindex b1b96f93d6..a1a239ae9c 100644\n--- a/lib/matplotlib/backends/qt_compat.py\n+++ b/lib/matplotlib/backends/qt_compat.py\n@@ -38,10 +38,10 @@ _ETS = {  # Mapping of QT_API_ENV to requested binding.\n # First, check if anything is already imported.\n if sys.modules.get(\"PyQt6.QtCore\"):\n     QT_API = QT_API_PYQT6\n-elif sys.modules.get(\"PySide6.QtCore\"):\n-    QT_API = QT_API_PYSIDE6\n elif sys.modules.get(\"PyQt5.QtCore\"):\n     QT_API = QT_API_PYQT5\n+elif sys.modules.get(\"PySide6.QtCore\"):\n+    QT_API = QT_API_PYSIDE6\n elif sys.modules.get(\"PySide2.QtCore\"):\n     QT_API = QT_API_PYSIDE2\n # Otherwise, check the QT_API environment variable (from Enthought).  This can\n",
+   "test_code": "import os\nimport subprocess\nimport sys\nimport textwrap\n\n\ndef test_preimported_pyside6_takes_precedence_over_pyqt5():\n    script = textwrap.dedent('''\n        import os\n        import sys\n        import types\n\n        import matplotlib\n\n        os.environ.pop(\"QT_API\", None)\n\n        def add_binding(name, version):\n            package = types.ModuleType(name)\n            package.__path__ = []\n            package.__version__ = \".\".join(map(str, version))\n\n            core = types.ModuleType(name + \".QtCore\")\n            core.__package__ = name\n            core.PYQT_VERSION_STR = package.__version__\n            core.pyqtSignal = object()\n            core.pyqtSlot = object()\n            core.pyqtProperty = object()\n            core.QLibraryInfo = types.SimpleNamespace(\n                version=lambda: types.SimpleNamespace(\n                    segments=lambda: version,\n                    toString=lambda: package.__version__,\n                )\n            )\n            gui = types.ModuleType(name + \".QtGui\")\n            widgets = types.ModuleType(name + \".QtWidgets\")\n            widgets.QFileDialog = types.SimpleNamespace(\n                getSaveFileName=lambda *args, **kwargs: (\"\", \"\")\n            )\n            package.QtCore = core\n            package.QtGui = gui\n            package.QtWidgets = widgets\n            sys.modules[name] = package\n            for module in (core, gui, widgets):\n                sys.modules[module.__name__] = module\n\n        # Model an embedding application with both bindings already imported,\n        # without requiring native Qt libraries or a display server.\n        add_binding(\"PySide6\", (6, 4, 0))\n        add_binding(\"PyQt5\", (5, 15, 2))\n        shiboken = types.ModuleType(\"shiboken6\")\n        shiboken.isValid = lambda obj: True\n        sys.modules[\"shiboken6\"] = shiboken\n        sip = types.ModuleType(\"sip\")\n        sip.isdeleted = lambda obj: False\n        sys.modules[\"sip\"] = sip\n\n        from matplotlib.backends import qt_compat\n\n        assert qt_compat.QT_API == \"PySide6\", qt_compat.QT_API\n        assert qt_compat.QtCore is sys.modules[\"PySide6.QtCore\"]\n    ''')\n    env = os.environ.copy()\n    env[\"PYTHONPATH\"] = os.pathsep.join(sys.path)\n    result = subprocess.run(\n        [sys.executable, \"-c\", script],\n        env=env,\n        capture_output=True,\n        text=True,\n        timeout=8,\n    )\n    assert result.returncode == 0, result.stdout + result.stderr\n",
+   "signal": {
+    "kind": "user",
+    "source": "Desktop application support",
+    "text": "Embedded plots have started using Qt 5 widgets in sessions where both PySide6 and PyQt5 are loaded. Previously those sessions used the Qt 6 interface."
+   },
+   "summary": "The pre-imported binding priority is reversed for PyQt5 and PySide6, causing PyQt5 to win when both are loaded despite the documented Qt 6 preference."
+  },
+  {
+   "path": "lib/matplotlib/_api/deprecation.py",
+   "category": "silent wrong result (a value or output that is subtly wrong, no exception)",
+   "defect_patch": "diff --git a/lib/matplotlib/_api/deprecation.py b/lib/matplotlib/_api/deprecation.py\nindex 7c304173b2..52848ce86d 100644\n--- a/lib/matplotlib/_api/deprecation.py\n+++ b/lib/matplotlib/_api/deprecation.py\n@@ -293,7 +293,7 @@ def rename_parameter(since, old, new, func=None):\n                 since, message=f\"The {old!r} parameter of {func.__name__}() \"\n                 f\"has been renamed {new!r} since Matplotlib {since}; support \"\n                 f\"for the old name will be dropped %(removal)s.\")\n-            kwargs[new] = kwargs.pop(old)\n+            kwargs.setdefault(new, kwargs.pop(old))\n         return func(*args, **kwargs)\n \n     # wrapper() must keep the same documented signature as func(): if we\n",
+   "test_code": "import pytest\n\nfrom matplotlib._api.deprecation import (\n    MatplotlibDeprecationWarning,\n    rename_parameter,\n)\n\n\ndef test_legacy_parameter_overrides_forwarded_default():\n    @rename_parameter(\"3.5\", \"old_scale\", \"scale\")\n    def transform(values, scale=1):\n        return [value * scale for value in values]\n\n    assert transform([2, 4], scale=3) == [6, 12]\n\n    with pytest.warns(MatplotlibDeprecationWarning, match=\"has been renamed\"):\n        legacy_result = transform([2, 4], old_scale=3)\n    assert legacy_result == [6, 12]\n\n    with pytest.warns(MatplotlibDeprecationWarning, match=\"has been renamed\"):\n        forwarded_result = transform([2, 4], old_scale=3, scale=1)\n    assert forwarded_result == [6, 12]\n",
+   "signal": {
+    "kind": "user",
+    "source": "plotting-support",
+    "text": "Some older chart scripts are producing plots with default styling even when we request custom values; newer scripts still look right."
+   },
+   "summary": "Renamed parameters incorrectly give an explicitly supplied new-name value precedence over the legacy-name value, silently ignoring legacy settings when wrappers also forward defaults."
+  }
+ ],
+ "rejected": []
+}

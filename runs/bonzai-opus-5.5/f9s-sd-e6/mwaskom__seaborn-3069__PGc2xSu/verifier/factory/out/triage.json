@@ -1,0 +1,32 @@
+[
+  {
+    "source": "S1",
+    "decision": "fix",
+    "reason": "Seaborn enters pd.option_context(\"mode.use_inf_as_null\", True) to treat inf as missing before dropping rows. pandas 2.0 removed the long-deprecated 'mode.use_inf_as_null' alias (only 'mode.use_inf_as_"
+  },
+  {
+    "source": "S2",
+    "decision": "fix",
+    "reason": "The objects interface's figure finalization (Plotter._finalize_figure) only applies user-set limits; it never special-cases Nominal scales. So category axes get matplotlib's default margins (-0.1..n-0"
+  },
+  {
+    "source": "S3",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The OOMKilled error comes from an `export-job` service whose stack runs through export/worker.py and export/csv_writer.py. Neither file, nor any export or worker code, exists in this repository (seabo"
+  },
+  {
+    "source": "S4",
+    "decision": "fix",
+    "reason": "The widget colormap is created from 'Greys' and its over/under extremes are computed once in _init_mutable_colormap via cmap._set_extremes(). _update_lut then overwrites only cmap._lut[:256] with the "
+  },
+  {
+    "source": "S5",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: With multiple='stack' (or 'fill'), histplot deliberately passes the KDE overlay curves through the same stacking step as the bars, exempting only 'dodge'. Each group's curve is its own density estimat"
+  },
+  {
+    "source": "S6",
+    "decision": "fix",
+    "reason": "locator_to_legend_entries in seaborn/utils.py removes tick values outside the data range using `l >= limits[0] and l < limits[1]`. The strict `<` also removes a tick equal to the data maximum, so when"
+  }
+]

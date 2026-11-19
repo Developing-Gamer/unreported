@@ -1,0 +1,110 @@
+diff --git a/CHANGES.rst b/CHANGES.rst
+index 498d5e51..2355ca12 100644
+--- a/CHANGES.rst
++++ b/CHANGES.rst
+@@ -35,6 +35,10 @@ Unreleased
+ -   Ensure subdomains are applied with nested blueprints. :issue:`4834`
+ -   ``config.from_file`` can use ``text=False`` to indicate that the parser wants a
+     binary file instead. :issue:`4989`
++-   The ``Vary: Cookie`` header is added to the response when the session was accessed
++    but is empty or was cleared, so caches don't serve a stale signed-in response.
++-   A blueprint's ``name`` may not be empty; ``Blueprint`` raises ``ValueError``.
++    :issue:`4944`
+ 
+ 
+ Version 2.2.4
+diff --git a/src/flask/blueprints.py b/src/flask/blueprints.py
+index eb50585d..1aa82562 100644
+--- a/src/flask/blueprints.py
++++ b/src/flask/blueprints.py
+@@ -190,6 +190,9 @@ class Blueprint(Scaffold):
+             root_path=root_path,
+         )
+ 
++        if not name:
++            raise ValueError("'name' may not be empty.")
++
+         if "." in name:
+             raise ValueError("'name' may not contain a dot '.' character.")
+ 
+diff --git a/src/flask/sessions.py b/src/flask/sessions.py
+index 02b8cf76..9a7151ae 100644
+--- a/src/flask/sessions.py
++++ b/src/flask/sessions.py
+@@ -383,6 +383,11 @@ class SecureCookieSessionInterface(SessionInterface):
+         samesite = self.get_cookie_samesite(app)
+         httponly = self.get_cookie_httponly(app)
+ 
++        # Add a "Vary: Cookie" header if the session was accessed at all, even if
++        # it is empty or was cleared, so caches don't reuse the response.
++        if session.accessed:
++            response.vary.add("Cookie")
++
+         # If the session is modified to be empty, remove the cookie.
+         # If the session is empty, return without setting the cookie.
+         if not session:
+@@ -398,10 +403,6 @@ class SecureCookieSessionInterface(SessionInterface):
+ 
+             return
+ 
+-        # Add a "Vary: Cookie" header if the session was accessed at all.
+-        if session.accessed:
+-            response.vary.add("Cookie")
+-
+         if not self.should_set_cookie(app, session):
+             return
+ 
+diff --git a/tests/test_basic.py b/tests/test_basic.py
+index 1add8f01..46d81bbf 100644
+--- a/tests/test_basic.py
++++ b/tests/test_basic.py
+@@ -592,6 +592,33 @@ def test_session_vary_cookie(app, client):
+     expect("/no-vary-header", None)
+ 
+ 
++def test_session_vary_cookie_empty_session(app, client):
++    @app.route("/login")
++    def login():
++        flask.session["user"] = "test"
++        return ""
++
++    @app.route("/logout")
++    def logout():
++        flask.session.clear()
++        return ""
++
++    @app.route("/read")
++    def read():
++        return flask.session.get("user", "anonymous")
++
++    rv = client.get("/read")
++    assert rv.headers["Vary"] == "Cookie"
++    assert "Set-Cookie" not in rv.headers
++
++    client.get("/login")
++    rv = client.get("/logout")
++    assert rv.headers["Vary"] == "Cookie"
++    set_cookie = rv.headers["Set-Cookie"]
++    assert set_cookie.startswith("session=;")
++    assert "Expires=Thu, 01 Jan 1970" in set_cookie
++
++
+ def test_flashes(app, req_ctx):
+     assert not flask.session.modified
+     flask.flash("Zap")
+diff --git a/tests/test_blueprints.py b/tests/test_blueprints.py
+index d46b769b..76cee660 100644
+--- a/tests/test_blueprints.py
++++ b/tests/test_blueprints.py
+@@ -256,6 +256,11 @@ def test_dotted_name_not_allowed(app, client):
+         flask.Blueprint("app.ui", __name__)
+ 
+ 
++def test_empty_name_not_allowed(app, client):
++    with pytest.raises(ValueError):
++        flask.Blueprint("", __name__)
++
++
+ def test_dotted_names_from_app(app, client):
+     test = flask.Blueprint("test", __name__)
+ 

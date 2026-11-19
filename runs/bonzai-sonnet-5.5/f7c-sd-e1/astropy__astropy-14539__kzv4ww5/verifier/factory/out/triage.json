@@ -1,0 +1,37 @@
+[
+  {
+    "source": "S1",
+    "decision": "fix",
+    "reason": "The setting that picks which database name lookups query (`sesame_database`) accepts any value. Anything other than exactly 'all', 'simbad', 'ned' or 'vizier' is silently replaced by 'all', for exampl"
+  },
+  {
+    "source": "S2",
+    "decision": "fix",
+    "reason": "TableDataDiff only uses the per-row VLA comparison when the column format contains 'P'. A 64-bit variable-length column ('QD', 'QJ' and so on) has no 'P' in its format, so it falls through to the gene"
+  },
+  {
+    "source": "S3",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The OOMKilled signal comes from a separate 'export-job' service (export/worker.py, export/csv_writer.py). Neither exists in this repository, which is the Astropy library. The only CSV writer here is a"
+  },
+  {
+    "source": "S4",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: The report comes from an old version where minversion compared versions with LooseVersion, which raises TypeError for strings like '1.14dev' against numeric versions. The current code compares packagi"
+  },
+  {
+    "source": "S5",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: The issue asks to stop auto-converting structured numpy arrays added to a Table into NdarrayMixin. In this checkout (v5.3.dev) `Table._convert_data_to_col` has no such branch: a structured ndarray fal"
+  },
+  {
+    "source": "S6",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The basic and fixed_width readers only try int, float and str by default, so bool columns written as True/False come back as strings. The docs state this default and show converters={'*': [int, float,"
+  },
+  {
+    "source": "S7",
+    "decision": "fix",
+    "reason": "uniform_spherical_random_volume wraps u.Quantity(max_radius) in try/except ValueError and falls back to a dimensionless 1. Any max_radius that Quantity rejects with ValueError, such as a string with a"
+  }
+]

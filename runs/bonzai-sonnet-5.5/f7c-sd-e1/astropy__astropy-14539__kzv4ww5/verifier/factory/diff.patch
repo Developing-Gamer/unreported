@@ -1,0 +1,167 @@
+diff --git a/astropy/coordinates/angle_utilities.py b/astropy/coordinates/angle_utilities.py
+index bbd216036..7dc1fcaaf 100644
+--- a/astropy/coordinates/angle_utilities.py
++++ b/astropy/coordinates/angle_utilities.py
+@@ -228,12 +228,7 @@ def uniform_spherical_random_volume(size=1, max_radius=1):
+ 
+     usph = uniform_spherical_random_surface(size=size)
+ 
+-    try:
+-        radius_scale = u.Quantity(max_radius, copy=False)
+-    except ValueError:
+-        radius_scale = u.Quantity(1)
+-
+-    r = np.cbrt(rng.uniform(size=size)) * radius_scale
++    r = np.cbrt(rng.uniform(size=size)) * u.Quantity(max_radius, copy=False)
+     return SphericalRepresentation(usph.lon, usph.lat, r)
+ 
+ 
+diff --git a/astropy/coordinates/name_resolve.py b/astropy/coordinates/name_resolve.py
+index 7a7890e76..63b88c395 100644
+--- a/astropy/coordinates/name_resolve.py
++++ b/astropy/coordinates/name_resolve.py
+@@ -48,7 +48,8 @@ class sesame_database(ScienceState):
+     This specifies the default database that SESAME will query when
+     using the name resolve mechanism in the coordinates
+     subpackage. Default is to search all databases, but this can be
+-    'all', 'simbad', 'ned', or 'vizier'.
++    'all', 'simbad', 'ned', or 'vizier'. Any other value (names are
++    case-sensitive) raises a `ValueError`.
+     """
+ 
+     _value = "all"
+@@ -56,7 +57,7 @@ class sesame_database(ScienceState):
+     @classmethod
+     def validate(cls, value):
+         if value not in ["all", "simbad", "ned", "vizier"]:
+-            return "all"
++            raise ValueError(f"Unknown database '{value}'")
+         return value
+ 
+ 
+diff --git a/astropy/coordinates/tests/test_angle_generators.py b/astropy/coordinates/tests/test_angle_generators.py
+index cef46b140..cee736729 100644
+--- a/astropy/coordinates/tests/test_angle_generators.py
++++ b/astropy/coordinates/tests/test_angle_generators.py
+@@ -35,3 +35,15 @@ def test_uniform_spherical_random_volume_input():
+         sph = uniform_spherical_random_volume(size=100, max_radius=4 * u.pc)
+         assert len(sph) == 100
+         assert sph.distance.max() <= 4 * u.pc
++
++
++def test_uniform_spherical_random_volume_string_max_radius():
++    with NumpyRNGContext(42):
++        sph = uniform_spherical_random_volume(size=100, max_radius="10 kpc")
++    assert sph.distance.unit == u.kpc
++    assert sph.distance.max() <= 10 * u.kpc
++
++
++def test_uniform_spherical_random_volume_invalid_max_radius():
++    with pytest.raises(ValueError):
++        uniform_spherical_random_volume(size=3, max_radius="10 kpcs")
+diff --git a/astropy/coordinates/tests/test_name_resolve.py b/astropy/coordinates/tests/test_name_resolve.py
+index 7fc9580a6..ab0a30ecf 100644
+--- a/astropy/coordinates/tests/test_name_resolve.py
++++ b/astropy/coordinates/tests/test_name_resolve.py
+@@ -224,3 +224,16 @@ def test_database_specify(name, db_dict):
+             icrs = SkyCoord.from_name(name)
+ 
+         time.sleep(1)
++
++
++@pytest.mark.parametrize("db", ["all", "simbad", "ned", "vizier"])
++def test_sesame_database_valid(db):
++    with sesame_database.set(db):
++        assert sesame_database.get() == db
++
++
++@pytest.mark.parametrize("db", ["bogus", "SIMBAD", "Ned", "simbad ", ""])
++def test_sesame_database_invalid(db):
++    with pytest.raises(ValueError, match="Unknown database"):
++        sesame_database.set(db)
++    assert sesame_database.get() == "all"
+diff --git a/astropy/io/fits/diff.py b/astropy/io/fits/diff.py
+index 100cdf1b8..8da3c0810 100644
+--- a/astropy/io/fits/diff.py
++++ b/astropy/io/fits/diff.py
+@@ -1449,12 +1449,15 @@ class TableDataDiff(_BaseDiff):
+                 arrb.dtype, np.floating
+             ):
+                 diffs = where_not_allclose(arra, arrb, rtol=self.rtol, atol=self.atol)
+-            elif "P" in col.format:
++            elif "P" in col.format or "Q" in col.format:
++                # Variable-length arrays (32-bit "P" and 64-bit "Q" descriptors)
++                # are compared row by row; rows of different length differ.
+                 diffs = (
+                     [
+                         idx
+                         for idx in range(len(arra))
+-                        if not np.allclose(
++                        if np.shape(arra[idx]) != np.shape(arrb[idx])
++                        or not np.allclose(
+                             arra[idx], arrb[idx], rtol=self.rtol, atol=self.atol
+                         )
+                     ],
+diff --git a/astropy/io/fits/tests/test_diff.py b/astropy/io/fits/tests/test_diff.py
+index adfebe6a5..47a6a396a 100644
+--- a/astropy/io/fits/tests/test_diff.py
++++ b/astropy/io/fits/tests/test_diff.py
+@@ -923,3 +923,31 @@ def test_rawdatadiff_diff_with_rtol(tmp_path):
+ 
+     assert "...and at 1 more indices." in str1
+     assert "...and at 1 more indices." not in str2
++
++
++@pytest.mark.parametrize("fmt", ["PD", "QD"])
++def test_fitsdiff_vla_identical(tmp_path, fmt):
++    """Regression test: comparing a file with variable-length arrays to
++    itself must not report differences (also for 64-bit "Q" descriptors).
++    """
++    path = tmp_path / "test.fits"
++    col = Column("a", format=fmt, array=[[0], [0, 0]])
++    hdu = BinTableHDU.from_columns([col])
++    hdu.writeto(path)
++
++    assert FITSDiff(path, path).identical
++    assert TableDataDiff(hdu.data, hdu.data).identical
++
++
++@pytest.mark.parametrize("fmt", ["PD", "QD"])
++def test_tabledatadiff_vla_different(fmt):
++    hdu_a = BinTableHDU.from_columns(
++        [Column("a", format=fmt, array=[[0], [0, 0], [1, 2]])]
++    )
++    # second row differs in value, third row differs in length
++    hdu_b = BinTableHDU.from_columns(
++        [Column("a", format=fmt, array=[[0], [0, 1], [1, 2, 3]])]
++    )
++    diff = TableDataDiff(hdu_a.data, hdu_b.data)
++    assert not diff.identical
++    assert diff.diff_total == 2
+diff --git a/docs/changes/coordinates/14400.api.rst b/docs/changes/coordinates/14400.api.rst
+new file mode 100644
+index 000000000..0da6badcd
+--- /dev/null
++++ b/docs/changes/coordinates/14400.api.rst
+@@ -0,0 +1,3 @@
++Setting ``sesame_database`` to an unrecognized value (including different
++capitalization such as ``"SIMBAD"``) now raises a ``ValueError`` instead of
++silently falling back to ``"all"``.
+diff --git a/docs/changes/coordinates/14600.bugfix.rst b/docs/changes/coordinates/14600.bugfix.rst
+new file mode 100644
+index 000000000..9374d2b18
+--- /dev/null
++++ b/docs/changes/coordinates/14600.bugfix.rst
+@@ -0,0 +1,2 @@
++``uniform_spherical_random_volume`` now raises an error for an invalid
++``max_radius`` instead of silently falling back to a dimensionless value of 1.
+diff --git a/docs/changes/io.fits/14539.bugfix.rst b/docs/changes/io.fits/14539.bugfix.rst
+new file mode 100644
+index 000000000..1bac3cadc
+--- /dev/null
++++ b/docs/changes/io.fits/14539.bugfix.rst
+@@ -0,0 +1,4 @@
++Fixed ``FITSDiff`` and ``TableDataDiff`` reporting differences (or raising an
++error) when comparing identical tables containing 64-bit variable-length array
++columns (``Q`` format). Variable-length rows of different length are now
++reported as different.

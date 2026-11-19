@@ -1,0 +1,27 @@
+[
+  {
+    "source": "S1",
+    "decision": "skip",
+    "reason": "Self-Driving verdict unknown: "
+  },
+  {
+    "source": "S2",
+    "decision": "skip",
+    "reason": "Self-Driving verdict unknown: "
+  },
+  {
+    "source": "S3",
+    "decision": "skip",
+    "reason": "Self-Driving verdict unknown: "
+  },
+  {
+    "source": "S4",
+    "decision": "skip",
+    "reason": "Self-Driving verdict unknown: "
+  },
+  {
+    "source": "S5",
+    "decision": "fix",
+    "reason": "Blueprint.__init__ only rejects names that contain a dot. An empty string is accepted, so name='' creates a blueprint with an empty registered name. Per #4944, routing and endpoint handling then misbe"
+  }
+]

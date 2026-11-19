@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 84020,
+ "finalText": "The drop comes from this repository, and the fix is a one-word change. When the input is sparse, the dimensionality-reduction step (`TruncatedSVD`) measures the total variance of the data along the wrong axis, so the explained-variance ratio is divided by the wrong number. The embedding coordinates are computed separately and come out unchanged, which matches the report. I made no edits; everything below was run in the throwaway copy.\n\n**Cause.** In [truncated_svd.py](file:///testbed/sklearn/decomposition/truncated_svd.py), lines 186\u2013191, the sparse branch calls `mean_variance_axis(X, axis=1)`. That sums one variance per document (row). The dense branch uses `np.var(X, axis=0).sum()`, one variance per feature (column). The numerator, `explained_variance_`, is a per-feature variance of the embedding, so only the dense branch matches it.\n\n**What I ran:**\n- On a random 60\u00d755 sparse matrix with 5 components, the total ratio was 0.2437 for sparse input and 0.2681 for the same data as a dense array. The coordinates were identical in absolute value.\n- In the existing tests for this code, 1 of 15 fails: `test_explained_variance`, where all 10 sparse ratios differ from the dense ones, by up to 8%.\n- After changing `axis=1` to `axis=0`, all 15 pass.\n\n**Notes:**\n- Nothing marks this as intended: no comment, changelog entry or test says so, and the failing test asserts that sparse and dense ratios must match.\n- The repository is a single snapshot commit, so I can't tell which change introduced it.\n- I had no monitoring tools, so I don't know the user's actual data.\n- The wrong total can be larger or smaller depending on the data, so the ratio isn't always lower.\n- The example output in the class's documentation should be checked after the fix.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Explained-variance ratio wrong for sparse input\",\n  \"cause\": \"TruncatedSVD.fit_transform computes the total variance for sparse input with mean_variance_axis(X, axis=1), i.e. per-row variances summed, while the numerator explained_variance_ and the dense branch use per-feature variances (axis=0). The denominator is therefore wrong for sparse matrices only, so explained_variance_ratio_ shifts while the transformed coordinates (U * Sigma) are unaffected.\",\n  \"files\": [\n    {\"path\": \"sklearn/decomposition/truncated_svd.py\", \"why\": \"Line 187 uses axis=1 instead of axis=0 when computing full variance for sparse X.\"},\n    {\"path\": \"sklearn/decomposition/tests/test_truncated_svd.py\", \"why\": \"test_explained_variance already asserts sparse and dense ratios match and currently fails.\"}\n  ],\n  \"plan\": [\n    \"Change mean_variance_axis(X, axis=1) to mean_variance_axis(X, axis=0) in TruncatedSVD.fit_transform.\",\n    \"Run test_truncated_svd.py; test_explained_variance should go from failing to passing.\",\n    \"Check the class docstring example's printed ratios still hold, and add a whats_new bug-fix entry.\"\n  ],\n  \"verification\": [\n    \"pytest sklearn/decomposition/tests/test_truncated_svd.py: currently 1 failed / 14 passed (sparse vs dense ratio mismatch, up to 8% relative); with axis=0 all 15 pass.\",\n    \"Fit TruncatedSVD(5, algorithm='arpack') on a sparse 60x55 matrix and its dense copy: explained_variance_ratio_ sums must be equal (currently 0.2437 vs 0.2681).\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"trivial\",\n  \"risk\": \"low\",\n  \"confidence\": 0.95,\n  \"fixType\": \"silentFailure\",\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"For sparse input the total variance is computed across axis 1 (per sample), unlike the dense branch which uses axis 0 (per feature).\", \"role\": \"rootCause\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"sklearn/decomposition/truncated_svd.py:187\", \"quote\": \"_, full_var = mean_variance_axis(X, axis=1)\"},\n      {\"type\": \"code\", \"ref\": \"sklearn/decomposition/truncated_svd.py:190\", \"quote\": \"full_var = np.var(X, axis=0).sum()\"}\n    ]},\n    {\"id\": \"c2\", \"text\": \"The ratio divides per-component variance of the embedding by that mismatched total, while the coordinates themselves come from U * Sigma and are untouched.\", \"role\": \"rootCause\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"sklearn/decomposition/truncated_svd.py:185\", \"quote\": \"self.explained_variance_ = exp_var = np.var(X_transformed, axis=0)\"},\n      {\"type\": \"code\", \"ref\": \"sklearn/decomposition/truncated_svd.py:191\", \"quote\": \"self.explained_variance_ratio_ = exp_var / full_var\"}\n    ]},\n    {\"id\": \"c3\", \"text\": \"The existing sparse-vs-dense explained variance test fails on the current code and passes with axis=0.\", \"role\": \"rootCause\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:pytest test_truncated_svd.py\", \"quote\": \"assert_array_almost_equal(svd_sparse.explained_variance_ratio_,\"},\n      {\"type\": \"query\", \"ref\": \"probe:pytest test_truncated_svd.py\", \"quote\": \"Max relative difference: 0.08188466\"}\n    ]},\n    {\"id\": \"c4\", \"text\": \"Users with sparse document batches see a different explained-variance percentage than for the same data dense, while embeddings are identical.\", \"role\": \"impact\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s2\", \"quote\": \"The explained-variance percentage dropped after the update for our sparse document batches, but the embedding coordinates look unchanged.\"},\n      {\"type\": \"query\", \"ref\": \"probe:python repro\", \"quote\": \"sparse 0.2436675779934849 dense 0.2680790702076559\\ncoords equal True\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"The embedding/SVD computation itself changed for sparse input.\", \"why\": \"Transformed coordinates for sparse and dense input are identical in absolute value; only the ratio denominator differs.\", \"citations\": [{\"type\": \"query\", \"ref\": \"probe:python repro\", \"quote\": \"coords equal True\"}]}\n  ],\n  \"intendedBehavior\": \"TruncatedSVD fitted on a sparse matrix reports the same explained_variance_ratio_ as when fitted on the equivalent dense array.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"test_explained_variance asserts sparse and dense explained_variance_ratio_ are almost equal, and the dense branch uses axis=0; nothing documents per-sample variance for sparse input.\"},\n  \"plain\": {\n    \"headline\": \"The \\\"how much of the data this summary captures\\\" percentage is wrong for sparse document batches because the total it is divided by is measured the wrong way.\",\n    \"happened\": \"When the reduction step gets a sparse batch of documents, it measures the total spread of the data across each document instead of across each word or feature. The percentage is the summary's spread divided by that total, so it comes out wrong. The summary itself is computed separately and is correct, which is why the coordinates looked unchanged.\",\n    \"matters\": \"Anyone feeding sparse data, such as text or document batches, gets a misleading quality percentage, which can lead them to pick the wrong number of dimensions or think the model got worse.\",\n    \"fix\": \"Measure the total spread across features for sparse data the same way it is already done for normal data, so both give the same percentage.\"\n  },\n  \"sourceId\": \"S2\"\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 9,
+  "inputTokens": {
+   "avg": 15564.777777777777,
+   "max": 20466
+  },
+  "mainUsage": {
+   "inputTokens": 140083,
+   "cachedInputTokens": 126621,
+   "outputTokens": 7504
+  },
+  "cacheHitPercent": 90.38998308145885,
+  "wallSeconds": 83.73099994659424,
+  "tools": {
+   "read": 1,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 6
+  },
+  "reads": 1,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.24269220000000002,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.24269220000000002
+}

@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 65005,
+ "finalText": "Fixing the Oracle test signature takes one line in the Oracle backend. The reporting alias is being set up as a mirror of the default alias, so it reads the default alias's test schema. I could not run a reproduction. The probe copy has no `asgiref`, so Django wouldn't import. The finding comes from reading the code. I re-checked the report: I tightened the code quotes to single exact lines, named the ruled-out hypothesis, and moved the plain-language fields to the top level.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Oracle test aliases with separate test schemas get merged\",\n  \"cause\": \"Oracle's test_db_signature() identifies a test database by the main settings USER, not by the TEST USER. Two aliases that share a main user but have different TEST USER schemas (default and reporting) get the same signature. get_unique_databases_and_mirrors() then treats them as one database. setup_databases() creates it once, for the default alias, and calls set_as_test_mirror() on the reporting alias. That copies the default alias's test USER and PASSWORD onto it, so reporting reads and writes the default alias's test schema. Both aliases therefore see the same fixtures.\",\n  \"files\": [\n    {\"path\": \"django/db/backends/oracle/creation.py\", \"why\": \"test_db_signature() (line ~456) uses settings_dict[\\\"USER\\\"] instead of the test user, so aliases with different TEST USER values collide.\"},\n    {\"path\": \"django/test/utils.py\", \"why\": \"get_unique_databases_and_mirrors() (line ~346) groups aliases by that signature, and setup_databases() (line ~236) turns the extra aliases into mirrors. It is correct, but it acts on the wrong signature.\"}\n  ],\n  \"plan\": [\n    \"In Oracle's test_db_signature(), replace settings_dict[\\\"USER\\\"] with self._test_database_user(). Aliases with different test schemas then get different signatures and each gets its own test schema.\",\n    \"Aliases with the same main user and no TEST USER set still resolve to the same test user, so they still share one test database. Existing behaviour is kept for them.\",\n    \"Add a unit test in tests/backends/oracle, or in test_utils, that builds two Oracle aliases with the same USER and different TEST USER values. It should assert the signatures differ and that get_unique_databases_and_mirrors() returns two databases.\"\n  ],\n  \"verification\": [\n    \"The new test fails before the change and passes after it.\",\n    \"Run the existing backends and test_utils suites (tests/backends, tests/test_utils and the multi-database tests).\",\n    \"On a real Oracle CI run with default and reporting aliases using different TEST USER values, check that data inserted via default is not visible via reporting.\"\n  ],\n  \"userFacing\": false,\n  \"certainty\": \"likely\",\n  \"effort\": \"low\",\n  \"risk\": \"low\",\n  \"confidence\": 0.8,\n  \"intendedBehavior\": \"Two Oracle aliases configured with different TEST USER schemas each get their own test schema, so rows inserted through one alias are not visible through the other.\",\n  \"intent\": {\n    \"deliberate\": false,\n    \"evidence\": \"Aliases are only meant to share a test database when their signatures match (the same schema) or they are explicitly marked with TEST MIRROR. Configuring separate TEST USER schemas is the opposite of a mirror request. The Oracle signature ignores that setting, which looks like an oversight, not a choice.\"\n  },\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"Oracle's test_db_signature keys on the main USER, not the TEST USER, so aliases with different test schemas get the same signature.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"django/db/backends/oracle/creation.py:463\", \"quote\": \"settings_dict[\\\"USER\\\"],\"}]},\n    {\"id\": \"c2\", \"text\": \"Aliases with equal signatures are grouped, and every alias after the first is set up as a mirror of the first.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"django/test/utils.py:234\", \"quote\": \"# Configure all other connections as mirrors of the first one\"}]},\n    {\"id\": \"c3\", \"text\": \"Oracle's set_as_test_mirror copies the primary alias's USER and PASSWORD onto the mirror, so the reporting alias connects to the default alias's test schema.\", \"role\": \"impact\", \"citations\": [{\"type\": \"code\", \"ref\": \"django/db/backends/oracle/creation.py:156\", \"quote\": \"self.connection.settings_dict[\\\"USER\\\"] = primary_settings_dict[\\\"USER\\\"]\"}]},\n    {\"id\": \"c4\", \"text\": \"The test user is available through _test_database_user(), which reads TEST USER, so it can be used in the signature.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"django/db/backends/oracle/creation.py:401\", \"quote\": \"return self._test_settings_get(\\\"USER\\\", prefixed=\\\"USER\\\")\"}]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"The Oracle test user creation or switching code ignores per-alias TEST USER.\", \"why\": \"_get_test_db_params and _switch_to_test_user read each alias's own TEST settings correctly, so they are not the cause.\", \"citations\": [{\"type\": \"code\", \"ref\": \"django/db/backends/oracle/creation.py:366\", \"quote\": \"\\\"user\\\": self._test_database_user(),\"}]}\n  ],\n  \"fixType\": \"silentFailure\",\n  \"headline\": \"Tests on the reporting Oracle database saw the main database's test data because the two were silently treated as one.\",\n  \"happened\": \"Each database was configured with its own separate test schema. When tests start, the test setup decides which databases are really the same. For Oracle it compared the real account name and ignored the test schema names. It judged the two to be the same database, created one test schema, and pointed the reporting database at it.\",\n  \"matters\": \"Anyone running Oracle test suites with more than one database can get tests that pass or fail because of data from the other database.\",\n  \"fix\": \"Make the Oracle test setup compare the test schema names, so databases with different test schemas each get their own.\"\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 9,
+  "inputTokens": {
+   "avg": 21405.555555555555,
+   "max": 30265
+  },
+  "mainUsage": {
+   "inputTokens": 192650,
+   "cachedInputTokens": 169389,
+   "outputTokens": 6695
+  },
+  "cacheHitPercent": 87.9257721256164,
+  "wallSeconds": 63.9210000038147,
+  "tools": {
+   "read": 8,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 1
+  },
+  "reads": 8,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 2,
+   "readFileIgnoringRange": 2
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.15896929999999998,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.15896929999999998
+}

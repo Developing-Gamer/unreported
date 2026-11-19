@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 89225,
+ "finalText": "I re-checked the report against the request. Everything holds except one quote, which I've changed so it no longer spans two lines.\n\n**Verdict: already fixed (covered).** The user's problem came from Django 1.11, which their docs link points to. On this checkout (Django 3.1 alpha), MySQL, SQLite and Oracle all use each database's own `TIME_ZONE` when filtering by date.\n\n**What the user saw:** Their database stores Paris times and is set to that time zone. Exact datetime filters found their rows, but date filters (like `dt__date`) did not, because 1.11 assumed the stored values were UTC.\n\n**Why it's fixed now:** The date conversion on each backend (MySQL, Oracle and SQLite) starts from the database's own time zone instead of 'UTC'. It does no conversion at all when that zone matches the current one.\n\n**How I checked (in the throwaway copy):**\n- **The user's setup on SQLite:** with both time zones set to 'Europe/Paris', the date filter found the row (`date lookup: True`).\n- **MySQL:** with no MySQL server here, I only checked the SQL it would send. With matching zones there's no conversion; with different zones it converts from the database's zone (`CONVERT_TZ(dt, 'Europe/Paris', 'UTC')`).\n- **Existing tests:** the timezone suite passes (84 tests, 8 skipped), including `test_query_convert_timezones`, which tests this exact case.\n\n**Limits:** This repository's history is a single \"Snapshot\" commit, so I can't name the commit that fixed it here. From upstream Django I believe it's ticket #28373, released in Django 3.0, but I couldn't confirm that in this checkout. Users on older versions should upgrade to Django 3.0 or later.\n\n```json\n{\n  \"verdict\": \"covered\",\n  \"title\": \"Per-database TIME_ZONE ignored in date lookups (fixed)\",\n  \"cause\": \"In Django 1.11 (the version the reporter links), the MySQL, SQLite and Oracle date and extract lookups converted stored datetimes from a hard-coded 'UTC', ignoring DATABASES['...']['TIME_ZONE']. The current code converts from self.connection.timezone_name on all three backends, and skips the conversion when it equals the current time zone, so the reported mismatch no longer happens.\",\n  \"files\": [\n    {\"path\": \"django/db/backends/mysql/operations.py\", \"why\": \"_convert_field_to_tz now uses connection.timezone_name as the source zone for CONVERT_TZ\"},\n    {\"path\": \"django/db/backends/oracle/operations.py\", \"why\": \"_convert_field_to_tz now uses connection.timezone_name in FROM_TZ\"},\n    {\"path\": \"django/db/backends/sqlite3/operations.py\", \"why\": \"_convert_tznames_to_sql passes the connection time zone to the SQL functions\"},\n    {\"path\": \"django/db/backends/sqlite3/base.py\", \"why\": \"_sqlite_datetime_parse treats stored values as being in conn_tzname\"}\n  ],\n  \"plan\": [\"No code change needed; users on Django 1.11 to 2.2 should upgrade to Django 3.0 or later.\"],\n  \"verification\": [\n    \"runtests.py timezones: Ran 84 tests, OK (skipped=8), including test_query_convert_timezones\",\n    \"SQLite repro with USE_TZ=True, TIME_ZONE and DATABASES TIME_ZONE both 'Europe/Paris': dt__date lookup returns True\",\n    \"MySQL ops: same zone gives the bare field; a different zone gives CONVERT_TZ(dt, 'Europe/Paris', 'UTC')\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"none\",\n  \"risk\": \"none\",\n  \"confidence\": 0.9,\n  \"fixedIn\": {\"release\": \"Django 3.0 (upstream ticket #28373; commit not identifiable in this single-snapshot history)\"},\n  \"fixType\": \"silentFailure\",\n  \"intendedBehavior\": \"With USE_TZ=True and DATABASES TIME_ZONE equal to TIME_ZONE, filtering a DateTimeField with __date matches the same rows an exact datetime filter matches, without converting from UTC.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"The hard-coded UTC source zone in 1.11 was an unhandled case; current code and test_query_convert_timezones assert that the connection time zone is used.\"},\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"The reported bug was that the source zone for date conversions ignored the per-database TIME_ZONE; MySQL now uses the connection's time zone and skips the conversion when the zones match.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s5\", \"quote\": \"TIME_ZONE value in DATABASES settings is not used when making dates timezone-aware on MySQL, SQLite, and Oracle.\"},\n      {\"type\": \"code\", \"ref\": \"django/db/backends/mysql/operations.py:83\", \"quote\": \"if settings.USE_TZ and self.connection.timezone_name != tzname:\"},\n      {\"type\": \"code\", \"ref\": \"django/db/backends/mysql/operations.py:86\", \"quote\": \"self.connection.timezone_name,\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"other\", \"text\": \"Oracle now converts from the connection's time zone instead of UTC.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"django/db/backends/oracle/operations.py:123\", \"quote\": \"return \\\"CAST((FROM_TZ(%s, '%s') AT TIME ZONE '%s') AS TIMESTAMP)\\\" % (\"},\n      {\"type\": \"code\", \"ref\": \"django/db/backends/oracle/operations.py:122\", \"quote\": \"if self.connection.timezone_name != tzname:\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"other\", \"text\": \"SQLite now passes the connection time zone to its date functions and treats stored values as being in that zone.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"django/db/backends/sqlite3/operations.py:89\", \"quote\": \"return \\\"'%s'\\\" % tzname, \\\"'%s'\\\" % self.connection.timezone_name\"},\n      {\"type\": \"code\", \"ref\": \"django/db/backends/sqlite3/base.py:417\", \"quote\": \"dt = dt.replace(tzinfo=pytz.timezone(conn_tzname))\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"other\", \"text\": \"A repro of the reporter's setup on SQLite returns the row for the date lookup, and the timezone test suite passes.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:python /tmp/r.py\", \"quote\": \"WHERE django_datetime_cast_date(\\\"x_e\\\".\\\"dt\\\", 'Europe/Paris', 'Europe/Paris') = 2017-07-06\"},\n      {\"type\": \"query\", \"ref\": \"probe:runtests.py timezones\", \"quote\": \"Ran 84 tests in 1.001s\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"The current code still hard-codes UTC as the source zone\", \"why\": \"Every _convert_field_to_tz / _convert_tznames_to_sql uses connection.timezone_name, and the repro returns the expected row.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:python /tmp/r.py\", \"quote\": \"mysql diff tz: CONVERT_TZ(dt, 'Europe/Paris', 'UTC')\"}\n    ]}\n  ],\n  \"plain\": {\n    \"headline\": \"Date filters on databases that store local times missed matching rows in older Django versions, and this version already fixes that.\",\n    \"happened\": \"A user keeps a database whose times are stored in Paris time and told Django so. Filtering by exact time worked, but filtering by date assumed the stored times were in UTC and missed the right rows. The current code uses the database's own time zone on MySQL, SQLite and Oracle, and a test of the user's setup now finds the row.\",\n    \"matters\": \"Anyone on Django before 3.0 with a database that stores non-UTC times gets wrong or empty results from date filters.\",\n    \"fix\": \"No change needed here; affected users should upgrade to Django 3.0 or later.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 8,
+  "inputTokens": {
+   "avg": 17284.875,
+   "max": 23208
+  },
+  "mainUsage": {
+   "inputTokens": 138279,
+   "cachedInputTokens": 122077,
+   "outputTokens": 8797
+  },
+  "cacheHitPercent": 88.28310878730682,
+  "wallSeconds": 88.98800015449524,
+  "tools": {
+   "read": 4,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 4
+  },
+  "reads": 4,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.28134539999999997,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.28134539999999997
+}

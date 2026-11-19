@@ -1,0 +1,150 @@
+diff --git a/CHANGES b/CHANGES
+index bc9dfa335..48ab657d7 100755
+--- a/CHANGES
++++ b/CHANGES
+@@ -66,12 +66,17 @@ Bugs fixed
+ * #8094: texinfo: image files on the different directory with document are not
+   copied
+ * #8671: :confval:`highlight_options` is not working
++* search: Dutch words in uppercase are not stemmed, so they can't be found by
++  searching for their lowercase form
+ * #8341: C, fix intersphinx lookup types for names in declarations.
+ * C, C++: in general fix intersphinx and role lookup types.
+ * #8683: :confval:`html_last_updated_fmt` does not support UTC offset (%z)
+ * #8683: :confval:`html_last_updated_fmt` generates wrong time zone for %Z
+ * #1112: ``download`` role creates duplicated copies when relative path is
+   specified
++* viewcode: module pages are created for epub even if
++  :confval:`viewcode_enable_epub` is False when built after another builder
++  (e.g. ``make html epub``)
+ 
+ Testing
+ --------
+diff --git a/sphinx/builders/gettext.py b/sphinx/builders/gettext.py
+index 60c5036f9..75c95c0bc 100755
+--- a/sphinx/builders/gettext.py
++++ b/sphinx/builders/gettext.py
+@@ -86,7 +86,7 @@ class Catalog:
+         if msg not in self.metadata:  # faster lookup in hash
+             self.messages.append(msg)
+             self.metadata[msg] = []
+-            self.metadata[msg].append((origin.source, origin.line, origin.uid))  # type: ignore
++        self.metadata[msg].append((origin.source, origin.line, origin.uid))  # type: ignore
+ 
+     def __iter__(self) -> Generator[Message, None, None]:
+         for message in self.messages:
+diff --git a/sphinx/ext/viewcode.py b/sphinx/ext/viewcode.py
+index a7d52a91c..c2bcee4f5 100755
+--- a/sphinx/ext/viewcode.py
++++ b/sphinx/ext/viewcode.py
+@@ -182,6 +182,10 @@ def collect_pages(app: Sphinx) -> Generator[Tuple[str, Dict[str, Any], str], Non
+     env = app.builder.env
+     if not hasattr(env, '_viewcode_modules'):
+         return
++    if app.builder.name == "singlehtml":
++        return
++    if app.builder.name.startswith("epub") and not env.config.viewcode_enable_epub:
++        return
+     highlighter = app.builder.highlighter  # type: ignore
+     urito = app.builder.get_relative_uri
+ 
+diff --git a/sphinx/search/nl.py b/sphinx/search/nl.py
+index 5cd47f3f5..f98cdf8ad 100755
+--- a/sphinx/search/nl.py
++++ b/sphinx/search/nl.py
+@@ -136,4 +136,4 @@ class SearchDutch(SearchLanguage):
+         self.stemmer = snowballstemmer.stemmer('dutch')
+ 
+     def stem(self, word: str) -> str:
+-        return self.stemmer.stemWord(word).lower()
++        return self.stemmer.stemWord(word.lower())
+diff --git a/tests/roots/test-gettext-locations/conf.py b/tests/roots/test-gettext-locations/conf.py
+new file mode 100644
+index 000000000..e69de29bb
+diff --git a/tests/roots/test-gettext-locations/index.rst b/tests/roots/test-gettext-locations/index.rst
+new file mode 100644
+index 000000000..d315d431b
+--- /dev/null
++++ b/tests/roots/test-gettext-locations/index.rst
+@@ -0,0 +1,8 @@
++Index
++=====
++
++.. toctree::
++
++   other
++
++A repeated phrase.
+diff --git a/tests/roots/test-gettext-locations/other.rst b/tests/roots/test-gettext-locations/other.rst
+new file mode 100644
+index 000000000..4eed015e5
+--- /dev/null
++++ b/tests/roots/test-gettext-locations/other.rst
+@@ -0,0 +1,4 @@
++Other
++=====
++
++A repeated phrase.
+diff --git a/tests/test_build_gettext.py b/tests/test_build_gettext.py
+index 92ec384b5..bf601b911 100755
+--- a/tests/test_build_gettext.py
++++ b/tests/test_build_gettext.py
+@@ -192,3 +192,15 @@ def test_build_single_pot(app):
+          'msgid "Generated section".*'),
+         result,
+         flags=re.S)
++
++
++@pytest.mark.sphinx('gettext', testroot='gettext-locations',
++                    confoverrides={'gettext_compact': 'catalog'})
++def test_gettext_all_locations_of_repeated_message(app):
++    # a phrase used on several documents lists a location for each of them
++    app.builder.build_all()
++
++    catalog = (app.outdir / 'catalog.pot').read_text()
++    entry = catalog.split('msgid "A repeated phrase."')[0].rsplit('\n\n', 1)[-1]
++    assert '#: ../../index.rst:' in entry
++    assert '#: ../../other.rst:' in entry
+diff --git a/tests/test_ext_viewcode.py b/tests/test_ext_viewcode.py
+index 79864095b..ca1bcae90 100755
+--- a/tests/test_ext_viewcode.py
++++ b/tests/test_ext_viewcode.py
+@@ -13,6 +13,19 @@ import re
+ import pytest
+ 
+ 
++@pytest.mark.sphinx('html', testroot='ext-viewcode')
++def test_viewcode_epub_after_html(app, status, warning, make_app, app_params):
++    # `make html epub` shares the pickled environment between both builders
++    app.builder.build_all()
++    assert (app.outdir / '_modules/spam/mod1.html').exists()
++
++    args, kwargs = app_params
++    epub_app = make_app('epub', srcdir=kwargs['srcdir'])
++    epub_app.builder.build_all()
++    assert not (epub_app.outdir / '_modules').exists()
++    assert 'viewcode' not in (epub_app.outdir / 'content.opf').read_text()
++
++
+ @pytest.mark.sphinx(testroot='ext-viewcode')
+ def test_viewcode(app, status, warning):
+     app.builder.build_all()
+diff --git a/tests/test_search.py b/tests/test_search.py
+index 1ceb6d55b..18d38649f 100755
+--- a/tests/test_search.py
++++ b/tests/test_search.py
+@@ -111,6 +111,14 @@ def test_stemmer(app, status, warning):
+ 
+ 
+ @pytest.mark.sphinx(testroot='search')
++def test_dutch_stemmer_is_case_insensitive():
++    from sphinx.search.nl import SearchDutch
++    lang = SearchDutch({})
++    assert lang.stem('VERWERKING') == lang.stem('verwerking')
++    assert lang.stem('HOOFDSTUKKEN') == lang.stem('hoofdstukken')
++    assert lang.stem('VERWERKING') != 'verwerking'
++
++
+ def test_term_in_heading_and_section(app, status, warning):
+     searchindex = (app.outdir / 'searchindex.js').read_text()
+     # if search term is in the title of one doc and in the text of another

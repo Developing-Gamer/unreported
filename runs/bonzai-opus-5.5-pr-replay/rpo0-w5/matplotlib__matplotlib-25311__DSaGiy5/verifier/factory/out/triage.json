@@ -1,0 +1,42 @@
+[
+  {
+    "source": "S1",
+    "decision": "skip",
+    "reason": "Self-Driving verdict unknown: "
+  },
+  {
+    "source": "S2",
+    "decision": "skip",
+    "reason": "Self-Driving verdict unknown: "
+  },
+  {
+    "source": "S3",
+    "decision": "skip",
+    "reason": "Self-Driving verdict unknown: "
+  },
+  {
+    "source": "S4",
+    "decision": "skip",
+    "reason": "Self-Driving verdict unknown: "
+  },
+  {
+    "source": "S5",
+    "decision": "skip",
+    "reason": "Self-Driving verdict unknown: "
+  },
+  {
+    "source": "S6",
+    "decision": "skip",
+    "reason": "Self-Driving verdict unknown: "
+  },
+  {
+    "source": "S7",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: Figure.__getstate__ stores mpl.__version__ in the pickle and Figure.__setstate__ warns when it differs from the running version. The events show figures pickled with dev build 3.8.0.dev442+g970355a1e5"
+  },
+  {
+    "source": "S8",
+    "decision": "skip",
+    "reason": "Self-Driving verdict unknown: "
+  }
+]

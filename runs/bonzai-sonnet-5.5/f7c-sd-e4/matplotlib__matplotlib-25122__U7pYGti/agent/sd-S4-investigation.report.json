@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 21497,
+ "finalText": "```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Qt 5 chosen over Qt 6 when both are loaded\",\n  \"cause\": \"The binding picker checks for already-imported Qt bindings in the order PyQt6, PyQt5, PySide6, PySide2. Its own docstring and the rest of the Qt code use the order PyQt6, PySide6, PyQt5, PySide2. When PySide6 and PyQt5 are both loaded, PyQt5 wins and the embedded plot uses Qt 5 widgets instead of Qt 6.\",\n  \"files\": [\n    {\"path\": \"lib/matplotlib/backends/qt_compat.py\", \"why\": \"The already-imported check (lines 39-46) tests PyQt5.QtCore before PySide6.QtCore. This contradicts the documented order at lines 5-6.\"}\n  ],\n  \"plan\": [\n    \"In qt_compat.py, reorder the elif chain so PySide6.QtCore is checked right after PyQt6.QtCore and before PyQt5.QtCore, with PySide2 last.\",\n    \"Add a test, in a subprocess, that imports PyQt5.QtCore and then PySide6.QtCore and asserts the selected QT_API is PySide6.\",\n    \"Add a test, in a subprocess, that imports both PySide6 and PyQt5 plus PySide2 and asserts PySide6 still wins.\"\n  ],\n  \"verification\": [\n    \"Run the new test in a subprocess with both PySide6 and PyQt5 imported, and confirm QT_API is 'PySide6'.\",\n    \"Run lib/matplotlib/tests/test_backends_interactive.py and the Qt backend tests.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"likely\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.85,\n  \"deliberate\": false,\n  \"intent\": \"The docstring documents the order PyQt6, PySide6, PyQt5, PySide2. The code does not follow it, and nothing in the repository records a decision to put PyQt5 ahead of PySide6.\",\n  \"fixType\": \"error\",\n  \"intendedBehavior\": \"When PySide6 and PyQt5 are both already imported and PyQt6 is not, matplotlib's Qt backends use PySide6.\",\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"The already-imported check tests PyQt5 before PySide6.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"lib/matplotlib/backends/qt_compat.py:41\", \"quote\": \"elif sys.modules.get(\\\"PyQt5.QtCore\\\"):\"}]},\n    {\"id\": \"c2\", \"text\": \"The docstring documents the order PyQt6, PySide6, PyQt5, PySide2.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"lib/matplotlib/backends/qt_compat.py:5\", \"quote\": \"- if any of PyQt6, PySide6, PyQt5, or PySide2 have already been\"}]}\n  ],\n  \"ruledOut\": [],\n  \"plain\": {\n    \"headline\": \"Embedded plots used the older Qt 5 toolkit instead of Qt 6 when both were already loaded.\",\n    \"happened\": \"When an app has both the Qt 6 (PySide6) and Qt 5 (PyQt5) toolkits loaded, matplotlib picks one by looking at them in a fixed order. That order checks Qt 5 before PySide6, which contradicts what the code's own documentation says. So plots in those apps use Qt 5 widgets.\",\n    \"matters\": \"It affects desktop apps that load both Qt 6 and Qt 5 toolkits and embed plots.\",\n    \"fix\": \"Check for the Qt 6 toolkit (PySide6) before Qt 5, as documented, and add a test for it.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 4,
+  "inputTokens": {
+   "avg": 13338,
+   "max": 15110
+  },
+  "mainUsage": {
+   "inputTokens": 53352,
+   "cachedInputTokens": 45256,
+   "outputTokens": 1953
+  },
+  "cacheHitPercent": 84.82531114110061,
+  "wallSeconds": 17.70300006866455,
+  "tools": {
+   "read": 5,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 0
+  },
+  "reads": 5,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.0488162,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.0488162
+}

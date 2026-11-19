@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 76477,
+ "finalText": "**Verdict: fixable.** The bug is in this repository's code. When a parametrized test gets a `bytes` value containing the DEL byte (0x7F), pytest puts the raw, invisible DEL character into the test ID. Every other control byte comes out as escape text like `\\x01`. That is what the reporter described.\n\n**Cause.** In `src/_pytest/compat.py:202-204`, the table of characters to escape is built with `range(128) if i not in range(32, 128)`. That only covers codes 0\u201331, so code 127 counts as \"printable\" and is let through unchanged. The comment on `ascii_escaped` says bytes become escaped bytes, so this is a gap, not a design choice.\n\nOnly `bytes` values are affected. For `bytes`, the decode step (`\"ascii\", \"backslashreplace\"`) only escapes non-ASCII bytes, so DEL survives and depends on that table. Strings go through `unicode_escape`, which already escapes it.\n\n**What I ran (probe):**\n- `ascii_escaped(b'a\\x7fb')` returned the raw DEL character. For comparison, `b'\\x1f'` came back as `\\x1f` and the string `'a\\x7fb'` came back as `a\\x7fb`, both correctly escaped.\n- Collecting a test parametrized with `[b\"a\\x7fb\", b\"a\\x01b\"]` printed:\n  - `test_v[a^?b]`, with a raw DEL that is invisible in a normal terminal\n  - `test_v[a\\x01b]`, escaped as expected\n- No existing test covers `ascii_escaped` or `\\x7f`. I couldn't run `testing/python/metafunc.py` because `hypothesis` isn't installed in the probe copy.\n- The repository history is a single snapshot commit, so I couldn't tell when this changed. Upstream pytest uses `range(32, 127)`.\n\n**Fix.** Change the range to `range(32, 127)` so DEL becomes `\\x7f`. Add a test that `ascii_escaped(b\"a\\x7fb\")` returns `a\\x7fb` as escape text, and one checking the ID of a test parametrized with `b\"a\\x7fb\"`.\n\n**Plain summary**\n- **Headline:** Some test names show an invisible character instead of readable escape text, so pasting them into a rerun command doesn't reliably work.\n- **What happened:** When a test is fed raw byte data, pytest turns that data into a readable name. One special byte, \"delete\", is missing from the list of characters it rewrites as visible text, so it lands in the name as-is.\n- **Why it matters:** Anyone whose test data contains that byte gets a test name they can't see properly or copy into a command to rerun that one test.\n- **Fix:** Add the \"delete\" byte to the characters that get rewritten as visible text, and add a test that checks it.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Byte test IDs keep the invisible DEL character\",\n  \"cause\": \"The table of characters to escape in src/_pytest/compat.py is built from range(128) minus range(32, 128), so it only escapes codes 0-31 and leaves DEL (0x7F) out. For bytes values, ascii_escaped decodes with 'backslashreplace', which only escapes non-ASCII bytes, so the DEL byte reaches the test ID as a raw invisible character instead of the text \\\\x7f. String values are not affected because unicode_escape already escapes DEL.\",\n  \"files\": [\n    {\"path\": \"src/_pytest/compat.py\", \"why\": \"_non_printable_ascii_translate_table uses range(32, 128) instead of range(32, 127), so DEL is never escaped\"},\n    {\"path\": \"src/_pytest/python.py\", \"why\": \"_ascii_escaped_by_config sends bytes parametrize values through ascii_escaped to build test IDs\"},\n    {\"path\": \"testing/test_compat.py\", \"why\": \"no test covers ascii_escaped; add one for b'\\\\x7f'\"}\n  ],\n  \"plan\": [\n    \"In src/_pytest/compat.py change the comprehension to `for i in range(128) if i not in range(32, 127)` so DEL (127) is escaped as \\\\x7f.\",\n    \"Add a unit test asserting ascii_escaped(b'a\\\\x7fb') == 'a\\\\\\\\x7fb' and that the existing control-byte cases still work.\",\n    \"Add a metafunc/ID test checking that a test parametrized with b'a\\\\x7fb' gets the ID test_v[a\\\\x7fb].\"\n  ],\n  \"verification\": [\n    \"python -c \\\"from _pytest.compat import ascii_escaped; assert ascii_escaped(b'a\\\\x7fb') == 'a\\\\\\\\x7fb'\\\"\",\n    \"pytest --collect-only -q on a test parametrized with [b'a\\\\x7fb'] prints test_v[a\\\\x7fb] with no raw DEL character\",\n    \"pytest testing/test_compat.py testing/python/metafunc.py\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.93,\n  \"fixType\": \"error\",\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"The escape table only covers codes below 32 because the excluded range runs to 128, so DEL (127) is never escaped.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"src/_pytest/compat.py:203\", \"quote\": \"i: f\\\"\\\\\\\\x{i:02x}\\\" for i in range(128) if i not in range(32, 128)\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"rootCause\", \"text\": \"Bytes are decoded as ASCII with backslashreplace, which leaves the ASCII DEL byte as is, so only the faulty table could have escaped it.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"src/_pytest/compat.py:218\", \"quote\": \"return val.decode(\\\"ascii\\\", \\\"backslashreplace\\\")\"},\n      {\"type\": \"code\", \"ref\": \"src/_pytest/compat.py:242\", \"quote\": \"return _translate_non_printable(ret)\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"impact\", \"text\": \"Bytes parametrize values are turned into test IDs through ascii_escaped, so the raw DEL ends up in IDs that people copy into rerun commands.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"src/_pytest/python.py:1522\", \"quote\": \"return val if escape_option else ascii_escaped(val)  # type: ignore\"},\n      {\"type\": \"evidence\", \"ref\": \"ev_s4\", \"quote\": \"A few byte-valued test IDs now contain an invisible character instead of the usual escape text\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"other\", \"text\": \"The function's own docstring promises escaped bytes for any byte, so leaving DEL raw is outside its contract.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"src/_pytest/compat.py:235\", \"quote\": \"want to return escaped bytes for any byte, even if they match\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"String (non-bytes) parametrize values are affected too\", \"why\": \"In a probe, ascii_escaped('a\\\\x7fb') returned 'a\\\\\\\\x7fb' (escaped), because unicode_escape already escapes DEL; only bytes go through the faulty path.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"src/_pytest/compat.py:241\", \"quote\": \"ret = val.encode(\\\"unicode_escape\\\").decode(\\\"ascii\\\")\"}\n    ]},\n    {\"hypothesis\": \"Other control bytes (0x00-0x1F) are also left raw\", \"why\": \"In probes, b'\\\\x1f' became '\\\\\\\\x1f' and the ID for b'a\\\\x01b' was test_v[a\\\\x01b]; only 0x7F is missed.\", \"citations\": []}\n  ],\n  \"intendedBehavior\": \"A test parametrized with b'a\\\\x7fb' gets the ID test_v[a\\\\x7fb], made only of printable ASCII characters.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"The ascii_escaped docstring says it returns escaped bytes for any byte, and the table is meant to escape non-printable ASCII; DEL is non-printable. No test or changelog entry says DEL should stay raw, and upstream pytest uses range(32, 127).\"},\n  \"plain\": {\n    \"headline\": \"Some test names show an invisible character instead of readable escape text, so pasting them into a rerun command doesn't reliably work.\",\n    \"happened\": \"When a test is fed raw byte data, pytest turns that data into a readable name. One special byte, \\\"delete\\\", is missing from the list of characters it rewrites as visible text, so it lands in the name as-is.\",\n    \"matters\": \"Anyone whose test data contains that byte gets a test name they can't see properly or copy into a command to rerun that one test.\",\n    \"fix\": \"Add the \\\"delete\\\" byte to the characters that get rewritten as visible text, and add a test that checks it.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 8,
+  "inputTokens": {
+   "avg": 14233.875,
+   "max": 17874
+  },
+  "mainUsage": {
+   "inputTokens": 113871,
+   "cachedInputTokens": 103003,
+   "outputTokens": 7441
+  },
+  "cacheHitPercent": 90.45586672638336,
+  "wallSeconds": 75.27300000190735,
+  "tools": {
+   "read": 4,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 3
+  },
+  "reads": 4,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.22374059999999996,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.22374059999999996
+}

@@ -1,0 +1,9 @@
+[
+{"source":"S1","decision":"skip","reason":"An OOMKilled export worker pod in a service (export/worker.py, csv_writer.py) that does not exist in this matplotlib repository."},
+{"source":"S2","decision":"skip","reason":"Already fixed in this checkout: dates._wrap_in_tex converts spaces to a tex space so usetex datetime tick labels keep their spacing."},
+{"source":"S3","decision":"fix","reason":"Axis labels ignored the axes.labelsize/labelcolor/labelweight rcParams (Axis.clear reset them to text defaults), while explicitly passed values still worked."},
+{"source":"S4","decision":"fix","reason":"qt_compat checked already-imported PyQt5 before PySide6, so with both loaded the Qt5 binding won instead of Qt6."},
+{"source":"S5","decision":"fix","reason":"mlab._spectral_helper scaled the non-scale_by_freq PSD by np.abs(window).sum()**2, which is wrong for windows with negative values such as flattop."},
+{"source":"S6","decision":"skip","reason":"Already fixed: AnnotationBbox.draw passes its gid to renderer.open_group, and the gid appears in the saved SVG."},
+{"source":"S7","decision":"skip","reason":"Visual difference is from pcolormesh rendering/snapping, not hist2d logic, and the pcolormesh.snap rcParam already exists here; nothing actionable."}
+]

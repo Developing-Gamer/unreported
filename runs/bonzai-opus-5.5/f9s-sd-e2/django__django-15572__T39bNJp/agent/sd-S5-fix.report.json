@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 46229,
+ "finalText": "The fix is in and verified. `utils_tests.test_tree` and `queries.test_q` pass (37 tests), as does the wider run of `utils_tests.test_tree`, `queries` and `expressions` (641 tests). The PR description is at `/testbed/.factory/pr-S5.md`.\n\n`Q(is_active=True) & (Q(email=True) | Q(sms=True))` now keeps its OR group instead of merging it into the AND, so customers with only email or only SMS enabled show up again. The cause was in `Node.add` in `django/utils/tree.py`. It merged the incoming node into its parent when the parent had one child (`len(self) == 1`). It now merges when the incoming node has one child (`len(data) == 1`).\n\nI added two tests to `tests/utils_tests/test_tree.py`. One checks that a multi-child OR group added to an AND node is kept; it failed on the starting code, giving `(AND: ('a', 1), ('b', 1), ('c', 1))` instead of the nested OR group. The other checks that a single-child group is still merged.\n\nThe working tree also has uncommitted edits in `django/db/backends/oracle/creation.py`, `django/template/autoreload.py`, `tests/backends/oracle/test_creation.py` and `tests/template_tests/test_autoreloader.py`. I did not make them. They match open PRs #1000 and #1001, so I left them alone. My change is only `django/utils/tree.py` and `tests/utils_tests/test_tree.py`.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"checks\": [\n    {\"command\": \"cd tests && PYTHONPATH=/testbed python runtests.py --parallel 1 utils_tests.test_tree queries expressions\", \"passed\": true},\n    {\"command\": \"cd tests && PYTHONPATH=/testbed python runtests.py --parallel 1 utils_tests.test_tree\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"reproductionSteps\": [\n    \"Build Q(a=1) & (Q(b=1) | Q(c=1)) and print it; before the fix it is (AND: a, b, c) with the OR group lost; after, (AND: ('a', 1), (OR: ('b', 1), ('c', 1)))\"\n  ],\n  \"reproductionTest\": {\n    \"path\": \"tests/utils_tests/test_tree.py\",\n    \"command\": \"cd tests && PYTHONPATH=/testbed python runtests.py --parallel 1 utils_tests.test_tree\",\n    \"signature\": \"AssertionError: \\\"(AND: ('a', 1), ('b', 1), ('c', 1))\\\" != \\\"(AND: ('a', 1), (OR: ('b', 1), ('c', 1)))\\\"\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 11,
+  "inputTokens": {
+   "avg": 23755.636363636364,
+   "max": 27638
+  },
+  "mainUsage": {
+   "inputTokens": 261312,
+   "cachedInputTokens": 247564,
+   "outputTokens": 5340
+  },
+  "cacheHitPercent": 94.7388562331619,
+  "wallSeconds": 45.23300004005432,
+  "tools": {
+   "read": 5,
+   "edit": 5,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 5
+  },
+  "reads": 5,
+  "edits": 5,
+  "runs": 5,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 4,
+  "editOperations": 5,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1372698,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1372698
+}

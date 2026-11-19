@@ -1,0 +1,42 @@
+[
+  {
+    "source": "S1",
+    "decision": "fix",
+    "reason": "MessageIdStore.add_legacy_msgid_and_symbol stores the old-name mapping with `self.__old_names[msgid] = [new_msgid]`, overwriting instead of appending. When several new messages share one old name (e.g"
+  },
+  {
+    "source": "S2",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: The report came from a pylint version before 2.9.0, when pyreverse ignored PEP 484 annotations. Pylint 2.9.0 added annotation support (ChangeLog: 'Add type annotations to pyreverse dot files \u2013 Closes "
+  },
+  {
+    "source": "S3",
+    "decision": "skip",
+    "reason": "Self-Driving verdict outsideCode: astroid (the separate library pylint relies on to work out what names refer to) records names brought in by a package's `from .x import *` from the imported module's public names, ignoring that module"
+  },
+  {
+    "source": "S4",
+    "decision": "fix",
+    "reason": "The short flag -v for --verbose is skipped by the early option step, which only looks at arguments starting with '--' and lists only '--verbose'. It then reaches argparse, where the verbose option is "
+  },
+  {
+    "source": "S5",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: In pylint 2.8.3 the variables checker skipped dotted names (e.g. `abc.ABC`) in `# type:` comments when collecting names used in type comments, so the `abc` import counted as unused. The current `_stor"
+  },
+  {
+    "source": "S6",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The error comes from the `webhook-relay` service: its relay/deliver.py post_webhook uses aiohttp to send webhook 8812 to api.github.com and gave up after 30 seconds without an answer. This repository "
+  },
+  {
+    "source": "S7",
+    "decision": "fix",
+    "reason": "Verbose mode is applied by a pre-parse step whose table only contains the long spelling `--verbose`, and the loop skips every argument not starting with `--`, so `-v` is never pre-processed. `-v` then"
+  },
+  {
+    "source": "S8",
+    "decision": "fix",
+    "reason": "OptionsProviderMixIn.options_and_values falls back to all options with `if not options:`, so an explicitly empty selection ([]) is treated like no argument and every setting is returned. The replaceme"
+  }
+]

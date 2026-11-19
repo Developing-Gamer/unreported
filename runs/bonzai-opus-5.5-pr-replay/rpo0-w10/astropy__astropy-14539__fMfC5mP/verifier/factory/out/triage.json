@@ -1,0 +1,37 @@
+[
+  {
+    "source": "S1",
+    "decision": "skip",
+    "reason": "Self-Driving verdict unknown: "
+  },
+  {
+    "source": "S2",
+    "decision": "fix",
+    "reason": "TableDataDiff._diff only routes variable-length array columns to the per-row np.allclose comparison when the format contains 'P'. Columns in the 64-bit-descriptor 'Q' form (e.g. 'QD(2)') fall through "
+  },
+  {
+    "source": "S3",
+    "decision": "skip",
+    "reason": "Self-Driving verdict unknown: "
+  },
+  {
+    "source": "S4",
+    "decision": "skip",
+    "reason": "Self-Driving verdict unknown: "
+  },
+  {
+    "source": "S5",
+    "decision": "skip",
+    "reason": "Self-Driving verdict unknown: "
+  },
+  {
+    "source": "S6",
+    "decision": "skip",
+    "reason": "Self-Driving verdict unknown: "
+  },
+  {
+    "source": "S7",
+    "decision": "skip",
+    "reason": "Self-Driving verdict unknown: "
+  }
+]

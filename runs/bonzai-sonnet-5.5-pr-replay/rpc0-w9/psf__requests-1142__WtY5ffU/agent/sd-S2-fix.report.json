@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 102010,
+ "finalText": "The `strict` `TypeError` is fixed for Python 3.4 and later, and I re-checked it just now: the changes are uncommitted in the working tree and `.factory/pr-S2.md` exists. The new test fails before the fix and passes after it.\n\nThe bundled urllib3 passed `strict=` to `HTTPConnection`, `HTTPSConnection` and `VerifiedHTTPSConnection`, and Python 3.4 removed that parameter. I added `_connection_kwargs()` to the HTTP pool in `requests/packages/urllib3/connectionpool.py`. It returns `strict` only on Python older than 3.4, and all three call sites use it. I also added 3.4 to `.travis.yml`.\n\n**Reproduction and result:** `test_new_connection_without_strict_support` in `test_requests.py` builds an HTTP and an HTTPS connection with no network call. On the base commit it failed with `TypeError: __init__() got an unexpected keyword argument 'strict'` at `connectionpool.py:196`. It now passes.\n\n**Other checks:** I ran the full `test_requests.py` on Python 3.9, the oldest interpreter here that lacks `strict`. It gave 24 passed and 3 failed.\n- **Cookie code:** `test_DIGESTAUTH_WRONG_HTTP_401_GET` and `test_DIGEST_HTTP_200_OK_GET` fail because `MockRequest` has no `origin_req_host`.\n- **SSL:** `test_links` fails on a certificate-verify error.\n- **httpbin:** one assertion shows a 429 (`429 != 200`), which looks like rate limiting.\n\nI did not run the suite on Python 2.7. I also did not run the 3 failing tests separately on the base commit. The base run of the full file had 21 failures, so I am assuming those 3 were among them. The `alsoOnBase` flag below rests on that assumption.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"name\": \"python -m pytest test_requests.py -k new_connection\", \"passed\": true},\n    {\"name\": \"python -m pytest test_requests.py\", \"passed\": false, \"alsoOnBase\": true, \"note\": \"3 unrelated failures on py3.9 (cookie MockRequest.origin_req_host, httpbin 429, SSL cert verify)\"}\n  ],\n  \"visual\": false,\n  \"reproductionSteps\": \"On Python >=3.4 run: from requests.packages.urllib3.connectionpool import HTTPConnectionPool; HTTPConnectionPool('localhost')._new_conn() -> TypeError: __init__() got an unexpected keyword argument 'strict'\",\n  \"reproductionTest\": {\n    \"path\": \"test_requests.py\",\n    \"command\": \"cd /testbed && /opt/miniconda3/envs/testbed/bin/python -m pytest test_requests.py -k new_connection\",\n    \"signature\": \"TypeError: __init__() got an unexpected keyword argument 'strict'\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 17,
+  "inputTokens": {
+   "avg": 23933.882352941175,
+   "max": 30201
+  },
+  "mainUsage": {
+   "inputTokens": 406876,
+   "cachedInputTokens": 390553,
+   "outputTokens": 6312
+  },
+  "cacheHitPercent": 95.98821262497665,
+  "wallSeconds": 99.99199986457825,
+  "tools": {
+   "read": 6,
+   "edit": 3,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 1,
+   "subagent": 0,
+   "other": 7
+  },
+  "reads": 6,
+  "edits": 3,
+  "runs": 7,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 2,
+   "readFileIgnoringRange": 2
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 1,
+  "editOperations": 1,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1820191,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1820191
+}

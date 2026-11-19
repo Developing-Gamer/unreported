@@ -1,0 +1,32 @@
+[
+  {
+    "source": "S1",
+    "decision": "fix",
+    "reason": "pyreverse's run() passes `self.config.ignore_list or (\"CVS\",)` to project_from_files. An explicit empty exclusion list (`--ignore=`) is parsed as [], which is falsy, so it silently falls back to exclu"
+  },
+  {
+    "source": "S2",
+    "decision": "fix",
+    "reason": "The upstream test for pylint issue #4603 imports IS_PYPY from pylint.constants, but this 2.9.0-dev1 checkout does not define it, so pytest fails while importing that test file. The behaviour that test"
+  },
+  {
+    "source": "S3",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The OOMKill happens in the export-job service, in export/worker.py (run) and export/csv_writer.py (flush). Neither file nor anything like them exists in this repository, which is the pylint static-ana"
+  },
+  {
+    "source": "S4",
+    "decision": "fix",
+    "reason": "NotChecker.visit_unaryop is meant to skip set/frozenset comparisons because `not a <= b` is not `a > b` for sets, but its type loop only inspects the left operand (`for _type in (utils.node_type(left)"
+  },
+  {
+    "source": "S5",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: Pylint 2.5 removed the 'fstr' value of the logging-format-style option on purpose. Whether f-strings are allowed in logging calls is now set by turning the logging-fstring-interpolation message on or "
+  },
+  {
+    "source": "S6",
+    "decision": "skip",
+    "reason": "Self-Driving fix found it already covered or could not fix it."
+  }
+]

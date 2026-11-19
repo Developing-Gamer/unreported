@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 41162,
+ "finalText": "Autosummary now searches `templates_path` in the order you list it, so the first directory wins when two hold a same-named template. The change is uncommitted in the working tree. I wrote the PR text to `.factory/pr-S5.md`.\n\n- **Cause:** `SphinxTemplateLoader.__init__` in `sphinx/util/template.py` inserted each `templates_path` entry at the front of its search list. That reversed their precedence, so the last directory won, unlike the HTML builder. Generated module and class pages could pick up an old template while other pages used the current one. The investigation's cause was right. I changed `insert(0, loader)` to `append(loader)`, and system templates stay last.\n- **Test:** `test_SphinxTemplateLoader_precedence` in `tests/test_util_template.py` builds two directories with a same-named `module.rst`. With the fix reverted it fails with `AssertionError: assert 'from second' == 'from first'`. With the fix it passes. It tests the loader directly; I did not add an `AutosummaryRenderer` test, which the investigation's plan had suggested.\n- **Checks:** `tests/test_util_template.py`, `tests/test_ext_autosummary.py` and `tests/test_templating.py` run together give 29 passed. I did not run `tests/test_build_html.py`.\n- **`CHANGES`:** I added an entry for this fix. The working tree also holds uncommitted edits for the unrelated open PR #1000 (Enum defaults), so the diff shows both.\n- **`-t` option:** The autosummary command-line `-t` option appends its directory to `templates_path`. That directory used to have the highest priority and now has the lowest of the user directories. I left that as is.\n\n```json\n{\"kind\":\"fix\",\"outcome\":\"ready\",\"pullRequest\":null,\"checks\":[{\"command\":\"python -m pytest tests/test_util_template.py tests/test_ext_autosummary.py tests/test_templating.py -q\",\"passed\":true}],\"visual\":false,\"reproductionSteps\":\"Create two template dirs each containing module.rst; build SphinxTemplateLoader(confdir, ['first','second'], []) and call get_source('module.rst'): it returned the second directory's content instead of the first.\",\"reproductionTest\":{\"path\":\"tests/test_util_template.py\",\"command\":\"python -m pytest tests/test_util_template.py -q\",\"signature\":\"AssertionError: assert 'from second' == 'from first'\"}}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 12,
+  "inputTokens": {
+   "avg": 22796.833333333332,
+   "max": 26083
+  },
+  "mainUsage": {
+   "inputTokens": 273562,
+   "cachedInputTokens": 261367,
+   "outputTokens": 4002
+  },
+  "cacheHitPercent": 95.54214401122962,
+  "wallSeconds": 39.99199986457825,
+  "tools": {
+   "read": 5,
+   "edit": 4,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 2
+  },
+  "reads": 5,
+  "edits": 4,
+  "runs": 2,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.12276690000000001,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.12276690000000001
+}

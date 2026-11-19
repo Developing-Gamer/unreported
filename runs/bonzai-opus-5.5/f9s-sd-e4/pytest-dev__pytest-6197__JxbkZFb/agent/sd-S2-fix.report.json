@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 49528,
+ "finalText": "`Node.add_marker(..., append=False)` now inserts the mark at position 0, as its docstring says. A plugin-added `skip` mark now comes before an existing one, so its reason is the one reported. The fix is the one-line change in `src/_pytest/nodes.py` (`insert(1, ...)` \u2192 `insert(0, ...)`).\n\nI reproduced the bug first with a new test, `test_add_marker_insert_first_overrides_existing_skip_reason` in `testing/test_skipping.py`. A test has `@pytest.mark.skip(reason=\"a\")` and a conftest adds `skip(reason=\"b\")` with `append=False`. Before the fix the run reported `a`; after it, `b`. After a final whitespace cleanup, `testing/test_skipping.py` passes in full (76 passed). The earlier run of that file together with `testing/test_mark.py` gave 150 passed and 1 xfailed.\n\nI added `changelog/6211.bugfix.rst`; the number 6211 is a placeholder, so rename it to the real issue or PR number. The PR text is in `.factory/pr-S2.md`, and nothing is committed.\n\nThe working tree already had unrelated uncommitted changes from before this turn, which I left alone. They are in `src/_pytest/python.py`, `testing/test_collection.py`, the removal of `test_skip_package` from `testing/test_skipping.py`, and `changelog/6194.bugfix.rst`. They look like the open PR #1000 work, so keep them out of the commit for this fix.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest testing/test_skipping.py testing/test_mark.py -q\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"reproduction\": \"Create a test with @pytest.mark.skip(reason='a') and a conftest pytest_collection_modifyitems hook that calls item.add_marker(pytest.mark.skip(reason='b'), append=False); run pytest -rs. Before the fix, reason 'a' is shown; after, 'b'.\",\n  \"reproductionTest\": {\n    \"path\": \"testing/test_skipping.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest testing/test_skipping.py -k insert_first -q\",\n    \"signature\": \"testing/test_skipping.py:1190: Failed (SKIPPED [1] ...: a instead of b)\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 13,
+  "inputTokens": {
+   "avg": 23326.846153846152,
+   "max": 27094
+  },
+  "mainUsage": {
+   "inputTokens": 303249,
+   "cachedInputTokens": 290041,
+   "outputTokens": 4551
+  },
+  "cacheHitPercent": 95.6445033619237,
+  "wallSeconds": 48.468000173568726,
+  "tools": {
+   "read": 10,
+   "edit": 4,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 2
+  },
+  "reads": 10,
+  "edits": 4,
+  "runs": 2,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 2,
+  "editOperations": 2,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1365232,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1365232
+}

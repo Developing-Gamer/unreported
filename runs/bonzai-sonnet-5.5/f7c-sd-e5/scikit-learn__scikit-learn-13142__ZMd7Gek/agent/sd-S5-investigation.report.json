@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 58471,
+ "finalText": "The reported behaviour is intended, but I found a related bug in the same code, so the verdict is fixable. I only read the code: the probe copy of scikit-learn isn't built, so nothing was run.\n\nThe report says `get_feature_names` doesn't raise `NotFittedError` when a vocabulary is passed to the constructor. That is deliberate. Both `transform` and `get_feature_names` build `vocabulary_` from the constructor argument when it is missing. The `transform` docstring says it uses \"the one provided to the constructor\". A test at `test_text.py:573-576` asserts that `get_feature_names` works unfitted when a vocabulary is given.\n\n`inverse_transform` is inconsistent with that. It calls `_check_vocabulary()` directly and never builds `vocabulary_`. So `CountVectorizer(vocabulary=[...]).inverse_transform(X)` raises `NotFittedError`, while `transform` and `get_feature_names` work on the same unfitted object. No test covers this.\n\nThe fix is to move the \"build `vocabulary_` from the constructor argument\" step into `_check_vocabulary()`. That one change covers all three methods.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"inverse_transform ignores a vocabulary given up front\",\n  \"cause\": \"Passing a vocabulary to the constructor deliberately lets transform and get_feature_names work without fit, because they call _validate_vocabulary() when vocabulary_ is missing. That is what the report describes, and it is tested at test_text.py:573-576. inverse_transform skips that step and calls _check_vocabulary() directly, so it raises NotFittedError on the same unfitted vectorizer. The check lives in each method instead of in one shared place. Not run: the probe checkout isn't built.\",\n  \"files\": [\n    {\"path\": \"sklearn/feature_extraction/text.py\", \"why\": \"_check_vocabulary (line 361) should call _validate_vocabulary() when vocabulary_ is missing and raise NotFittedError only if no vocabulary was given. transform (1077), get_feature_names (1120) and inverse_transform (1100) then all go through it.\"},\n    {\"path\": \"sklearn/feature_extraction/tests/test_text.py\", \"why\": \"Add a test that inverse_transform works on an unfitted CountVectorizer and TfidfVectorizer built with vocabulary=..., and that every method still raises NotFittedError when no vocabulary is given.\"}\n  ],\n  \"plan\": [\n    \"In _check_vocabulary, if vocabulary_ is not set, call self._validate_vocabulary(); if fixed_vocabulary_ is still False, raise NotFittedError with the existing message.\",\n    \"Remove the duplicated hasattr/_validate_vocabulary blocks from transform and get_feature_names.\",\n    \"Add tests for inverse_transform with a constructor vocabulary and without fit, and for NotFittedError when there is no vocabulary.\"\n  ],\n  \"verification\": [\n    \"Run pytest sklearn/feature_extraction/tests/test_text.py\",\n    \"Check that CountVectorizer(vocabulary=['a','b']).inverse_transform(X) returns terms without fitting\",\n    \"Check that CountVectorizer().get_feature_names() and .inverse_transform(X) still raise NotFittedError\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"likely\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.6,\n  \"fixType\": \"error\",\n  \"intendedBehavior\": \"With a vocabulary passed to the constructor, an unfitted CountVectorizer's transform, inverse_transform and get_feature_names all work. Without a vocabulary, all three raise NotFittedError.\",\n  \"intent\": {\n    \"deliberate\": true,\n    \"evidence\": \"get_feature_names working with a constructor vocabulary is deliberate: the transform docstring says it uses the vocabulary provided to the constructor, and test_text.py:573-576 asserts it. The inverse_transform gap was not chosen by anyone.\"\n  },\n  \"plain\": {\n    \"headline\": \"The text-counting tool works without training when given a word list, except when turning counts back into words.\",\n    \"happened\": \"When someone gives the tool a fixed word list, it can count words and list its feature names without being trained first. That is intended. Turning counts back into words does not follow the same rule and reports that the tool wasn't trained.\",\n    \"matters\": \"Anyone who supplies their own word list and reverses counts into words hits a confusing error.\",\n    \"fix\": \"Make all three operations share one check that accepts a supplied word list, and add a test for the reverse step.\"\n  },\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"get_feature_names builds vocabulary_ from the constructor argument when it is missing, so it works unfitted when a vocabulary is given. This is the behaviour in the report.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"sklearn/feature_extraction/text.py:1120\", \"quote\": \"if not hasattr(self, 'vocabulary_'):\\n            self._validate_vocabulary()\"}]},\n    {\"id\": \"c2\", \"text\": \"inverse_transform calls _check_vocabulary without first building vocabulary_ from the constructor argument, so it raises NotFittedError where transform and get_feature_names work.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"sklearn/feature_extraction/text.py:1100\", \"quote\": \"self._check_vocabulary()\\n\\n        if sp.issparse(X):\"}, {\"type\": \"code\", \"ref\": \"sklearn/feature_extraction/text.py:364\", \"quote\": \"check_is_fitted(self, 'vocabulary_', msg=msg),\"}]},\n    {\"id\": \"c3\", \"text\": \"A test asserts that get_feature_names works with a constructor vocabulary and no fit, so the reported behaviour is intended.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"sklearn/feature_extraction/tests/test_text.py:573\", \"quote\": \"cv = CountVectorizer(vocabulary=vocab)\\n    feature_names = cv.get_feature_names()\"}]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"get_feature_names should raise NotFittedError when a vocabulary is given\", \"why\": \"It not raising is intended: the transform docstring and a test document it.\", \"citations\": [{\"type\": \"code\", \"ref\": \"sklearn/feature_extraction/text.py:1059\", \"quote\": \"vocabulary fitted with fit or the one provided to the constructor.\"}]}\n  ]\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 9,
+  "inputTokens": {
+   "avg": 15742.555555555555,
+   "max": 22347
+  },
+  "mainUsage": {
+   "inputTokens": 141683,
+   "cachedInputTokens": 126340,
+   "outputTokens": 7884
+  },
+  "cacheHitPercent": 89.17089559086129,
+  "wallSeconds": 58.08999991416931,
+  "tools": {
+   "read": 7,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 1
+  },
+  "reads": 7,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 2,
+   "readFile": 2,
+   "shell": 0,
+   "sameFile": 4,
+   "readFileIgnoringRange": 4
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1424545,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1424545
+}

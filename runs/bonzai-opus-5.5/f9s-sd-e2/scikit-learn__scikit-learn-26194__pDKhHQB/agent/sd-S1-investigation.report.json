@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 91104,
+ "finalText": "I re-checked the report against the request. Every quoted line matches the file it cites. The verdict is **covered**: the current code already fixes this issue, and the fix arrived in scikit-learn 0.20.0.\n\n**What the user saw:** they built a `CountVectorizer` with a fixed `vocabulary=` list and asked for its feature names without calling `fit`. They got `NotFittedError`, even though `transform` worked on the same object, because only `transform` set up the given vocabulary first.\n\n**Why it no longer happens:**\n- The vocabulary check now sets up a vocabulary passed to the constructor before it decides the object is unfitted (`sklearn/feature_extraction/text.py:505-510`). It only raises `NotFittedError` when no vocabulary was given.\n- `get_feature_names_out` goes through that same check (`text.py:1483`).\n- The changelog records the fix for this exact issue under 0.20.0 (`doc/whats_new/v0.20.rst:827-829`, issue #10908).\n- An existing test asks an unfitted vectorizer with a given vocabulary for its feature names (`sklearn/feature_extraction/tests/test_text.py:732-733`).\n- The old `get_feature_names` has since been removed; `get_feature_names_out` replaces it.\n\n**What I ran:** I ran the issue's case against the compiled build in `/testbed`, without changing anything. The probe's own copy has no compiled extensions, so it couldn't import sklearn.\n- With `vocabulary=` given and no fit: `get_feature_names_out()` returned the 9 words and `transform` worked.\n- With no vocabulary: it still raises `NotFittedError`, as it should.\n- The feature-names tests: 2 passed.\n\n**What's left:** nothing to change in the code. Anyone still hitting this is on a version older than 0.20 and should upgrade, then use `get_feature_names_out()`. I couldn't name the fixing commit or pull request: this checkout's history is one squashed \"Snapshot\" commit, so the changelog entry is the record.\n\n```json\n{\n  \"verdict\": \"covered\",\n  \"title\": \"Feature names with a given vocabulary: already fixed\",\n  \"cause\": \"Before 0.20, CountVectorizer only set up a vocabulary passed to the constructor inside fit/transform, so get_feature_names on an unfitted vectorizer raised NotFittedError. The current _check_vocabulary calls _validate_vocabulary first whenever vocabulary_ is missing, and raises NotFittedError only when no vocabulary was given. The 0.20.0 changelog records this fix for issue #10908.\",\n  \"files\": [\n    {\"path\": \"sklearn/feature_extraction/text.py\", \"why\": \"_check_vocabulary (505-513) now sets up a constructor-given vocabulary before deciding the object is unfitted; get_feature_names_out (1470-1487) uses it.\"},\n    {\"path\": \"doc/whats_new/v0.20.rst\", \"why\": \"Changelog entry for issue #10908 records the fix in 0.20.0.\"},\n    {\"path\": \"sklearn/feature_extraction/tests/test_text.py\", \"why\": \"test_feature_names (683+) asks an unfitted vectorizer with a given vocabulary for its feature names.\"}\n  ],\n  \"plan\": [\"No code change needed. Users on versions before 0.20 should upgrade and use get_feature_names_out().\"],\n  \"verification\": [\n    \"With PYTHONPATH=/testbed: CountVectorizer(vocabulary=[...9 words]).get_feature_names_out() returned the 9 words without fitting; transform returned [[0 1 1 1 0 0 1 0 1]].\",\n    \"CountVectorizer().get_feature_names_out() still raises NotFittedError 'Vocabulary not fitted or provided'.\",\n    \"pytest sklearn/feature_extraction/tests/test_text.py -k feature_names: 2 passed.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"none\",\n  \"risk\": \"none\",\n  \"confidence\": 0.95,\n  \"fixedIn\": {\"release\": \"0.20.0\", \"commit\": \"unknown: this checkout's history is one squashed 'Snapshot' commit\"},\n  \"fixType\": \"error\",\n  \"intendedBehavior\": \"An unfitted CountVectorizer built with vocabulary=[...] returns those terms from get_feature_names_out() without raising NotFittedError.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"The 0.20.0 changelog lists making this call work as a feature (issue #10908), so the original NotFittedError was a gap that was later closed, not a design choice.\"},\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"The user saw NotFittedError when asking an unfitted CountVectorizer that was given a vocabulary for its feature names.\", \"role\": \"trigger\", \"citations\": [{\"type\": \"evidence\", \"ref\": \"ev_s1\", \"quote\": \"CountVectorizer's get_feature_names raise not NotFittedError when the vocabulary parameter is provided\"}]},\n    {\"id\": \"c2\", \"text\": \"The current vocabulary check sets up a constructor-given vocabulary before deciding the vectorizer is unfitted, so the original cause is gone.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"sklearn/feature_extraction/text.py:507\", \"quote\": \"if not hasattr(self, \\\"vocabulary_\\\"):\\n            self._validate_vocabulary()\\n            if not self.fixed_vocabulary_:\\n                raise NotFittedError(\\\"Vocabulary not fitted or provided\\\")\"}]},\n    {\"id\": \"c3\", \"text\": \"get_feature_names_out goes through that check and then reads vocabulary_.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"sklearn/feature_extraction/text.py:1483\", \"quote\": \"self._check_vocabulary()\\n        return np.asarray(\\n            [t for t, i in sorted(self.vocabulary_.items(), key=itemgetter(1))],\"}]},\n    {\"id\": \"c4\", \"text\": \"The changelog records the fix in 0.20.0 for this exact issue.\", \"role\": \"other\", \"citations\": [{\"type\": \"doc\", \"ref\": \"doc/whats_new/v0.20.rst\", \"quote\": \"Enable the call to `get_feature_names` in unfitted\\n  :class:`feature_extraction.text.CountVectorizer` initialized with a\\n  vocabulary. :issue:`10908`\"}]},\n    {\"id\": \"c5\", \"text\": \"An existing test asks an unfitted vectorizer with a given vocabulary for its feature names.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"sklearn/feature_extraction/tests/test_text.py:732\", \"quote\": \"cv = CountVectorizer(vocabulary=vocab)\\n    feature_names = cv.get_feature_names_out()\"}]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"The fix also stopped NotFittedError for vectorizers given no vocabulary at all.\", \"why\": \"With no vocabulary, fixed_vocabulary_ is False and NotFittedError is still raised; the probe confirmed it.\", \"citations\": [{\"type\": \"code\", \"ref\": \"sklearn/feature_extraction/text.py:509\", \"quote\": \"if not self.fixed_vocabulary_:\\n                raise NotFittedError(\\\"Vocabulary not fitted or provided\\\")\"}]}\n  ],\n  \"plain\": {\n    \"headline\": \"People who gave the word counter a fixed word list got a 'not fitted' error when asking for its words; this was fixed in version 0.20.\",\n    \"happened\": \"In versions before 0.20, the text word counter only set up a word list you gave it when it processed text. Asking it for its words before that wrongly said it had not been trained. Version 0.20 sets up the given word list first, so this now works.\",\n    \"matters\": \"Only people on versions older than 0.20 still see this error.\",\n    \"fix\": \"No change needed; affected people should upgrade to 0.20 or later and use the newer way to get feature names.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 10,
+  "inputTokens": {
+   "avg": 17617.5,
+   "max": 24442
+  },
+  "mainUsage": {
+   "inputTokens": 176175,
+   "cachedInputTokens": 158735,
+   "outputTokens": 8353
+  },
+  "cacheHitPercent": 90.10075209308926,
+  "wallSeconds": 90.10599994659424,
+  "tools": {
+   "read": 4,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 4
+  },
+  "reads": 4,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.285983,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.285983
+}

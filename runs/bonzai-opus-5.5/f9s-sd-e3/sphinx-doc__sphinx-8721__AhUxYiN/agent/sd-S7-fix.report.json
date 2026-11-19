@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 42208,
+ "finalText": "The fix is in, and the Dutch search tests pass. I re-checked the working tree and the `.factory/pr-S7.md` file, and both are as intended.\n\n- **The change:** `SearchDutch.stem` in `sphinx/search/nl.py` now lowercases before stemming. The two new tests are in `tests/test_search.py`.\n- **Test run:** `python -m pytest tests/test_search.py -q` gives 13 passed.\n- **Other modified files:** `CHANGES`, `sphinx/builders/gettext.py`, `sphinx/ext/viewcode.py`, `tests/test_build_gettext.py` and `tests/test_ext_viewcode.py` also show as modified. I didn't touch them. They were already in the working tree, and they look like the changes from open PRs #1000 and #1001, which are unrelated. My change is only `nl.py` and `test_search.py`.\n- **PR text:** `.factory/pr-S7.md` has the title and description. Nothing is committed or pushed.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"command\": \"python -m pytest tests/test_search.py -q\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"reproductionSteps\": [\n    \"Run SearchDutch({}).stem('WERKEN') on the base commit: returns 'werken' instead of 'werk'.\",\n    \"Index a Dutch rst document with the heading 'WERKEN' using IndexBuilder(env, 'nl', {}, None): the title mapping has 'werken', not 'werk', so a lowercased query 'werk' never matches.\"\n  ],\n  \"reproductionTest\": {\n    \"path\": \"tests/test_search.py\",\n    \"command\": \"python -m pytest tests/test_search.py -q -k dutch\",\n    \"signature\": \"assert 'werken' == 'werk' (SearchDutch.stem('WERKEN') left unstemmed)\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 13,
+  "inputTokens": {
+   "avg": 26263.384615384617,
+   "max": 30575
+  },
+  "mainUsage": {
+   "inputTokens": 341424,
+   "cachedInputTokens": 324735,
+   "outputTokens": 4836
+  },
+  "cacheHitPercent": 95.1119429214115,
+  "wallSeconds": 40.61699986457825,
+  "tools": {
+   "read": 8,
+   "edit": 5,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 2
+  },
+  "reads": 8,
+  "edits": 5,
+  "runs": 2,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 2,
+   "readFileIgnoringRange": 2
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 4,
+  "editOperations": 5,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1550145,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1550145
+}

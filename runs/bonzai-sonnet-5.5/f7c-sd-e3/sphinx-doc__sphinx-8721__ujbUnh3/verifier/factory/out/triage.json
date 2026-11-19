@@ -1,0 +1,37 @@
+[
+  {
+    "source": "S1",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: The request asks for :private-members: to accept specific member names. Since Sphinx 3.2 the option uses members_option and filters private members by the given names. The docs and a test cover it, so"
+  },
+  {
+    "source": "S2",
+    "decision": "fix",
+    "reason": "In Catalog.add, the line that records a message's (source, line, uid) is indented inside the 'msg not in self.metadata' branch. Only the first occurrence of a phrase is recorded, so the generated .pot"
+  },
+  {
+    "source": "S3",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The error comes from a separate service called webhook-relay, in a file relay/deliver.py that uses aiohttp. This repository is Sphinx, the documentation generator. It has no relay directory, no post_w"
+  },
+  {
+    "source": "S4",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: Older Sphinx versions (before 3.0.2) crashed in the Python annotation parser. For a tuple node it appended ', ' after each element and then popped the last one, which fails on an empty tuple such as T"
+  },
+  {
+    "source": "S5",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The LaTeX build in `make latexpdf` first writes the .tex files with the Sphinx builder. It then runs `make all-pdf` in the build directory, and the generated Makefile calls `latexmk`. Nothing in that "
+  },
+  {
+    "source": "S6",
+    "decision": "fix",
+    "reason": "The viewcode_enable_epub=False check only exists in the step that reads each document (doctree_read). The step that writes the module pages (collect_pages) never checks it. With `make html epub` the t"
+  },
+  {
+    "source": "S7",
+    "decision": "fix",
+    "reason": "SearchDutch.stem in sphinx/search/nl.py calls stemWord(word).lower(), so it stems before lowercasing, while every other language calls stemWord(word.lower()). The index builder passes words with their"
+  }
+]

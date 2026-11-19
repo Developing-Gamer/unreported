@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 79889,
+ "finalText": "The reported problem is already fixed in this code, so I'm marking it as covered and no change is needed. Both admin sidebar filters for related records now sort their choices correctly.\n\n**What the reporter saw (Django 2.2.1):** In the admin list pages, the sidebar filter that lists related records (for example, \"By employee\") ignored the related model's default sort order. The \"related only\" version of the filter ignored even the sort order set on the related model's admin page.\n\n**Why it's fixed now:**\n- `get_choices` (`django/db/models/fields/__init__.py:855` and `django/db/models/fields/reverse_related.py:130`) now re-sorts only when it is given a sort order. With none, the model's own default sort order applies. In 2.2.1 an empty sort order wiped out the default.\n- `RelatedOnlyFieldListFilter` now passes the related admin page's sort order on as well (`django/contrib/admin/filters.py:428-429`).\n- The release notes say this was fixed on purpose in 2.2.5 (`docs/releases/2.2.5.txt`, ticket #30449).\n\n**How I checked (in the throwaway copy):**\n- The `admin_filters` tests passed: 38 tests, including four that cover the reporter's sorting cases.\n- I added one case those tests don't cover: employees saved as Jack then Al, sorted by name by default, with the employee admin set up without its own sort order. Both filters returned `[(2, 'Al'), (1, 'Jack')]`.\n\nThe repository's history here is a single snapshot commit, so I can't name the commit with the fix. Django 2.2.5 is the first release that has it.\n\n```json\n{\n  \"verdict\": \"covered\",\n  \"title\": \"Admin filter choices ignore model sort order (fixed)\",\n  \"cause\": \"In Django 2.2.1, RelatedFieldListFilter passed an empty ordering tuple to Field.get_choices, which called order_by(*()) and so cleared the related model's Meta.ordering; RelatedOnlyFieldListFilter passed no ordering at all. In the current code get_choices only applies order_by when the ordering is non-empty, and RelatedOnlyFieldListFilter now passes the related admin's ordering too. The fix shipped in Django 2.2.5 as ticket #30449.\",\n  \"files\": [\n    {\"path\": \"django/contrib/admin/filters.py\", \"why\": \"field_admin_ordering/field_choices for both filters; RelatedOnlyFieldListFilter now passes ordering\"},\n    {\"path\": \"django/db/models/fields/__init__.py\", \"why\": \"get_choices applies order_by only when ordering is non-empty, so Meta.ordering is kept\"},\n    {\"path\": \"django/db/models/fields/reverse_related.py\", \"why\": \"same guard for reverse relations\"},\n    {\"path\": \"docs/releases/2.2.5.txt\", \"why\": \"release note recording the fix for ticket #30449\"}\n  ],\n  \"plan\": [\"No change needed: anyone on Django 2.2.5 or later already has the fix.\"],\n  \"verification\": [\n    \"cd tests && PYTHONPATH=.. python runtests.py admin_filters: 38 tests passed, including the four ordering tests\",\n    \"Own test with Employee registered via a plain ModelAdmin and Meta.ordering=('name',): both filters returned [(2, 'Al'), (1, 'Jack')]\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"none\",\n  \"risk\": \"none\",\n  \"confidence\": 0.93,\n  \"fixedIn\": {\"release\": \"Django 2.2.5\", \"ticket\": \"30449\"},\n  \"fixType\": \"frustration\",\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"The reporter saw the bug in Django 2.2.1, where the filter set ordering to an empty tuple when the related admin had no ordering.\", \"role\": \"trigger\", \"citations\": [{\"type\": \"evidence\", \"ref\": \"ev_s6\", \"quote\": \"unless ordering is defined on the related model's ModelAdmin class it stays an empty tuple\"}]},\n    {\"id\": \"c2\", \"text\": \"get_choices now re-orders only when ordering is non-empty, so an empty tuple keeps the model's Meta.ordering.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"django/db/models/fields/__init__.py:855\", \"quote\": \"        if ordering:\\n            qs = qs.order_by(*ordering)\"}, {\"type\": \"code\", \"ref\": \"django/db/models/fields/reverse_related.py:130\", \"quote\": \"        if ordering:\\n            qs = qs.order_by(*ordering)\"}]},\n    {\"id\": \"c3\", \"text\": \"RelatedOnlyFieldListFilter now passes the related admin's ordering to get_choices.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"django/contrib/admin/filters.py:429\", \"quote\": \"return field.get_choices(include_blank=False, limit_choices_to={'pk__in': pk_qs}, ordering=ordering)\"}]},\n    {\"id\": \"c4\", \"text\": \"The release notes record the fix in 2.2.5 as ticket 30449.\", \"role\": \"other\", \"citations\": [{\"type\": \"doc\", \"ref\": \"docs/releases/2.2.5.txt\", \"quote\": \"choices to foreign objects don't respect a model's ``Meta.ordering``\"}]},\n    {\"id\": \"c5\", \"text\": \"Existing tests check that both filters follow Meta.ordering when no admin ordering is set.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"tests/admin_filters/tests.py:809\", \"quote\": \"\\\"\\\"\\\"RelatedOnlyFieldListFilter ordering respects Meta.ordering.\\\"\\\"\\\"\"}, {\"type\": \"code\", \"ref\": \"tests/admin_filters/tests.py:595\", \"quote\": \"\\\"\\\"\\\"RelatedFieldListFilter ordering respects Model.ordering.\\\"\\\"\\\"\"}]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"A related model registered with a ModelAdmin that has no ordering still loses Meta.ordering, because get_ordering returns ()\", \"why\": \"get_choices skips order_by for an empty tuple; my test with a plain registered ModelAdmin returned choices sorted by name for both filters\", \"citations\": [{\"type\": \"code\", \"ref\": \"django/contrib/admin/options.py:338\", \"quote\": \"return self.ordering or ()  # otherwise we might try to *None, which is bad ;)\"}]}\n  ],\n  \"intendedBehavior\": \"Admin list-filter choices for a foreign key follow the related ModelAdmin.ordering when it is set, and otherwise the related model's Meta.ordering, for both RelatedFieldListFilter and RelatedOnlyFieldListFilter.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"The 2.2.5 release notes call the missing ordering a regression in Django 2.2, and it has since been fixed.\"},\n  \"plain\": {\n    \"headline\": \"Filter choices in the admin sidebar weren't sorted the way the related records are normally sorted, but newer versions already fix this.\",\n    \"happened\": \"In version 2.2.1, the admin sidebar filter for related records threw away the records' default sort order, and the 'related only' filter ignored even the order set on the admin page. Version 2.2.5 fixed both. Today's code keeps the default order, and tests check it.\",\n    \"matters\": \"Only sites still on Django 2.2.0 to 2.2.4 see unsorted filter lists.\",\n    \"fix\": \"No code change is needed; affected sites should upgrade to Django 2.2.5 or later.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 9,
+  "inputTokens": {
+   "avg": 17257.88888888889,
+   "max": 23475
+  },
+  "mainUsage": {
+   "inputTokens": 155321,
+   "cachedInputTokens": 138850,
+   "outputTokens": 8165
+  },
+  "cacheHitPercent": 89.39550994392259,
+  "wallSeconds": 79.40499997138977,
+  "tools": {
+   "read": 4,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 4
+  },
+  "reads": 4,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.273403,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.273403
+}

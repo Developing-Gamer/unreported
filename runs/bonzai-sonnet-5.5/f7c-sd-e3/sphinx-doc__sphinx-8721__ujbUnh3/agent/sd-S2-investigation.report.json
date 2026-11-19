@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 22838,
+ "finalText": "The cause is in this repository: the gettext message catalog throws away every source location for a phrase after the first one. I only read the code and did not run it with probe, so there is no failing test or reproduction behind this. The code path is clear without one.\n\nIn `Catalog.add` (`sphinx/builders/gettext.py`, lines 86\u201389), the line that records a location is indented inside the \"first time we see this message\" branch. For a phrase that appears on several pages, only the first page's location is kept. Later pages hit the existing-key case and are skipped. `Catalog.__iter__` builds the `.pot` locations and UUIDs from that list, so the translation tool shows one source link. Phrases used once look normal, which matches the report.\n\nUpstream Sphinx has the append outside the `if`. The repository history is a single snapshot commit, so I could not see when the indentation changed.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Repeated phrases lose all but one source link\",\n  \"cause\": \"In Catalog.add, the line that records a message's (source, line, uid) is indented inside the 'msg not in self.metadata' branch. Only the first occurrence of a phrase is recorded, so the generated .pot file lists one location (and one uuid) for a phrase used on many pages.\",\n  \"files\": [\n    {\"path\": \"sphinx/builders/gettext.py\", \"why\": \"Catalog.add (lines 86-89) appends the location only when the message is first seen; Catalog.__iter__ builds .pot locations and uuids from that list.\"}\n  ],\n  \"plan\": [\n    \"In Catalog.add, dedent the self.metadata[msg].append((origin.source, origin.line, origin.uid)) line so it runs for every occurrence.\",\n    \"Keep the messages.append and metadata[msg] = [] initialisation inside the if.\",\n    \"Add a test: two documents containing the same paragraph, build with the gettext builder, and assert the .pot entry has a '#:' location line for each document.\"\n  ],\n  \"verification\": [\n    \"Run the new test; it fails before the change and passes after.\",\n    \"Run tests/test_build_gettext.py and tests/test_intl.py.\",\n    \"Build docs with the gettext builder and check that a repeated phrase lists every source file in the .pot.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"likely\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.9,\n  \"intendedBehavior\": \"A phrase used on several pages appears once in the .pot file with a source location line for every page and line where it occurs.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"Nothing suggests keeping only the first location was intended: the metadata field is a list of (file, line, uid) per msgid, and Catalog.__iter__ builds the locations and uuids lists from every entry. A single recorded location makes those lists pointless.\"},\n  \"fixType\": \"silentFailure\",\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"The location append is inside the first-seen branch, so repeat occurrences of a message are never recorded.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"sphinx/builders/gettext.py:86\", \"quote\": \"if msg not in self.metadata:  # faster lookup in hash\"}, {\"type\": \"code\", \"ref\": \"sphinx/builders/gettext.py:89\", \"quote\": \"self.metadata[msg].append((origin.source, origin.line, origin.uid))  # type: ignore\"}]},\n    {\"id\": \"c2\", \"text\": \"Output locations and uuids are derived from the metadata list, so they end up with a single entry per message.\", \"role\": \"impact\", \"citations\": [{\"type\": \"code\", \"ref\": \"sphinx/builders/gettext.py:93\", \"quote\": \"positions = [(source, line) for source, line, uuid in self.metadata[message]]\"}]}\n  ],\n  \"plain\": {\n    \"headline\": \"A phrase used on many pages shows only one source link in the translation tool because the extraction step drops the other places.\",\n    \"happened\": \"When the documentation is scanned for text to translate, the first place a phrase appears is recorded. Every later place is ignored. The translation tool is then given a single location for that phrase.\",\n    \"matters\": \"Translators lose the context of every page where a shared phrase is used, and they can't tell it is used in several places.\",\n    \"fix\": \"Record every place a phrase appears, not just the first, and add a test that checks a repeated phrase lists all its pages.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 3,
+  "inputTokens": {
+   "avg": 12633.666666666666,
+   "max": 13697
+  },
+  "mainUsage": {
+   "inputTokens": 37901,
+   "cachedInputTokens": 31220,
+   "outputTokens": 2021
+  },
+  "cacheHitPercent": 82.3724967678953,
+  "wallSeconds": 22.200000047683716,
+  "tools": {
+   "read": 3,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 0
+  },
+  "reads": 3,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.043152499999999996,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.043152499999999996
+}

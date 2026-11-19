@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 212751,
+ "finalText": "Visiting a package directory no longer imports its `__init__.py`. The fix is in the working tree, uncommitted as the benchmark note requires. The PR text is in `/testbed/.factory/pr-S1.md`.\n\n- **Cause:** `Package.collect()` started with `self._mount_obj_if_needed()`, which imported `__init__.py` whenever the package directory was collected. That ran even when the file didn't match `python_files` and the package had no tests.\n- **Fix:** I removed that call. `Module.collect()` now mounts the enclosing `Package` nodes instead. A package is imported only when a test module inside it is collected, so a `pytestmark` skip in its `__init__.py` still applies (the #5830 case). This replaces the investigation's suggestion of routing #5830 through the `Module(init_module, self)` branch. That branch only exists when `__init__.py` matches `python_files`, so it wouldn't cover #5830.\n- **Reproduction test:** `test_does_not_import_unrelated_init_py` in `testing/test_collection.py` has `foobar/__init__.py` containing `assert False` plus a passing test. Before the fix it failed with `ERROR collecting foobar/__init__.py ... assert False` and `collected 1 item / 1 errors`. It passes now, and `test_skip_package` still passes.\n- **Wider run:** I ran the test_collection, python/collect, test_skipping, test_pluginmanager, test_conftest, test_doctest, test_terminal, test_session and python/fixtures suites. 20 tests fail identically with and without the change (plugin and report-header tests among them), so there are no new failures. I did not run the tox repro from the issue.\n- **Changelog:** I added `changelog/6194.bugfix.rst`. The 6194 number is from my memory of upstream, so check it.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"name\": \"pytest testing/test_collection.py testing/python/collect.py testing/test_skipping.py testing/test_pluginmanager.py testing/test_conftest.py testing/test_doctest.py testing/test_terminal.py testing/test_session.py testing/python/fixtures.py\", \"passed\": false, \"alsoOnBase\": true, \"note\": \"20 failures identical before and after the change (environment-related); no new failures\"},\n    {\"name\": \"pytest testing/test_skipping.py::test_skip_package testing/test_collection.py::test_does_not_import_unrelated_init_py\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"reproductionSteps\": [\n    \"mkdir foobar; echo 'assert False' > foobar/__init__.py; add a passing test_ok.py\",\n    \"run pytest: before the fix it errors collecting foobar/__init__.py instead of passing 1 test\"\n  ],\n  \"reproductionTest\": {\n    \"path\": \"testing/test_collection.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest testing/test_collection.py -k unrelated_init -q\",\n    \"signature\": \"ERROR collecting foobar/__init__.py ... assert False / AssertionError (collected 1 item / 1 errors)\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 21,
+  "inputTokens": {
+   "avg": 34451.42857142857,
+   "max": 43615
+  },
+  "mainUsage": {
+   "inputTokens": 723480,
+   "cachedInputTokens": 693735,
+   "outputTokens": 11632
+  },
+  "cacheHitPercent": 95.88862166196716,
+  "wallSeconds": 211.94500017166138,
+  "tools": {
+   "read": 18,
+   "edit": 4,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 3,
+   "subagent": 0,
+   "other": 4
+  },
+  "reads": 18,
+  "edits": 4,
+  "runs": 4,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 3,
+   "readFileIgnoringRange": 2
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 1,
+  "editOperations": 2,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.3294065000000001,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.3294065000000001
+}

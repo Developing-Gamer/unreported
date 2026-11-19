@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 85245,
+ "finalText": "I re-checked the report against the request. The verdict, the confirmation through probe, the plain-language section and the JSON report are all there. The one thing I fixed: two code quotes ran across several lines, so they could fail an exact-text check. Each quote now comes from a single line.\n\n**Verdict: fixable.** A user writes a dataset helper (an accessor) that reads a field the dataset doesn't have. In `xarray/core/extensions.py`, the error this raises (`AttributeError`) is swallowed and turned into `None` (lines 35\u201338). That `None` is then saved in the dataset's cache (line 40). So the calibration helper comes back as None with nothing in the logs. Every later try on the same dataset keeps returning the saved None, even after the data is fixed. That is exactly what the support message describes.\n\n**Evidence:**\n- Running `xarray/tests/test_extensions.py` in a throwaway copy gave 3 passed and 1 failed. The failure is the project's own regression test, `test_broken_accessor` (GH933). It expects a `RuntimeError(\"error initializing ...\")` and gets none.\n- A small script with a helper that fails on a dataset missing a field printed `first: None`. After adding the field it printed `after fixing data: None`.\n- No doc or changelog says that returning None was chosen, so it is not deliberate.\n\n**Fix:** raise `RuntimeError(\"error initializing %r accessor.\" % name) from err` instead of returning `None`, and don't cache a failed attempt. It is a few-line change, and the existing test then passes. I made no edits to the repository.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Broken dataset helpers silently become None, cached\",\n  \"cause\": \"In _CachedAccessor.__get__, an AttributeError raised while constructing a registered accessor is swallowed and replaced by None (xarray/core/extensions.py:35-38). That None is then stored in the object's _cache (line 40), so every later access on the same dataset returns None silently, even after the data is corrected. The project's own regression test (GH933) expects a RuntimeError here instead.\",\n  \"files\": [\n    {\"path\": \"xarray/core/extensions.py\", \"why\": \"_CachedAccessor.__get__ swallows AttributeError from the accessor constructor, returns None and caches it\"},\n    {\"path\": \"xarray/tests/test_extensions.py\", \"why\": \"test_broken_accessor already asserts the intended RuntimeError and currently fails\"}\n  ],\n  \"plan\": [\n    \"In _CachedAccessor.__get__, replace `except AttributeError: accessor_obj = None` with `except AttributeError as err: raise RuntimeError(\\\"error initializing %r accessor.\\\" % self._name) from err`, so a failed construction is never cached.\",\n    \"Keep caching only successfully built accessor objects.\",\n    \"Add a test asserting that after a failed construction, fixing the data and accessing again builds the accessor (nothing cached).\"\n  ],\n  \"verification\": [\n    \"pytest xarray/tests/test_extensions.py passes, including test_broken_accessor (currently failing).\",\n    \"Registering an accessor whose __init__ raises AttributeError on xr.Dataset() raises RuntimeError('error initializing ...') instead of returning None.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.92,\n  \"fixType\": \"silentFailure\",\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"An AttributeError raised while building a registered accessor is swallowed and turned into None instead of being surfaced.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"xarray/core/extensions.py:36\", \"quote\": \"accessor_obj = self._accessor(obj)\"},\n      {\"type\": \"code\", \"ref\": \"xarray/core/extensions.py:37\", \"quote\": \"except AttributeError:\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"rootCause\", \"text\": \"The None result is stored in the per-object cache, so every later access on the same dataset returns None without retrying.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"xarray/core/extensions.py:40\", \"quote\": \"cache[self._name] = accessor_obj\"},\n      {\"type\": \"query\", \"ref\": \"probe:python accessor repro\", \"quote\": \"after fixing data: None\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"other\", \"text\": \"The project's own regression test expects a RuntimeError for a broken accessor and fails against the current code.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"xarray/tests/test_extensions.py:87\", \"quote\": \"with raises_regex(RuntimeError, \\\"error initializing\\\"):\"},\n      {\"type\": \"query\", \"ref\": \"probe:pytest xarray/tests/test_extensions.py\", \"quote\": \"FAILED xarray/tests/test_extensions.py::TestAccessor::test_broken_accessor\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"impact\", \"text\": \"A pipeline job sees the helper as None with no logged error, and retries on the same dataset keep getting None.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s8\", \"quote\": \"On a few incoming datasets the calibration helper is just None, with no error in the job logs. Later attempts on the same dataset keep giving None.\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"The None result is a documented, deliberate accessor behaviour\", \"why\": \"No doc or changelog mentions it, and the GH933 regression test asserts a RuntimeError instead.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"xarray/tests/test_extensions.py:80\", \"quote\": \"# regression test for GH933\"}\n    ]}\n  ],\n  \"intendedBehavior\": \"Accessing a registered dataset accessor whose constructor raises AttributeError raises RuntimeError('error initializing ...') and caches nothing, so a later access after fixing the data builds the accessor normally.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"Accessor caching is deliberate, but returning and caching None on a construction error is not: test_broken_accessor (GH933 regression test) expects RuntimeError('error initializing'), and no doc or changelog records a change to None.\"},\n  \"plain\": {\n    \"headline\": \"Some datasets get no calibration helper and no error, because a failure while setting it up is quietly turned into 'nothing' and remembered.\",\n    \"happened\": \"When a dataset is missing a field the calibration helper needs, setting up the helper fails. The library hides that failure, hands back an empty result and remembers it for that dataset. Every later try on the same dataset gets the same empty result, even after the data is fixed, and nothing is logged.\",\n    \"matters\": \"Any dataset that trips the helper's setup once gets stuck with no helper and gives no clue why, so problems in the data pipeline go unnoticed.\",\n    \"fix\": \"Report a clear 'helper could not be set up' error instead of hiding it, and don't remember failed attempts.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 9,
+  "inputTokens": {
+   "avg": 14765.222222222223,
+   "max": 18801
+  },
+  "mainUsage": {
+   "inputTokens": 132887,
+   "cachedInputTokens": 121090,
+   "outputTokens": 6715
+  },
+  "cacheHitPercent": 91.12253267814008,
+  "wallSeconds": 84.20199990272522,
+  "tools": {
+   "read": 5,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 3
+  },
+  "reads": 5,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.21748099999999998,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.21748099999999998
+}

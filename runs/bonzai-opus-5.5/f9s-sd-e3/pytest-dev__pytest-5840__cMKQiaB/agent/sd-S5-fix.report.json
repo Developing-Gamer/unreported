@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 36993,
+ "finalText": "The working tree has other modified files that I didn't edit: `config/__init__.py`, `pastebin.py`, `pathlib.py`, `python.py`, `metafunc.py` and `test_conftest.py`. They match the unrelated open pull requests #1000 and #1001, so they were already in the workspace before I started. My change is limited to two files. I added `.factory/pr-S5.md` for the pull request text.\n\n- `src/_pytest/_argcomplete.py`: `or` changed to `and` in the wildcard check.\n- `testing/test_argcomplete.py`: new `test_wildcard_prefix_not_extended`.\n\nI already ran the new test (it failed before the fix and passed after) and the `test_argcomplete.py` and `test_parseopt.py` suites (31 passed, 1 skipped), so I'm not repeating them. I did not commit or push anything.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"command\": \"python -m pytest testing/test_argcomplete.py -k wildcard --assert=plain\", \"passed\": true},\n    {\"command\": \"python -m pytest testing/test_argcomplete.py testing/test_parseopt.py --assert=plain\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"missingEnv\": [],\n  \"reproductionSteps\": \"In a directory with test_a.py, test_a.py.bak and test_b.py, call FastFilesCompleter()('test_*.py'); before the fix it also returns test_a.py.bak.\",\n  \"reproductionTest\": {\n    \"path\": \"testing/test_argcomplete.py\",\n    \"command\": \"python -m pytest testing/test_argcomplete.py -k wildcard --assert=plain\",\n    \"signature\": \"AssertionError at assert ffc(\\\"test_*.py\\\") == [\\\"test_a.py\\\", \\\"test_b.py\\\"]\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 11,
+  "inputTokens": {
+   "avg": 24436.909090909092,
+   "max": 27929
+  },
+  "mainUsage": {
+   "inputTokens": 268806,
+   "cachedInputTokens": 254767,
+   "outputTokens": 4488
+  },
+  "cacheHitPercent": 94.77727431679352,
+  "wallSeconds": 35.83899998664856,
+  "tools": {
+   "read": 5,
+   "edit": 4,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 4
+  },
+  "reads": 5,
+  "edits": 4,
+  "runs": 4,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 4,
+  "editOperations": 4,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.13091789999999998,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.13091789999999998
+}

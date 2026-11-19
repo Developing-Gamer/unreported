@@ -1,0 +1,9 @@
+[
+  {"source": "S1", "decision": "fix", "reason": "BaseMixture.fit_predict runs its final E-step before restoring the best of the n_init parameter sets, so its labels come from the last initialization rather than the selected one and disagree with predict()."},
+  {"source": "S2", "decision": "skip", "reason": "Vague production report with no estimator, version, data or reproducer, so no specific defect in this code can be identified."},
+  {"source": "S3", "decision": "skip", "reason": "Dashboard alert about prediction-interval widths in an unidentified forecasting service; nothing points to a specific scikit-learn code path."},
+  {"source": "S4", "decision": "skip", "reason": "Already fixed: _log_reg_scoring_path now builds LogisticRegression(solver=solver, multi_class=multi_class), so scoring uses the multinomial probabilities."},
+  {"source": "S5", "decision": "skip", "reason": "Already fixed: CountVectorizer.get_feature_names calls _validate_vocabulary() when vocabulary_ is not set, so a vocabulary given to the constructor works without fitting."},
+  {"source": "S6", "decision": "skip", "reason": "Not a defect: n_components only affects transform(), and LDA prediction intentionally uses the full discriminant model, as documented."},
+  {"source": "S7", "decision": "skip", "reason": "Network timeout in an external webhook-relay service talking to api.github.com, which is unrelated to this repository."}
+]

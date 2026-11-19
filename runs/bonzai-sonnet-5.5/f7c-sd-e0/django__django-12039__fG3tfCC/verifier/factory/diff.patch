@@ -1,0 +1,141 @@
+diff --git a/django/core/management/commands/showmigrations.py b/django/core/management/commands/showmigrations.py
+index e60e8ccfb9..48bea1f3f0 100644
+--- a/django/core/management/commands/showmigrations.py
++++ b/django/core/management/commands/showmigrations.py
+@@ -121,7 +121,7 @@ class Command(BaseCommand):
+         # Generate the plan
+         for target in targets:
+             for migration in graph.forwards_plan(target):
+-                if migration not in seen and (not app_names or migration[0] in app_names):
++                if migration not in seen:
+                     node = graph.node_map[migration]
+                     plan.append(node)
+                     seen.add(migration)
+diff --git a/django/db/backends/ddl_references.py b/django/db/backends/ddl_references.py
+index 44e49806f8..705bc578a4 100644
+--- a/django/db/backends/ddl_references.py
++++ b/django/db/backends/ddl_references.py
+@@ -84,9 +84,13 @@ class Columns(TableColumns):
+     def __str__(self):
+         def col_str(column, idx):
+             try:
+-                return self.quote_name(column) + self.col_suffixes[idx]
++                suffix = self.col_suffixes[idx]
+             except IndexError:
+-                return self.quote_name(column)
++                suffix = ''
++            col = self.quote_name(column)
++            if suffix:
++                col = '{} {}'.format(col, suffix)
++            return col
+ 
+         return ', '.join(col_str(column, idx) for idx, column in enumerate(self.columns))
+ 
+@@ -114,9 +118,11 @@ class IndexColumns(Columns):
+             # length as self.columns.
+             col = '{} {}'.format(self.quote_name(column), self.opclasses[idx])
+             try:
+-                col = '{} {}'.format(col, self.col_suffixes[idx])
++                suffix = self.col_suffixes[idx]
+             except IndexError:
+-                pass
++                suffix = ''
++            if suffix:
++                col = '{} {}'.format(col, suffix)
+             return col
+ 
+         return ', '.join(col_str(column, idx) for idx, column in enumerate(self.columns))
+diff --git a/django/template/backends/base.py b/django/template/backends/base.py
+index 1e17281707..22628c6355 100644
+--- a/django/template/backends/base.py
++++ b/django/template/backends/base.py
+@@ -62,7 +62,7 @@ class BaseEngine:
+         # Immutable return value because it's cached and shared by callers.
+         template_dirs = tuple(self.dirs)
+         if self.app_dirs:
+-            template_dirs = get_app_template_dirs(self.app_dirname) + template_dirs
++            template_dirs += get_app_template_dirs(self.app_dirname)
+         return template_dirs
+ 
+     def iter_template_filenames(self, template_name):
+diff --git a/tests/backends/test_ddl_references.py b/tests/backends/test_ddl_references.py
+index d96ebcb57f..b6a18d2cea 100644
+--- a/tests/backends/test_ddl_references.py
++++ b/tests/backends/test_ddl_references.py
+@@ -1,5 +1,5 @@
+ from django.db.backends.ddl_references import (
+-    Columns, ForeignKeyName, IndexName, Statement, Table,
++    Columns, ForeignKeyName, IndexColumns, IndexName, Statement, Table,
+ )
+ from django.test import SimpleTestCase
+ 
+@@ -56,6 +56,20 @@ class ColumnsTests(TableTests):
+     def test_str(self):
+         self.assertEqual(str(self.reference), 'FIRST_COLUMN, SECOND_COLUMN')
+ 
++    def test_str_col_suffixes(self):
++        reference = Columns(
++            'table', ['first_column', 'second_column'], lambda column: column.upper(),
++            col_suffixes=('DESC', ''),
++        )
++        self.assertEqual(str(reference), 'FIRST_COLUMN DESC, SECOND_COLUMN')
++
++    def test_index_columns_opclasses_without_ordering(self):
++        reference = IndexColumns(
++            'table', ['first_column', 'second_column'], lambda column: column.upper(),
++            col_suffixes=('', 'DESC'), opclasses=('a', 'b'),
++        )
++        self.assertEqual(str(reference), 'FIRST_COLUMN a, SECOND_COLUMN b DESC')
++
+ 
+ class IndexNameTests(ColumnsTests):
+     def setUp(self):
+diff --git a/tests/template_backends/test_dummy.py b/tests/template_backends/test_dummy.py
+index 24c30c97e3..24196c41e5 100644
+--- a/tests/template_backends/test_dummy.py
++++ b/tests/template_backends/test_dummy.py
+@@ -1,4 +1,5 @@
+ import re
++from pathlib import Path
+ 
+ from django.forms import CharField, Form, Media
+ from django.http import HttpRequest
+@@ -94,3 +95,18 @@ class TemplateStringsTests(SimpleTestCase):
+         template = self.engine.get_template('template_backends/hello.html')
+         content = template.render({'name': 'Jérôme'})
+         self.assertEqual(content, "Hello Jérôme!\n")
++
++
++class TemplateStringsDirsOrderTests(SimpleTestCase):
++
++    def test_dirs_precede_app_dirs(self):
++        # The same template exists in DIRS and in an app's template_strings
++        # directory; the one from DIRS must win.
++        engine = TemplateStrings({
++            'DIRS': [Path(__file__).parent / 'templates'],
++            'APP_DIRS': True,
++            'NAME': 'dummy',
++            'OPTIONS': {},
++        })
++        template = engine.get_template('template_backends/hello.html')
++        self.assertEqual(template.render({'name': 'Joe'}), 'Hello {{ name }}!\n')
+diff --git a/tests/template_backends/test_jinja2.py b/tests/template_backends/test_jinja2.py
+index a454e93a39..1a83516b80 100644
+--- a/tests/template_backends/test_jinja2.py
++++ b/tests/template_backends/test_jinja2.py
+@@ -96,3 +96,15 @@ class Jinja2Tests(TemplateStringsTests):
+         })
+         template = engine.get_template('hello.html')
+         self.assertEqual(template.render({'name': 'Joe'}), 'Hello Joe!')
++
++    def test_dirs_precede_app_dirs(self):
++        # The same template exists in DIRS and in an app's jinja2 directory;
++        # the one from DIRS must win.
++        engine = Jinja2({
++            'DIRS': [Path(__file__).parent / 'template_strings'],
++            'APP_DIRS': True,
++            'NAME': 'jinja2',
++            'OPTIONS': {},
++        })
++        template = engine.get_template('template_backends/hello.html')
++        self.assertEqual(template.render({'name': 'Joe'}), 'Hello $name!')

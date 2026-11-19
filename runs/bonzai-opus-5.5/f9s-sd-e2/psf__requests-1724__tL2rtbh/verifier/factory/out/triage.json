@@ -1,0 +1,32 @@
+[
+  {
+    "source": "S1",
+    "decision": "fix",
+    "reason": "Session.resolve_redirects copies the caller's original PreparedRequest on every hop and resets the method from it (prepared_request = req.copy(); method = req.method). After a 303 turns a POST into a "
+  },
+  {
+    "source": "S2",
+    "decision": "skip",
+    "reason": "Self-Driving verdict outsideCode: The billing worker's TCP connection to api.stripe.com:443 was refused at the socket level (Errno 111) before any HTTP exchange; requests' HTTPAdapter.send only wraps the OS socket error / urllib3 MaxR"
+  },
+  {
+    "source": "S3",
+    "decision": "fix",
+    "reason": "PreparedRequest.prepare_method (and Session.request) only upper-case the method and never convert it to the native str type, so on Python 2 a unicode method like u'POST' reaches httplib unchanged. htt"
+  },
+  {
+    "source": "S4",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: In requests 1.1.x and earlier, prepare_content_length added a Content-Length header to every request, including GET with no body, and some servers (the reporter names amazon.com) answered with 503. Si"
+  },
+  {
+    "source": "S5",
+    "decision": "skip",
+    "reason": "Self-Driving fix found it already covered or could not fix it."
+  },
+  {
+    "source": "S6",
+    "decision": "fix",
+    "reason": "The vendored charade EUC-TW frequency table has entry 82 (the common character \u4ecd) changed from rank 507 to 705, so the detector treats it as rare (ranks under 512 count as frequent). Short EUC-TW noti"
+  }
+]

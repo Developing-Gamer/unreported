@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 183784,
+ "finalText": "**Verdict: fixable.** The gaps come from this repository's own code. When a connector is trimmed to the edge of a circular node, the search that finds the edge stops about ten times too early. Each line then ends up to about 0.05 px short of or past the circle's edge.\n\n**Cause.** In `lib/matplotlib/bezier.py` (lines 164\u2013165), `find_bezier_t_intersecting_with_closedpath` compares the **squared** distance between its two search points with `tolerance`. Its own docstring calls `tolerance` a plain distance. With the default of 0.01, the search stops when the two points are about 0.1 px apart instead of 0.01 px, then cuts at their midpoint. How far off each connector ends depends on where the edge falls between those two points. That is why lines right next to each other can look fine while others show a gap once you zoom into an SVG or PDF export. Connectors reach this code when `ConnectionStyle._Base._clip` and `_shrink` in `lib/matplotlib/patches.py` call `split_path_inout` with the default tolerance.\n\n**What I ran (in the probe's throwaway copy; no files changed):**\n- **Direct call:** a straight line against circles of radius 37.3, 41.17 and 50.01. The search stops at 0.0977 px and misses the edge by 0.044, 0.008 and 0.039 px. With the comparison changed to `np.hypot(...) < tolerance`, it stops at 0.0061 px and misses by at most 0.0016 px.\n- **Real connectors:** six arrows between circles ended between \u22120.037 and +0.053 px off the edge. Some were almost exact and others visibly off, which matches the report.\n- **Existing tests:** `test_arrow_patches.py` and `test_patches.py` give **7 failed, 45 passed** today. All 7 are arrow image comparisons. With only the one-line fix patched in at runtime, they give **52 passed, 9 skipped**. This repository has no `test_bezier.py`.\n- **Ruled out:** the circle hit test (`inside_circle`) is correct, and the callers pass the documented default tolerance. There are no open pull requests, and the history is a single v3.5.0 snapshot commit, so no earlier change already fixed it.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Connector ends miss circle edges by up to ~0.1 px\",\n  \"cause\": \"find_bezier_t_intersecting_with_closedpath stops bisecting when the SQUARED distance between its bracketing points drops below `tolerance`, although its docstring treats tolerance as a distance. With the default 0.01 the bracket is only narrowed to ~0.1 display units, and splitting at its midpoint leaves connectors clipped to a patch (or shrunk) ending up to ~0.05 px short of or past the circle edge, by a different amount per connector. Those gaps become visible when zooming into vector (SVG/PDF) exports.\",\n  \"files\": [\n    {\"path\": \"lib/matplotlib/bezier.py\", \"why\": \"Lines 164-165 compare squared distance to a linear tolerance in the bisection stop test.\"},\n    {\"path\": \"lib/matplotlib/patches.py\", \"why\": \"ConnectionStyle._Base._clip/_shrink use split_path_inout with the default tolerance to trim connectors at node borders; affected caller, no change needed.\"},\n    {\"path\": \"lib/matplotlib/tests/test_arrow_patches.py\", \"why\": \"Existing arrow image tests fail now and pass with the fix; good place (or a new test_bezier.py) for a numeric clip-precision test.\"}\n  ],\n  \"plan\": [\n    \"In find_bezier_t_intersecting_with_closedpath, replace the squared-distance check with `np.hypot(start[0] - end[0], start[1] - end[1]) < tolerance` so it matches the docstring.\",\n    \"Add a unit test: a straight segment against inside_circle(0, 0, r) with tolerance=0.01 must give a split point within 0.01 of r.\",\n    \"Run test_arrow_patches.py and test_patches.py; the 7 currently failing arrow image comparisons should pass.\"\n  ],\n  \"verification\": [\n    \"Line (0,0)->(100,0) vs circle radius 37.3: midpoint error drops from 0.0441 px to 0.0016 px with the fix.\",\n    \"pytest test_arrow_patches.py test_patches.py: 7 failed/45 passed now; 52 passed/9 skipped with the fix patched in.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.9,\n  \"fixType\": \"error\",\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"The bisection stop test compares the squared distance between the bracketing points against a linear tolerance, so it stops about 10x too early (0.1 instead of 0.01 units).\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/bezier.py:165\", \"quote\": \"+ (start[1] - end[1]) ** 2) < tolerance:\"},\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/bezier.py:123\", \"quote\": \"doesn't. The search stops when the distance of the points parametrized by\"},\n      {\"type\": \"query\", \"ref\": \"probe:python\", \"quote\": \"37.3 final bracket px 0.0977 split err px 0.0441\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"trigger\", \"text\": \"Connectors attached to node patches are trimmed at the patch border through split_path_inout with the default tolerance, so every clipped connector inherits this imprecision.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/patches.py:2773\", \"quote\": \"left, right = split_path_inout(path, insideA)\"},\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/bezier.py:344\", \"quote\": \"def split_path_inout(path, inside, tolerance=0.01, reorder_inout=False):\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"impact\", \"text\": \"Real FancyArrowPatch connectors between circles end a varying distance off the circle edge, so some look fine while nearby ones show a gap, matching the report.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s3\", \"quote\": \"Some connectors leave tiny gaps at circular node borders in exported diagrams.\"},\n      {\"type\": \"query\", \"ref\": \"probe:python\", \"quote\": \"gap at A 0.0529 px, at B 0.0293 px\"},\n      {\"type\": \"query\", \"ref\": \"probe:python\", \"quote\": \"gap at A -0.0034 px, at B 0.0016 px\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"other\", \"text\": \"Existing arrow image tests fail on the current code and all pass once the comparison uses a true distance.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:pytest\", \"quote\": \"7 failed, 45 passed, 9 skipped, 1 warning in 7.49s\"},\n      {\"type\": \"query\", \"ref\": \"probe:pytest\", \"quote\": \"52 passed, 9 skipped in 6.92s\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"The circle hit test is wrong.\", \"why\": \"inside_circle compares squared distance to squared radius, which is correct.\", \"citations\": [{\"type\": \"code\", \"ref\": \"lib/matplotlib/bezier.py:418\", \"quote\": \"return (x - cx) ** 2 + (y - cy) ** 2 < r2\"}]},\n    {\"hypothesis\": \"Callers pass a too-loose tolerance.\", \"why\": \"_clip and _shrink pass no tolerance, so the documented default of 0.01 applies; the precision loss is inside the bisection loop.\", \"citations\": [{\"type\": \"code\", \"ref\": \"lib/matplotlib/patches.py:2800\", \"quote\": \"left, path = split_path_inout(path, insideA)\"}]},\n    {\"hypothesis\": \"Already fixed by a later change or an open pull request.\", \"why\": \"There are no open pull requests and the repository history is a single v3.5.0 snapshot commit; the defect is present in the current code.\", \"citations\": [{\"type\": \"commit\", \"ref\": \"c1cd5c48d2\", \"quote\": \"(HEAD -> snapshot, tag: v3.5.0) Snapshot\"}]}\n  ],\n  \"intendedBehavior\": \"A connector clipped to a circular patch ends within the requested tolerance (0.01 display units by default) of the circle's border.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"The docstring says the search stops when the distance between the points gets smaller than the tolerance and calls tolerance the 'Maximal allowed distance between the final points'; comparing the squared distance contradicts that, and the repository's own arrow baseline images fail with it.\"},\n  \"plain\": {\n    \"headline\": \"Lines drawn to round shapes in exported diagrams stop slightly short of or past the edge, because the step that finds the edge stops searching too early.\",\n    \"happened\": \"When a line connects to a round shape, the drawing code searches for where the line meets the shape's edge. A mistake in how it measures 'close enough' makes it stop at about a tenth of a pixel instead of a hundredth. Each line ends a slightly different distance off the edge, so some look fine and others show a gap when zoomed in.\",\n    \"matters\": \"Anyone exporting diagrams with arrows between round shapes can get visible gaps in sharp, zoomable exports.\",\n    \"fix\": \"Make the edge search measure real distance so it stops only when it is within the intended hundredth of a pixel.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 18,
+  "inputTokens": {
+   "avg": 21951.333333333332,
+   "max": 31114
+  },
+  "mainUsage": {
+   "inputTokens": 395124,
+   "cachedInputTokens": 370996,
+   "outputTokens": 13635
+  },
+  "cacheHitPercent": 93.89356252720665,
+  "wallSeconds": 182.4870002269745,
+  "tools": {
+   "read": 5,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 12
+  },
+  "reads": 5,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.4674992,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.4674992
+}

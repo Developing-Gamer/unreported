@@ -1,0 +1,9 @@
+[
+  {"source": "S1", "decision": "skip", "reason": "Already handled: TerminalWriter.should_do_markup disables color when TERM=dumb or the output is not a tty (src/_pytest/_io/terminalwriter.py)."},
+  {"source": "S2", "decision": "skip", "reason": "Already fixed: pastebin.create_new_paste already submits with lexer=text."},
+  {"source": "S3", "decision": "skip", "reason": "Timeout comes from an unrelated webhook-relay service calling api.github.com, not from code in this repository."},
+  {"source": "S4", "decision": "fix", "reason": "compat._non_printable_ascii_translate_table treats 0x7f (DEL) as printable, so byte-valued test IDs contain a raw DEL instead of the '\\x7f' escape."},
+  {"source": "S5", "decision": "fix", "reason": "faulthandler.get_timeout_config_value truncates faulthandler_timeout with int(), so 0.5 becomes 0 and disables the traceback dump."},
+  {"source": "S6", "decision": "skip", "reason": "Already fixed: reports._report_to_json/_report_kwargs_from_json serialize and restore longrepr.chain."},
+  {"source": "S7", "decision": "fix", "reason": "caplog.clear() replaces the handler's records list instead of clearing it in place, decoupling it from the list returned by caplog.get_records()."}
+]

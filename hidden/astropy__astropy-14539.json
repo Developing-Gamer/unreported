@@ -1,0 +1,46 @@
+{
+ "task": "astropy__astropy-14539",
+ "kept": [
+  {
+   "path": "astropy/coordinates/name_resolve.py",
+   "category": "swallowed error (an exception caught and ignored, or an error path that returns a default)",
+   "defect_patch": "diff --git a/astropy/coordinates/name_resolve.py b/astropy/coordinates/name_resolve.py\nindex cb2bae591..7a7890e76 100644\n--- a/astropy/coordinates/name_resolve.py\n+++ b/astropy/coordinates/name_resolve.py\n@@ -56,7 +56,7 @@ class sesame_database(ScienceState):\n     @classmethod\n     def validate(cls, value):\n         if value not in [\"all\", \"simbad\", \"ned\", \"vizier\"]:\n-            raise ValueError(f\"Unknown database '{value}'\")\n+            return \"all\"\n         return value\n \n \n",
+   "test_code": "import pytest\n\nfrom astropy.coordinates.name_resolve import sesame_database\n\n\n@pytest.mark.parametrize(\"invalid_database\", [\"simbda\", \"SIMBAD\", \"\"])\ndef test_invalid_database_selection_is_rejected(invalid_database):\n    with sesame_database.set(\"ned\"):\n        error = None\n        try:\n            with sesame_database.set(invalid_database):\n                pass\n        except ValueError as exc:\n            error = exc\n\n        assert error is not None, \"An invalid database selection was silently accepted\"\n        assert str(error) == f\"Unknown database '{invalid_database}'\"\n        assert sesame_database.get() == \"ned\"\n",
+   "signal": {
+    "kind": "user",
+    "source": "catalog-ingest support",
+    "text": "Since the configuration update, a few ambiguous target names return different sky positions, but every lookup is still marked successful and there are no warnings."
+   },
+   "summary": "Invalid Sesame database selections silently fall back to searching all databases instead of raising ValueError."
+  },
+  {
+   "path": "astropy/coordinates/angle_utilities.py",
+   "category": "swallowed error (an exception caught and ignored, or an error path that returns a default)",
+   "defect_patch": "diff --git a/astropy/coordinates/angle_utilities.py b/astropy/coordinates/angle_utilities.py\nindex 7dc1fcaaf..bbd216036 100644\n--- a/astropy/coordinates/angle_utilities.py\n+++ b/astropy/coordinates/angle_utilities.py\n@@ -228,7 +228,12 @@ def uniform_spherical_random_volume(size=1, max_radius=1):\n \n     usph = uniform_spherical_random_surface(size=size)\n \n-    r = np.cbrt(rng.uniform(size=size)) * u.Quantity(max_radius, copy=False)\n+    try:\n+        radius_scale = u.Quantity(max_radius, copy=False)\n+    except ValueError:\n+        radius_scale = u.Quantity(1)\n+\n+    r = np.cbrt(rng.uniform(size=size)) * radius_scale\n     return SphericalRepresentation(usph.lon, usph.lat, r)\n \n \n",
+   "test_code": "from astropy.coordinates.angle_utilities import uniform_spherical_random_volume\n\n\ndef test_invalid_radius_unit_is_rejected():\n    rejected = False\n    try:\n        uniform_spherical_random_volume(size=4, max_radius=\"10 kiloparsecc\")\n    except ValueError:\n        rejected = True\n\n    assert rejected, \"An unrecognized radius unit must raise rather than silently use a default\"\n",
+   "signal": {
+    "kind": "user",
+    "source": "simulation-export support",
+    "text": "The latest mock catalog job completed successfully, but its radius column is unitless and every value is below 1. Previous exports had distances in kpc."
+   },
+   "summary": "Invalid max_radius quantity strings now have their conversion errors swallowed and silently generate points in a dimensionless unit sphere."
+  }
+ ],
+ "rejected": [
+  {
+   "path": "astropy/coordinates/matching.py",
+   "category": "silent wrong result (a value or output that is subtly wrong, no exception)",
+   "defect_patch": "--- a/astropy/coordinates/matching.py\n+++ b/astropy/coordinates/matching.py\n@@ -290,7 +290,7 @@ def search_around_3d(coords1, coords2, distlimit, storekdtree=\"kdtree_3d\"):\n     coords1 = coords1.transform_to(coords2)\n \n-    kdt1 = _get_cartesian_kdtree(coords1, storekdtree, forceunit=cunit)\n+    kdt1 = _get_cartesian_kdtree(coords1, storekdtree)\n \n     # this is the *cartesian* 3D distance that corresponds to the given angle\n     d = distlimit.to_value(cunit)\n \n",
+   "test_code": "import numpy as np\n\nfrom astropy import units as u\nfrom astropy.coordinates import SkyCoord, search_around_3d\n\n\ndef test_search_around_3d_with_different_distance_units():\n    targets = SkyCoord(\n        ra=[0.0, 0.0] * u.deg,\n        dec=[0.0, 0.0] * u.deg,\n        distance=[1.0, 2.0] * u.kpc,\n    )\n    catalog = SkyCoord(\n        ra=[0.0, 0.0, 0.0] * u.deg,\n        dec=[0.0, 0.0, 0.0] * u.deg,\n        distance=[1001.0, 2001.0, 10.0] * u.pc,\n    )\n\n    target_indices, catalog_indices, angles, distances = search_around_3d(\n        targets, catalog, 2.0 * u.pc\n    )\n\n    np.testing.assert_array_equal(target_indices, [0, 1])\n    np.testing.assert_array_equal(catalog_indices, [0, 1])\n    np.testing.assert_allclose(angles.to_value(u.deg), [0.0, 0.0], atol=1e-12)\n    np.testing.assert_allclose(distances.to_value(u.pc), [1.0, 1.0], atol=1e-8)\n",
+   "signal": {
+    "kind": "user",
+    "source": "catalog-processing-support",
+    "text": "A few uploaded distance tables produce no nearby-object associations, even for objects we know are close together. Re-exporting the same distances in parsecs seems to restore the expected results."
+   },
+   "summary": "The 3D radius search stops converting the first coordinate set to the catalog's distance unit before building its KD-tree, silently returning incorrect pairs when the inputs use different units.",
+   "reject": "test does not separate defect from original",
+   "on_defect": "g.py:465: ModuleNotFoundError\n=========================== short test summary info ============================\nFAILED ../tmp/test_hidden_problem.py::test_search_around_3d_with_different_distance_units\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed in 0.39s\n",
+   "on_clean": "g.py:465: ModuleNotFoundError\n=========================== short test summary info ============================\nFAILED ../tmp/test_hidden_problem.py::test_search_around_3d_with_different_distance_units\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed in 0.14s\n"
+  }
+ ]
+}

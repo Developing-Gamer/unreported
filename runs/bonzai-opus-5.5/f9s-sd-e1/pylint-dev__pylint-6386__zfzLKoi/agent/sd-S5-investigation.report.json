@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 89392,
+ "finalText": "I checked the report against the request, and everything it needs is there. The verdict is **covered**: this bug was fixed in pylint 2.9.0, so it no longer happens in the current code.\n\n**What the user saw:** On pylint 2.8.3, `import abc` was flagged as an unused import (W0611) when the module was used only in a type comment like `# type: abc.ABC`. That one warning dropped their file's score to 7.50/10 and pushed them to delete an import their type checker needs.\n\n**Why it's covered:** pylint now counts the first part of a dotted name in a type comment as a use of that import (`pylint/checkers/variables.py`, lines 2501\u20132503). The ChangeLog lists the fix under 2.9.0: \"Fix ``unused-import`` false positive for imported modules referenced in attribute lookups in type comments. Closes #4603\".\n\n**What I ran** (in a throwaway copy, on the current code, v2.13.5):\n- **The issue's exact file:** no unused-import warning. pylint did print one unrelated error, `E0611 No name 'ABC' in module 'abc'`. It comes from the test setup: Python 3.11 with astroid 2.11.2, which is older than that Python.\n- **A similar file** (`import os` / `import collections`, used only as `# type: os.PathLike` and `# type: collections.OrderedDict`): no warnings, 10.00/10.\n- **Existing tests:** I ran pylint's tests for unused imports and type comments. Three passed and five failed. Every failure was about missing docstrings or the same setup error, never an unused import.\n\n**What's missing:** The repository is a single snapshot commit, so I can't name the commit or pull request that made the fix, only the release (2.9.0). The tests also don't check this exact case, so adding one would be cheap and optional.\n\nThe user should upgrade to pylint 2.9.0 or later. No code change is needed.\n\n```json\n{\n  \"verdict\": \"covered\",\n  \"title\": \"Unused-import warning for type comments already fixed\",\n  \"cause\": \"In pylint 2.8.3 the variables checker skipped dotted names (e.g. `abc.ABC`) in `# type:` comments when collecting names used in type comments, so the `abc` import counted as unused. The current `_store_type_annotation_node` walks Attribute nodes down to their leading name, and the ChangeLog records this fix in 2.9.0 (Closes #4603). On the current code the issue's example produces no unused-import.\",\n  \"files\": [\n    {\"path\": \"pylint/checkers/variables.py\", \"why\": \"_store_type_annotation_node now handles Attribute nodes (lines 2501-2503), which removes the false positive\"},\n    {\"path\": \"ChangeLog\", \"why\": \"2.9.0 entry records the fix for #4603\"}\n  ],\n  \"plan\": [\n    \"No code change needed; the reporter should upgrade to pylint 2.9.0 or later.\",\n    \"Optional: add a functional test case asserting no unused-import for `import abc` used only in `# type: abc.ABC`.\"\n  ],\n  \"verification\": [\n    \"Ran the issue's exact file on the current checkout (v2.13.5): no W0611 (only an unrelated E0611 from Python 3.11 with astroid 2.11.2 in the test setup).\",\n    \"Ran a file with `import os` / `import collections` used only as `# type: os.PathLike` / `# type: collections.OrderedDict`: no warnings, rated 10.00/10.\",\n    \"Ran the unused_import* / unused_typing_imports / undefined_variable_typing functional tests: 3 passed, 5 failed only on unexpected docstring and no-name-in-module messages from the test setup, none on unused-import.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"none\",\n  \"risk\": \"none\",\n  \"confidence\": 0.9,\n  \"fixedIn\": {\"release\": \"2.9.0\"},\n  \"fixType\": \"frustration\",\n  \"intendedBehavior\": \"Linting a module that imports `abc` and uses it only in `X = ...  # type: abc.ABC` emits no unused-import warning.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"ChangeLog lists it as a bug fix: \\\"Fix ``unused-import`` false positive for imported modules referenced in attribute lookups in type comments.\\\"\"},\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"The reporter was on pylint 2.8.3, where a module used only through a dotted type comment was reported as unused.\", \"role\": \"trigger\", \"citations\": [{\"type\": \"evidence\", \"ref\": \"ev_s5\", \"quote\": \"/tmp/a.py:3:0: W0611: Unused import abc (unused-import)\"}]},\n    {\"id\": \"c2\", \"text\": \"Current code records the leading name of dotted type-comment annotations, so `abc` in `abc.ABC` counts as used.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"pylint/checkers/variables.py:2501\", \"quote\": \"if isinstance(type_annotation, nodes.Attribute):\"}, {\"type\": \"code\", \"ref\": \"pylint/checkers/variables.py:2502\", \"quote\": \"self._store_type_annotation_node(type_annotation.expr)\"}]},\n    {\"id\": \"c3\", \"text\": \"The project's ChangeLog records this fix in the 2.9.0 release, after the reporter's 2.8.3.\", \"role\": \"other\", \"citations\": [{\"type\": \"doc\", \"ref\": \"ChangeLog\", \"quote\": \"Fix ``unused-import`` false positive for imported modules referenced in\"}]},\n    {\"id\": \"c4\", \"text\": \"Imports are exempt from unused-import when their name appears in the collected type-annotation names.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"pylint/checkers/variables.py:2718\", \"quote\": \"imported_name in self._type_annotation_names\"}]},\n    {\"id\": \"c5\", \"text\": \"Running the current code on the issue's example showed no unused-import, only an unrelated test-setup error.\", \"role\": \"impact\", \"citations\": [{\"type\": \"query\", \"ref\": \"probe:pylint /tmp/a.py\", \"quote\": \"/tmp/a.py:4:0: E0611: No name 'ABC' in module 'abc' (no-name-in-module)\"}]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"The false positive still happens on the current code\", \"why\": \"Running pylint on the issue's file and on a similar os/collections file produced no unused-import\", \"citations\": [{\"type\": \"query\", \"ref\": \"probe:pylint /tmp/b.py\", \"quote\": \"Your code has been rated at 10.00/10\"}]},\n    {\"hypothesis\": \"Failing functional tests point to an unused-import regression\", \"why\": \"Every unexpected message in the failures was a docstring or no-name-in-module message caused by Python 3.11 with an older astroid, never unused-import\", \"citations\": [{\"type\": \"query\", \"ref\": \"probe:pytest tests/test_functional.py\", \"quote\": \"AssertionError: Wrong results for file \\\"unused_import\\\":\"}]}\n  ],\n  \"plain\": {\n    \"headline\": \"Pylint wrongly said a module was unused when it was only used in a type comment, and newer versions already fix this.\",\n    \"happened\": \"A user on an older version (2.8.3) imported a module and used it only in a type comment with a dotted name. That version didn't look at dotted names in type comments, so it said the import was unused and lowered the file's score. The fix shipped in version 2.9.0, and the current code no longer gives this warning.\",\n    \"matters\": \"Anyone still on 2.8.3 or older who writes dotted names in type comments gets a false warning that pushes them to delete an import they need.\",\n    \"fix\": \"No code change needed: the user should upgrade to pylint 2.9.0 or later.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 10,
+  "inputTokens": {
+   "avg": 20563.9,
+   "max": 28165
+  },
+  "mainUsage": {
+   "inputTokens": 205639,
+   "cachedInputTokens": 184476,
+   "outputTokens": 7832
+  },
+  "cacheHitPercent": 89.70866421252778,
+  "wallSeconds": 88.1930000782013,
+  "tools": {
+   "read": 7,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 4
+  },
+  "reads": 7,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.29932620000000004,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.29932620000000004
+}

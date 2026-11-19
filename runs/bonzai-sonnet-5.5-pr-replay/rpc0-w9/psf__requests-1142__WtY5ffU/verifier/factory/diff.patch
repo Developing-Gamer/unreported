@@ -1,0 +1,86 @@
+diff --git a/.travis.yml b/.travis.yml
+index 62a5959..107b772 100644
+--- a/.travis.yml
++++ b/.travis.yml
+@@ -4,6 +4,7 @@ python:
+   - 2.7
+   - 3.2
+   - 3.3
++  - 3.4
+ env: HTTPBIN_URL=http://httpbin.org/
+ script: make test
+ install:
+diff --git a/requests/packages/urllib3/connectionpool.py b/requests/packages/urllib3/connectionpool.py
+index 51c87f5..9a1c368 100644
+--- a/requests/packages/urllib3/connectionpool.py
++++ b/requests/packages/urllib3/connectionpool.py
+@@ -7,6 +7,7 @@
+ import logging
+ import socket
+ import errno
++import sys
+ 
+ from socket import error as SocketError, timeout as SocketTimeout
+ from .util import resolve_cert_reqs, resolve_ssl_version
+@@ -186,6 +187,17 @@ class HTTPConnectionPool(ConnectionPool, RequestMethods):
+         self.num_connections = 0
+         self.num_requests = 0
+ 
++    def _connection_kwargs(self):
++        """
++        Extra keyword arguments for the connection classes.
++
++        ``strict`` was removed from :mod:`httplib` in Python 3.4, so it may
++        only be passed on older versions.
++        """
++        if sys.version_info >= (3, 4):
++            return {}
++        return {'strict': self.strict}
++
+     def _new_conn(self):
+         """
+         Return a fresh :class:`httplib.HTTPConnection`.
+@@ -195,7 +207,7 @@ class HTTPConnectionPool(ConnectionPool, RequestMethods):
+                  (self.num_connections, self.host))
+         return HTTPConnection(host=self.host,
+                               port=self.port,
+-                              strict=self.strict)
++                              **self._connection_kwargs())
+ 
+     def _get_conn(self, timeout=None):
+         """
+@@ -539,11 +551,11 @@ class HTTPSConnectionPool(HTTPConnectionPool):
+ 
+             return HTTPSConnection(host=self.host,
+                                    port=self.port,
+-                                   strict=self.strict)
++                                   **self._connection_kwargs())
+ 
+         connection = VerifiedHTTPSConnection(host=self.host,
+                                              port=self.port,
+-                                             strict=self.strict)
++                                             **self._connection_kwargs())
+         connection.set_cert(key_file=self.key_file, cert_file=self.cert_file,
+                             cert_reqs=self.cert_reqs, ca_certs=self.ca_certs)
+ 
+diff --git a/test_requests.py b/test_requests.py
+index c974e98..5919e87 100644
+--- a/test_requests.py
++++ b/test_requests.py
+@@ -34,6 +34,16 @@ class RequestsTestCase(unittest.TestCase):
+         """Teardown."""
+         pass
+ 
++    def test_new_connection_without_strict_support(self):
++        """Pools must create connections on Pythons without ``strict``."""
++        from requests.packages.urllib3.connectionpool import (
++            HTTPConnectionPool, HTTPSConnectionPool)
++
++        conn = HTTPConnectionPool('localhost')._new_conn()
++        self.assertEqual(conn.host, 'localhost')
++        conn = HTTPSConnectionPool('localhost')._new_conn()
++        self.assertEqual(conn.host, 'localhost')
++
+     def test_entry_points(self):
+ 
+         requests.session

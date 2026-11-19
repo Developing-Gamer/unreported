@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 122663,
+ "finalText": "The fix is in, but the working tree also has changes I did not make: `xarray/core/dataarray.py` and `xarray/tests/test_dataarray.py` were already modified. The `dataarray.py` change adds `value = value.variable` in `__setitem__`, which looks like the open #1000 fix. I left it alone, and it is separate from this change. Only these should go into the rolling pull request:\n\n- `xarray/core/rolling.py`\n- `xarray/tests/test_rolling.py`\n- `doc/whats-new.rst`\n- `.factory/pr-S4.md`\n\nThe fix itself: `DataArrayRolling.__iter__` now respects `center`, so iterated windows line up with `rolling(...).mean()`.\n\nI did not re-run anything in this last check. The full run of `xarray/tests/test_rolling.py` was done after my last edit to the tests and passed (1802 passed, 32 skipped, 4 xpassed). On the starting commit, 4 tests failed.\n\nI did not commit or open a pull request, as instructed. The pull request text is in `.factory/pr-S4.md`.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"checks\": [\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest xarray/tests/test_rolling.py -q\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"reproductionSteps\": [\n    \"da = xr.DataArray(np.arange(1,10.), dims='x')\",\n    \"compare [w.mean().item() for _, w in da.rolling(x=3, center=True)] with da.rolling(x=3, center=True).mean().values: NaN positions and values differ before the fix\"\n  ],\n  \"reproductionTest\": {\n    \"path\": \"xarray/tests/test_rolling.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest xarray/tests/test_rolling.py -k rolling_iter -q\",\n    \"signature\": \"AssertionError: Arrays are not equal (Mismatched elements: 2 / 9) in test_rolling_iter_matches_reduction[3-True]\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 18,
+  "inputTokens": {
+   "avg": 24986.444444444445,
+   "max": 30130
+  },
+  "mainUsage": {
+   "inputTokens": 449756,
+   "cachedInputTokens": 433502,
+   "outputTokens": 6805
+  },
+  "cacheHitPercent": 96.38604043081138,
+  "wallSeconds": 120.90500020980835,
+  "tools": {
+   "read": 9,
+   "edit": 9,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 2,
+   "subagent": 0,
+   "other": 3
+  },
+  "reads": 9,
+  "edits": 9,
+  "runs": 3,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 5,
+  "editOperations": 9,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1953654,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1953654
+}

@@ -1,0 +1,45 @@
+diff --git a/astropy/io/fits/diff.py b/astropy/io/fits/diff.py
+index 100cdf1b8..d3608ef01 100644
+--- a/astropy/io/fits/diff.py
++++ b/astropy/io/fits/diff.py
+@@ -1449,7 +1449,7 @@ class TableDataDiff(_BaseDiff):
+                 arrb.dtype, np.floating
+             ):
+                 diffs = where_not_allclose(arra, arrb, rtol=self.rtol, atol=self.atol)
+-            elif "P" in col.format:
++            elif "P" in col.format or "Q" in col.format:
+                 diffs = (
+                     [
+                         idx
+diff --git a/astropy/io/fits/tests/test_diff.py b/astropy/io/fits/tests/test_diff.py
+index adfebe6a5..c7715bb8a 100644
+--- a/astropy/io/fits/tests/test_diff.py
++++ b/astropy/io/fits/tests/test_diff.py
+@@ -923,3 +923,19 @@ def test_rawdatadiff_diff_with_rtol(tmp_path):
+ 
+     assert "...and at 1 more indices." in str1
+     assert "...and at 1 more indices." not in str2
++
++
++def test_fitsdiff_vla_q_format_identical(tmp_path):
++    """Regression test: comparing a file with a Q-format VLA column to itself
++    must not report differences."""
++    path = tmp_path / "diffbug.fits"
++    col = Column("a", format="QD", array=[[0], [0, 0]])
++    BinTableHDU.from_columns([col]).writeto(path)
++    assert FITSDiff(path, path).identical
++
++    col2 = Column("a", format="QD", array=[[0], [0, 1]])
++    path2 = tmp_path / "diffbug2.fits"
++    BinTableHDU.from_columns([col2]).writeto(path2)
++    diff = FITSDiff(path, path2)
++    assert not diff.identical
++    assert diff.diff_hdus[0][1].diff_data.diff_total == 1
+diff --git a/docs/changes/io.fits/14500.bugfix.rst b/docs/changes/io.fits/14500.bugfix.rst
+new file mode 100644
+index 000000000..8a8e1921c
+--- /dev/null
++++ b/docs/changes/io.fits/14500.bugfix.rst
+@@ -0,0 +1,2 @@
++Fixed FITSDiff reporting spurious differences (or raising) for identical
++tables containing Q-format variable-length array columns.

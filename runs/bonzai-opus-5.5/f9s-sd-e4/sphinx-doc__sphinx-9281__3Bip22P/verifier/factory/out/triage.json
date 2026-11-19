@@ -1,0 +1,37 @@
+[
+  {
+    "source": "S1",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: Older napoleon versions kept a numpydoc line like `x1, x2 : array_like` as one parameter named 'x1, x2', so Sphinx rendered it wrongly. Sphinx 3.2.0 (#7780, #7799) changed napoleon to split such lines"
+  },
+  {
+    "source": "S2",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: Before Sphinx 4.0, the Python domain's 'Variables' doc field (:var:/:ivar:/:cvar:) turned the variable name into an 'obj' cross-reference. Sphinx resolves those with a loose name search, so the name c"
+  },
+  {
+    "source": "S3",
+    "decision": "fix",
+    "reason": "stringify_signature writes every parameter default via object_description(), which special-cases only dict, set and frozenset and otherwise falls back to repr(). Python's repr() of an Enum member is '"
+  },
+  {
+    "source": "S4",
+    "decision": "fix",
+    "reason": "Since the 3.0 C-domain rewrite, c:macro accepts only plain identifiers as parameters, so 'BOB_CATCH_FUNCTION(char* message, void* ret)' fails at the '*' with 'Expected identifier, ')', or ',' in macro"
+  },
+  {
+    "source": "S5",
+    "decision": "fix",
+    "reason": "When html_logo or html_favicon is a URL, prepare_writing stores only path.basename() of it in the template context, so setup_resource_paths no longer recognises it as a URL and rewrites it to `_static"
+  },
+  {
+    "source": "S6",
+    "decision": "fix",
+    "reason": "sphinx.util.texescape.escape_abbr only adds LaTeX's `\\@{}` after a period when a literal space or end-of-string follows (`(?= |$)`). A period followed by a newline or other whitespace is left bare, so"
+  },
+  {
+    "source": "S7",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The error comes from the `webhook-relay` service's `relay/deliver.py` (`post_webhook`), where a call to api.github.com went over its 30 s limit. This repository is the Sphinx documentation generator a"
+  }
+]

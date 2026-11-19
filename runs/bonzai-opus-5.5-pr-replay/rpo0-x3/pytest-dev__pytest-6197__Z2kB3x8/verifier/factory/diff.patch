@@ -1,0 +1,68 @@
+diff --git a/changelog/6194.bugfix.rst b/changelog/6194.bugfix.rst
+new file mode 100644
+index 000000000..86ca3920c
+--- /dev/null
++++ b/changelog/6194.bugfix.rst
+@@ -0,0 +1,2 @@
++Fix regression in 5.2.3 where the ``__init__.py`` of a package was imported during collection even when it does not match ``python_files``, which could fail the run for non-test packages.
++This reverts the change made for `#5830 <https://github.com/pytest-dev/pytest/issues/5830>`__ (skip marks in a package's ``__init__.py``), which needs a different fix.
+diff --git a/src/_pytest/python.py b/src/_pytest/python.py
+index 306e5f217..7e6391c67 100644
+--- a/src/_pytest/python.py
++++ b/src/_pytest/python.py
+@@ -639,7 +639,6 @@ class Package(Module):
+         return path in self.session._initialpaths
+ 
+     def collect(self):
+-        self._mount_obj_if_needed()
+         this_path = self.fspath.dirpath()
+         init_module = this_path.join("__init__.py")
+         if init_module.check(file=1) and path_matches_patterns(
+diff --git a/testing/test_collection.py b/testing/test_collection.py
+index dee07d5c7..b6e301e9e 100644
+--- a/testing/test_collection.py
++++ b/testing/test_collection.py
+@@ -1257,3 +1257,13 @@ def test_collector_respects_tbstyle(testdir):
+             "*= 1 error in *",
+         ]
+     )
++
++
++def test_does_not_collect_non_test_package_init(testdir):
++    """A package's __init__.py is not imported unless it matches python_files (#6194)."""
++    testdir.tmpdir.join("foobar").ensure(dir=1).join("__init__.py").write(
++        "assert False"
++    )
++    testdir.makepyfile(test_a="def test_a(): pass")
++    result = testdir.runpytest()
++    result.assert_outcomes(passed=1)
+diff --git a/testing/test_skipping.py b/testing/test_skipping.py
+index 371c3a4db..6fd8ae456 100644
+--- a/testing/test_skipping.py
++++ b/testing/test_skipping.py
+@@ -1163,25 +1163,3 @@ def test_importorskip():
+     ):
+         pytest.importorskip("doesnotexist")
+ 
+-
+-def test_skip_package(testdir):
+-    testdir.makepyfile(
+-        __init__="""
+-        import pytest
+-        pytestmark = pytest.mark.skip
+-    """
+-    )
+-
+-    testdir.makepyfile(
+-        """
+-        import pytest
+-        def test_skip1():
+-            assert 0
+-        def test_skip2():
+-            assert 0
+-    """
+-    )
+-
+-    result = testdir.inline_run()
+-    _, skipped, _ = result.listoutcomes()
+-    assert len(skipped) == 2

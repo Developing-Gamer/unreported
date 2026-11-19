@@ -1,0 +1,143 @@
+diff --git a/CHANGES.rst b/CHANGES.rst
+index 498d5e51..9de60b80 100644
+--- a/CHANGES.rst
++++ b/CHANGES.rst
+@@ -23,6 +23,8 @@ Unreleased
+     -   Calling setup methods on blueprints after registration is an error instead of a
+         warning. :pr:`4997`
+ 
++-   Blueprint names may not be empty. A ``ValueError`` is raised when creating
++    or registering a blueprint with an empty name. :issue:`4944`
+ -   Importing ``escape`` and ``Markup`` from ``flask`` is deprecated. Import them
+     directly from ``markupsafe`` instead. :pr:`4996`
+ -   The ``app.got_first_request`` property is deprecated. :pr:`4997`
+@@ -35,6 +37,10 @@ Unreleased
+ -   Ensure subdomains are applied with nested blueprints. :issue:`4834`
+ -   ``config.from_file`` can use ``text=False`` to indicate that the parser wants a
+     binary file instead. :issue:`4989`
++-   Fix a cleared session being reloaded from the request cookie when the request
++    context is pushed again, such as with ``stream_with_context``.
++-   The deprecated ``flask.globals._request_ctx_stack`` alias returns the request
++    context stack instead of the app context stack.
+ 
+ 
+ Version 2.2.4
+diff --git a/src/flask/blueprints.py b/src/flask/blueprints.py
+index eb50585d..501245e4 100644
+--- a/src/flask/blueprints.py
++++ b/src/flask/blueprints.py
+@@ -190,6 +190,9 @@ class Blueprint(Scaffold):
+             root_path=root_path,
+         )
+ 
++        if not name:
++            raise ValueError("'name' may not be empty.")
++
+         if "." in name:
+             raise ValueError("'name' may not contain a dot '.' character.")
+ 
+@@ -296,6 +299,10 @@ class Blueprint(Scaffold):
+         """
+         name_prefix = options.get("name_prefix", "")
+         self_name = options.get("name", self.name)
++
++        if not self_name:
++            raise ValueError("'name' may not be empty.")
++
+         name = f"{name_prefix}.{self_name}".lstrip(".")
+ 
+         if name in app.blueprints:
+diff --git a/src/flask/ctx.py b/src/flask/ctx.py
+index 1f0c0313..c79c26dc 100644
+--- a/src/flask/ctx.py
++++ b/src/flask/ctx.py
+@@ -370,7 +370,7 @@ class RequestContext:
+         # This allows a custom open_session method to use the request context.
+         # Only open a new session if this is the first time the request was
+         # pushed, otherwise stream_with_context loses the session.
+-        if not self.session:
++        if self.session is None:
+             session_interface = self.app.session_interface
+             self.session = session_interface.open_session(self.app, self.request)
+ 
+diff --git a/src/flask/globals.py b/src/flask/globals.py
+index 4ca258c7..e00a0c10 100644
+--- a/src/flask/globals.py
++++ b/src/flask/globals.py
+@@ -89,6 +89,6 @@ def __getattr__(name: str) -> t.Any:
+             DeprecationWarning,
+             stacklevel=2,
+         )
+-        return __app_ctx_stack
++        return __request_ctx_stack
+ 
+     raise AttributeError(name)
+diff --git a/tests/test_blueprints.py b/tests/test_blueprints.py
+index d46b769b..d6921f47 100644
+--- a/tests/test_blueprints.py
++++ b/tests/test_blueprints.py
+@@ -256,6 +256,16 @@ def test_dotted_name_not_allowed(app, client):
+         flask.Blueprint("app.ui", __name__)
+ 
+ 
++def test_empty_name_not_allowed(app, client):
++    with pytest.raises(ValueError):
++        flask.Blueprint("", __name__)
++
++    bp = flask.Blueprint("bp", __name__)
++
++    with pytest.raises(ValueError):
++        app.register_blueprint(bp, name="")
++
++
+ def test_dotted_names_from_app(app, client):
+     test = flask.Blueprint("test", __name__)
+ 
+diff --git a/tests/test_reqctx.py b/tests/test_reqctx.py
+index 6c38b661..9cccde58 100644
+--- a/tests/test_reqctx.py
++++ b/tests/test_reqctx.py
+@@ -323,3 +323,43 @@ def test_normal_environ_completes():
+ 
+     response = app.test_client().get("/", headers={"host": "xn--on-0ia.com"})
+     assert response.status_code == 200
++
++
++def test_session_cleared_before_stream_with_context(app, client):
++    app.secret_key = "test"
++
++    @app.route("/login")
++    def login():
++        flask.session["user"] = "alice"
++        return "ok"
++
++    @app.route("/logout")
++    def logout():
++        flask.session.clear()
++
++        @flask.stream_with_context
++        def gen():
++            yield f"user: {flask.session.get('user', 'anon')}"
++
++        return flask.Response(gen())
++
++    @app.route("/account")
++    def account():
++        return flask.session.get("user", "anon")
++
++    client.get("/login")
++    rv = client.get("/logout")
++    assert rv.data == b"user: anon"
++    assert "session=;" in rv.headers["Set-Cookie"]
++    assert client.get("/account").data == b"anon"
++
++
++def test_deprecated_request_ctx_stack_top(app):
++    with app.app_context():
++        with pytest.deprecated_call():
++            assert flask.globals._request_ctx_stack.top is None
++
++    with app.test_request_context():
++        with pytest.deprecated_call():
++            top = flask.globals._request_ctx_stack.top
++            assert top is request_ctx._get_current_object()

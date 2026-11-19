@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 89298,
+ "finalText": "I checked the work against the request once. The finding stands, and I fixed one thing in the report: claim c1 now quotes a single line of code instead of a quote that ran across two lines.\n\n**Verdict: fixable.** The cause is in this repository. The setting that picks which catalogue looks up target names quietly replaces any value it doesn't recognise with \"all\". So a value like `\"SIMBAD\"`, `\"Simbad\"`, `\"ned \"` or a typo makes the lookup search every catalogue. The lookup then returns whichever match comes first, still marked successful and with no warning. For names that several catalogues know, that can be a different sky position, which is what support saw after the configuration update (ev_s1).\n\n**Where:** `sesame_database.validate` in `astropy/coordinates/name_resolve.py` (lines 57\u201360). `get_icrs_coordinates` then sends only the first letter of the setting (line 147), which is `A` for \"all\".\n\n**What I ran (with the probe tool, in the repository's own Python environment):**\n- `'simbad'` stays `'simbad'` and sends `S`.\n- `'Simbad'`, `'SIMBAD'`, `'ned '` and `'sinbad'` all silently become `'all'` and send `A`.\n- The existing name-lookup tests: 1 passed, 4 skipped (they need internet). No test covers a bad catalogue setting.\n\n**Deliberate?** No. The docstring lists the four allowed values. Nothing records a decision to quietly fall back to \"all\": no comment, test or changelog entry. The neighbouring server-address setting's validator is still an unfinished stub.\n\n**Fix:** ignore case and surrounding spaces, and raise a clear error for unknown values. Add offline tests and a changelog entry.\n\n**What's left:** I couldn't find out when this behaviour came in, because the repository history is a single snapshot commit. I had no monitoring sources to check how many people are affected.\n\n```json\n{\n  \"sourceId\": \"S1\",\n  \"kind\": \"investigation\",\n  \"verdict\": \"fixable\",\n  \"title\": \"Bad catalogue setting silently searches all catalogues\",\n  \"cause\": \"The science-state validator for the Sesame database setting (sesame_database.validate) silently replaces any value outside 'all', 'simbad', 'ned', 'vizier' with 'all', without raising or warning. A configuration such as 'SIMBAD', 'Simbad', 'ned ' or a typo therefore makes get_icrs_coordinates query every database (first letter 'A') and return whichever position Sesame lists first, so ambiguous names can resolve to different positions while the lookup still succeeds.\",\n  \"files\": [\n    {\"path\": \"astropy/coordinates/name_resolve.py\", \"why\": \"sesame_database.validate maps unknown values to 'all' silently; get_icrs_coordinates sends the first letter of the setting to Sesame\"},\n    {\"path\": \"astropy/coordinates/tests/test_name_resolve.py\", \"why\": \"No offline test covers how an invalid or differently-cased database setting is handled\"}\n  ],\n  \"plan\": [\n    \"In sesame_database.validate, strip and lowercase string values so 'SIMBAD' or ' ned ' map to the intended database\",\n    \"Raise ValueError naming the allowed values ('all', 'simbad', 'ned', 'vizier') for anything else instead of returning 'all'\",\n    \"Add offline tests: sesame_database.set('SIMBAD') gives 'simbad'; sesame_database.set('sinbad') raises ValueError\",\n    \"Add a CHANGES.rst entry, since invalid values that were silently accepted will now raise\"\n  ],\n  \"verification\": [\n    \"Run pytest astropy/coordinates/tests/test_name_resolve.py; the new tests fail on the current code and pass after the fix\",\n    \"Run python -c \\\"from astropy.coordinates.name_resolve import sesame_database; sesame_database.set('sinbad')\\\" and confirm it raises ValueError\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.8,\n  \"fixType\": \"silentFailure\",\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"The database setting's validator replaces any unrecognised value with 'all' instead of rejecting it.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"astropy/coordinates/name_resolve.py:58\", \"quote\": \"if value not in [\\\"all\\\", \\\"simbad\\\", \\\"ned\\\", \\\"vizier\\\"]:\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"rootCause\", \"text\": \"The lookup sends only the first letter of the stored setting, so a silently replaced value queries all databases.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"astropy/coordinates/name_resolve.py:147\", \"quote\": \"db = database.upper()[0]\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"trigger\", \"text\": \"Running the code shows 'Simbad', 'SIMBAD', 'ned ' and 'sinbad' all become 'all' (sent as 'A') with no error, while 'simbad' sends 'S'.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:python\", \"quote\": \"'SIMBAD' -> 'all' db letter A\"},\n      {\"type\": \"query\", \"ref\": \"probe:python\", \"quote\": \"'simbad' -> 'simbad' db letter S\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"impact\", \"text\": \"Support reports that after a configuration update some ambiguous names resolve to different positions while lookups still succeed with no warnings.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s1\", \"quote\": \"a few ambiguous target names return different sky positions, but every lookup is still marked successful and there are no warnings\"}\n    ]},\n    {\"id\": \"c5\", \"role\": \"other\", \"text\": \"When all databases are searched, the code reports no error and returns whichever position comes first, so the change in database is never shown to the user.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"astropy/coordinates/name_resolve.py:207\", \"quote\": \"sc = SkyCoord(ra=ra, dec=dec, unit=(u.degree, u.degree), frame=\\\"icrs\\\")\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"The parser that reads Sesame's reply picks the wrong coordinates\", \"why\": \"It only takes the %J ICRS line from whichever database answered; it cannot change which database is queried\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"astropy/coordinates/name_resolve.py:84\", \"quote\": \"pattr = re.compile(r\\\"%J\\\\s*([0-9\\\\.]+)\\\\s*([\\\\+\\\\-\\\\.0-9]+)\\\")\"}\n    ]},\n    {\"hypothesis\": \"Changing the list of mirror URLs causes the different positions\", \"why\": \"The URLs only choose which mirror answers; the database letter is the same for every mirror\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"astropy/coordinates/name_resolve.py:161\", \"quote\": \"fmt_url = fmt_url.format(name=urllib.parse.quote(name), db=db)\"}\n    ]}\n  ],\n  \"intendedBehavior\": \"Setting sesame_database to 'SIMBAD' queries SIMBAD only, and setting it to an unknown value such as 'sinbad' raises a ValueError listing the allowed databases instead of silently searching all of them.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"The class docstring says the setting can be 'all', 'simbad', 'ned', or 'vizier'. No comment, test or CHANGES.rst entry says invalid values should be silently replaced with 'all', and the neighbouring sesame_url validator is a '# TODO: Implement me' stub. The fallback is an unhandled case, not a chosen behaviour.\"},\n  \"plain\": {\n    \"headline\": \"Some target names resolve to different sky positions because a mistyped catalogue setting is quietly replaced with 'search every catalogue'.\",\n    \"happened\": \"Someone set the name lookup to use one catalogue, but wrote it in a form the code doesn't accept, such as in capitals. Instead of saying so, the code quietly switched to searching every catalogue. For names that several catalogues know, the first match can be a different object or position, and the lookup still reports success.\",\n    \"matters\": \"Anyone who sets the catalogue with different capitals, extra spaces or a typo gets positions from the wrong source with no sign that anything changed.\",\n    \"fix\": \"Accept the catalogue name in any capitals and with spaces, and show a clear error for names it doesn't know instead of silently searching every catalogue.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 9,
+  "inputTokens": {
+   "avg": 16979.88888888889,
+   "max": 21770
+  },
+  "mainUsage": {
+   "inputTokens": 152819,
+   "cachedInputTokens": 138053,
+   "outputTokens": 8169
+  },
+  "cacheHitPercent": 90.33758891237346,
+  "wallSeconds": 88.69199991226196,
+  "tools": {
+   "read": 6,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 3
+  },
+  "reads": 6,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.2500546,
+   "partial": false,
+   "estimated": true
+  }
+ },
+ "costUsd": 0.2500546
+}

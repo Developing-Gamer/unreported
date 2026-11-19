@@ -1,0 +1,142 @@
+{
+ "task": "astropy__astropy-7166",
+ "kept": [],
+ "rejected": [
+  {
+   "path": "astropy/modeling/mappings.py",
+   "category": "silent wrong result (a value or output that is subtly wrong, no exception)",
+   "defect_patch": "--- a/astropy/modeling/mappings.py\n+++ b/astropy/modeling/mappings.py\n@@ -110,9 +110,12 @@\n         \"\"\"\n \n         try:\n-            mapping = tuple(self.mapping.index(idx)\n-                            for idx in range(self.n_inputs))\n+            if self.n_inputs == self.n_outputs:\n+                mapping = self.mapping\n+            else:\n+                mapping = tuple(self.mapping.index(idx)\n+                                for idx in range(self.n_inputs))\n         except ValueError:\n             raise NotImplementedError(\n                 \"Mappings such as {0} that drop one or more of their inputs \"\n                 \"are not invertible at this time.\".format(self.mapping))\n",
+   "test_code": "import numpy as np\nfrom astropy.modeling.models import Mapping\n\n\ndef test_three_axis_mapping_inverse_round_trip():\n    model = Mapping((2, 0, 1))\n    coordinates = np.array([\n        [10.0, 11.0, 12.0],\n        [20.0, 21.0, 22.0],\n        [30.0, 31.0, 32.0],\n    ])\n\n    mapped = model(*coordinates)\n    np.testing.assert_array_equal(mapped, coordinates[[2, 0, 1]])\n\n    restored = model.inverse(*mapped)\n    np.testing.assert_array_equal(restored, coordinates)\n",
+   "signal": {
+    "kind": "user",
+    "source": "data-reduction-support",
+    "text": "Some three-axis data cubes no longer round-trip to their starting coordinates, although the forward-transformed positions look normal. Our two-axis images still round-trip correctly."
+   },
+   "summary": "The inverse reuses the original mapping whenever input and output counts match, silently producing incorrect inverse results for permutations containing cycles longer than two.",
+   "reject": "could not read the reported bug's test results"
+  },
+  {
+   "path": "astropy/constants/__init__.py",
+   "category": "swallowed error (an exception caught and ignored, or an error path that returns a default)",
+   "defect_patch": "--- a/astropy/constants/__init__.py\n+++ b/astropy/constants/__init__.py\n@@ -73,8 +73,7 @@ def set_enabled_constants(modname):\n         from .astropyconst13 import codata2010 as codata\n         from .astropyconst13 import iau2012 as iaudata\n     else:\n-        raise ValueError(\n-            'Context manager does not currently handle {}'.format(modname))\n+        codata, iaudata = codata2014, iau2015\n \n     module = inspect.getmodule(inspect.currentframe())\n \n",
+   "test_code": "import astropy.constants as constants\n\n\ndef test_unsupported_constants_version_is_rejected():\n    requested = 'astropyconst2013'\n    error = None\n\n    try:\n        with constants.set_enabled_constants(requested):\n            pass\n    except ValueError as exc:\n        error = exc\n\n    assert error is not None, 'An unsupported constants version was silently accepted'\n    assert requested in str(error)\n",
+   "signal": {
+    "kind": "user",
+    "source": "research-support",
+    "text": "Our legacy calculation finishes without warnings, but the results match the current-reference run rather than the archived numbers."
+   },
+   "summary": "Unsupported constants version names silently select the current defaults instead of raising ValueError.",
+   "reject": "could not read the reported bug's test results"
+  },
+  {
+   "path": "astropy/time/utils.py",
+   "category": "edge case (empty, zero, unicode, boundary or None input handled wrongly)",
+   "defect_patch": "--- a/astropy/time/utils.py\n+++ b/astropy/time/utils.py\n@@ -31,7 +31,7 @@\n     # and the second is the error of the float64 sum.\n     sum12, err12 = two_sum(val1, val2)\n \n-    if np.any(factor != 1.):\n+    if np.any(factor) and np.any(factor != 1.):\n         sum12, carry = two_product(sum12, factor)\n         carry += err12 * factor\n         sum12, err12 = two_sum(sum12, carry)\n",
+   "test_code": "import numpy as np\nimport pytest\n\nfrom astropy.time.utils import day_frac\n\n\n@pytest.mark.parametrize('factor', [0.0, np.zeros(3)])\ndef test_zero_scaling_clears_both_time_parts(factor):\n    val1 = np.array([2451545.0, 2451546.0, 2451547.0])\n    val2 = np.array([0.125, -0.25, 0.375])\n\n    day, frac = day_frac(val1, val2, factor=factor)\n\n    np.testing.assert_array_equal(day, np.zeros(3))\n    np.testing.assert_array_equal(frac, np.zeros(3))\n",
+   "signal": {
+    "kind": "user",
+    "source": "duration-export support channel",
+    "text": "Records exported with a scale of zero still show their original nonzero durations. Other scale values appear to work normally."
+   },
+   "summary": "A truthiness guard incorrectly skips multiplication for scalar zero or all-zero scaling factors, leaving the original time values unchanged.",
+   "reject": "could not read the reported bug's test results"
+  },
+  {
+   "path": "astropy/io/fits/verify.py",
+   "category": "resource handling (a file, handle or connection not closed, or state leaking between calls)",
+   "defect_patch": "--- a/astropy/io/fits/verify.py\n+++ b/astropy/io/fits/verify.py\n@@ -113,6 +113,7 @@\n             if fix_opt == 'silentfix' and not unfixable:\n                 return\n             elif report_opt == 'warn' or (fix_opt == 'fix' and not unfixable):\n+                warnings.simplefilter('always', VerifyWarning)\n                 for line in messages:\n                     warnings.warn(line, VerifyWarning)\n             else:\n",
+   "test_code": "import warnings\n\nfrom astropy.io.fits.verify import _ErrList, _Verify, VerifyWarning\n\n\nclass InvalidRecord(_Verify):\n    def _verify(self, option):\n        return _ErrList([(False, 'Invalid record value.')])\n\n\ndef test_verification_preserves_warning_policy():\n    with warnings.catch_warnings(record=True) as recorded:\n        warnings.simplefilter('ignore', VerifyWarning)\n        original_filters = list(warnings.filters)\n\n        InvalidRecord().verify('warn')\n        warnings.warn('A later FITS validation warning.', VerifyWarning)\n\n        assert warnings.filters == original_filters\n        assert not recorded\n",
+   "signal": {
+    "kind": "user",
+    "source": "FITS ingestion support",
+    "text": "Some long-running workers start emitting FITS validation warnings despite our warning-suppression settings. Restarting the workers makes them quiet again until another malformed upload arrives."
+   },
+   "summary": "Reporting verification warnings installs an unconditional process-wide warning filter without restoring it, leaking warning policy into subsequent calls.",
+   "reject": "could not read the reported bug's test results"
+  },
+  {
+   "path": "astropy/cosmology/funcs.py",
+   "category": "security weakness (input validation, path handling or escaping that lets bad input through)",
+   "defect_patch": "--- a/astropy/cosmology/funcs.py\n+++ b/astropy/cosmology/funcs.py\n@@ -137,10 +137,10 @@\n         warnings.warn('Maximum number of function calls ({}) reached'.format(\n             ncall))\n \n-    if np.allclose(zbest, zmax):\n+    if np.allclose(zbest, zmax, rtol=ztol, atol=ztol):\n         raise CosmologyError(\"Best guess z is very close the upper z limit.\\n\"\n                              \"Try re-running with a different zmax.\")\n-    elif np.allclose(zbest, zmin):\n+    elif np.allclose(zbest, zmin, rtol=ztol, atol=ztol):\n         raise CosmologyError(\"Best guess z is very close the lower z limit.\\n\"\n                              \"Try re-running with a different zmin.\")\n",
+   "test_code": "import warnings\n\nimport pytest\n\nfrom astropy.cosmology import z_at_value\nfrom astropy.cosmology.core import CosmologyError\n\n\n@pytest.mark.parametrize('target', [-1.0, 2.0])\ndef test_unreachable_target_is_rejected(target):\n    rejected = False\n    with warnings.catch_warnings():\n        warnings.simplefilter('ignore', UserWarning)\n        try:\n            z_at_value(\n                lambda z: z,\n                target,\n                zmin=0.1,\n                zmax=1.0,\n                ztol=1e-12,\n            )\n        except CosmologyError:\n            rejected = True\n\n    assert rejected, 'An out-of-range target must not produce a valid redshift'\n",
+   "signal": {
+    "kind": "user",
+    "source": "catalog-api support",
+    "text": "Distance lookups that previously reported no acceptable result are now returning success, with redshifts clustered just inside our configured upper cutoff."
+   },
+   "summary": "Reusing the solver tolerance for endpoint validation weakens the boundary checks, allowing unreachable input targets to return apparently valid redshifts instead of raising an error.",
+   "reject": "test does not separate defect from original",
+   "on_defect": "er commonly inverted quantities) are monotonic in flat and open\n        universes, but not in closed universes.\n        \"\"\"\n>       from scipy.optimize import fminbound\nE       ModuleNotFoundError: No module named 'scipy'\n\nastropy/cosmology/funcs.py:114: ModuleNotFoundError\n1 failed in 0.08 seconds\n",
+   "on_clean": ">       from scipy.optimize import fminbound\nE       ModuleNotFoundError: No module named 'scipy'\n\nastropy/cosmology/funcs.py:114: ModuleNotFoundError\n1 failed in 0.07 seconds\n"
+  },
+  {
+   "path": "astropy/io/misc/asdf/tags/transform/projections.py",
+   "category": "silent wrong result (a value or output that is subtly wrong, no exception)",
+   "defect_patch": "--- a/astropy/io/misc/asdf/tags/transform/projections.py\n+++ b/astropy/io/misc/asdf/tags/transform/projections.py\n@@ -178,7 +178,7 @@\n     'slant_orthographic': ('SlantOrthographic', (('xi', 0.0), ('eta', 0.0))),\n     'zenithal_equidistant': ('ZenithalEquidistant', ()),\n     'zenithal_equal_area': ('ZenithalEqualArea', ()),\n-    'airy': ('Airy', (('theta_b', 90.0),)),\n+    'airy': ('Airy', (('theta_b', 0.0),)),\n     'cylindrical_perspective': ('CylindricalPerspective', (('mu', 0.0), ('lam', 0.0))),\n     'cylindrical_equal_area': ('CylindricalEqualArea', (('lam', 0.0),)),\n     'plate_carree': ('PlateCarree', ()),\n",
+   "test_code": "import numpy as np\n\nfrom astropy.modeling import projections\nfrom astropy.io.misc.asdf.tags.transform.projections import AiryType\n\n\ndef test_airy_tree_with_omitted_boundary_latitude():\n    # Older archives may omit parameters equal to the serialization default.\n    restored = AiryType.from_tree_transform({'direction': 'pix2sky'}, None)\n    expected = projections.Pix2Sky_Airy(theta_b=90.0)\n\n    assert restored.theta_b.value == expected.theta_b.value\n\n    x = np.array([0.5, 2.0, -3.0])\n    y = np.array([0.25, -1.0, 1.5])\n    np.testing.assert_allclose(\n        restored(x, y), expected(x, y), rtol=1e-12, atol=1e-12\n    )\n",
+   "signal": {
+    "kind": "user",
+    "source": "Archive calibration support",
+    "text": "A small subset of reopened calibration products now places sources at systematically different distances from the field center. The centers still agree, and most archived products look unchanged."
+   },
+   "summary": "Changes the implicit Airy theta_b default from 90 degrees to 0 degrees, silently misinterpreting serialized projections that omit that parameter.",
+   "reject": "test does not separate defect from original",
+   "on_defect": "sc.asdf.tags.transform.projections import AiryType\nastropy/io/misc/asdf/tags/transform/projections.py:6: in <module>\n    from asdf import yamlutil\nE   ModuleNotFoundError: No module named 'asdf'\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 errors during collection !!!!!!!!!!!!!!!!!!!!\n1 error in 0.21 seconds\n",
+   "on_clean": "astropy/io/misc/asdf/tags/transform/projections.py:6: in <module>\n    from asdf import yamlutil\nE   ModuleNotFoundError: No module named 'asdf'\n!!!!!!!!!!!!!!!!!!! Interrupted: 1 errors during collection !!!!!!!!!!!!!!!!!!!!\n1 error in 0.24 seconds\n"
+  },
+  {
+   "path": "astropy/io/votable/connect.py",
+   "category": "swallowed error (an exception caught and ignored, or an error path that returns a default)",
+   "defect_patch": "--- a/astropy/io/votable/connect.py\n+++ b/astropy/io/votable/connect.py\n@@ -89,11 +89,7 @@\n                     'or integers less than {1}.'.format(\n                         ', '.join(table_id_mapping.keys()), len(tables)))\n             elif isinstance(table_id, str):\n-                if table_id in table_id_mapping:\n-                    table = table_id_mapping[table_id]\n-                else:\n-                    raise ValueError(\n-                        \"No tables with id={0} found\".format(table_id))\n+                table = table_id_mapping.get(table_id, tables[0])\n             elif isinstance(table_id, int):\n                 if table_id < len(tables):\n                     table = tables[table_id]\n",
+   "test_code": "from io import BytesIO\n\nfrom astropy.io.votable import parse\nfrom astropy.table import Table\n\n\ndef test_missing_table_id_does_not_fall_back_to_another_table():\n    document = parse(BytesIO(b'''<?xml version=\"1.0\"?>\n<VOTABLE version=\"1.3\" xmlns=\"http://www.ivoa.net/xml/VOTable/v1.3\">\n  <RESOURCE>\n    <TABLE ID=\"current\">\n      <FIELD ID=\"value\" name=\"value\" datatype=\"int\"/>\n      <DATA><TABLEDATA><TR><TD>11</TD></TR></TABLEDATA></DATA>\n    </TABLE>\n    <TABLE ID=\"reference\">\n      <FIELD ID=\"value\" name=\"value\" datatype=\"int\"/>\n      <DATA><TABLEDATA><TR><TD>22</TD></TR></TABLEDATA></DATA>\n    </TABLE>\n  </RESOURCE>\n</VOTABLE>\n'''))\n\n    selected = Table.read(document, format='votable', table_id='reference')\n    assert selected['value'].tolist() == [22]\n\n    error = None\n    try:\n        Table.read(document, format='votable', table_id='archived')\n    except ValueError as exc:\n        error = str(exc)\n\n    assert error == 'No tables with id=archived found', (\n        'An unavailable table ID must raise an error instead of returning rows'\n    )\n",
+   "signal": {
+    "kind": "user",
+    "source": "catalog-import support",
+    "text": "A saved table selection that previously reported 'not found' now opens unrelated rows without any error."
+   },
+   "summary": "An unknown string table ID silently selects the first table instead of raising ValueError when multiple tables are available.",
+   "reject": "could not read the reported bug's test results"
+  },
+  {
+   "path": "astropy/io/ascii/latex.py",
+   "category": "edge case (empty, zero, unicode, boundary or None input handled wrongly)",
+   "defect_patch": "--- a/astropy/io/ascii/latex.py\n+++ b/astropy/io/ascii/latex.py\n@@ -466,7 +466,7 @@\n         # To remove extra space(s) and // appended which creates an extra new line\n         # in the end.\n-        if len(lines) > lines_length_initial:\n+        if len(lines) > lines_length_initial + 1:\n             # we compile separately because py2.6 doesn't have a flags keyword in re.sub\n             re_final_line = re.compile(r'\\s* \\\\ \\\\ \\s* $', flags=re.VERBOSE)\n             lines[-1] = re.sub(re_final_line, '', lines[-1])\n         lines.append(self.data_end)\n",
+   "test_code": "from io import StringIO\n\nimport pytest\n\nfrom astropy.io import ascii\nfrom astropy.table import Table\n\n\n@pytest.mark.parametrize('row_count', [1, 2])\ndef test_aastex_final_data_row_has_no_trailing_row_break(row_count):\n    table = Table({'name': ['source{}'.format(i) for i in range(row_count)]})\n    output = StringIO()\n    ascii.write(table, output, format='aastex')\n\n    lines = output.getvalue().splitlines()\n    start = lines.index(r'\\startdata') + 1\n    end = lines.index(r'\\enddata')\n    data_lines = lines[start:end]\n\n    assert len(data_lines) == row_count\n    assert not data_lines[-1].rstrip().endswith(r'\\\\'), (\n        'The final data row should not contain a trailing row break'\n    )\n",
+   "signal": {
+    "kind": "user",
+    "source": "Manuscript export support",
+    "text": "The one-object summary tables now leave an extra blank row at the bottom in our manuscript. The longer tables still look normal."
+   },
+   "summary": "An off-by-one in AASTeX final-row cleanup leaves the trailing row terminator intact for single-row tables.",
+   "reject": "could not read the reported bug's test results"
+  },
+  {
+   "path": "astropy/io/fits/__init__.py",
+   "category": "resource handling (a file, handle or connection not closed, or state leaking between calls)",
+   "defect_patch": "--- a/astropy/io/fits/__init__.py\n+++ b/astropy/io/fits/__init__.py\n@@ -79,11 +79,18 @@\n from .hdu.groups import GroupData\n-from .hdu.hdulist import fitsopen as open\n+from .hdu.hdulist import fitsopen as _fitsopen\n from .hdu.image import Section\n from .header import Header\n from .verify import VerifyError\n \n \n+def open(name, *args, **kwargs):\n+    lazy_load_hdus = kwargs.pop('lazy_load_hdus', None)\n+    if lazy_load_hdus is not None:\n+        conf.lazy_load_hdus = lazy_load_hdus\n+    return _fitsopen(name, *args, **kwargs)\n+\n+\n __all__ = (['Conf', 'conf'] + card.__all__ + column.__all__ +\n            convenience.__all__ + hdu.__all__ +\n            ['FITS_record', 'FITS_rec', 'GroupData', 'open', 'Section',\n             'Header', 'VerifyError', 'conf'])\n",
+   "test_code": "from astropy.io import fits\n\n\ndef test_lazy_loading_override_does_not_change_subsequent_default(tmp_path):\n    filename = str(tmp_path / 'extensions.fits')\n    with fits.HDUList([fits.PrimaryHDU(), fits.ImageHDU()]) as hdus:\n        hdus.writeto(filename)\n\n    with fits.conf.set_temp('lazy_load_hdus', True):\n        with fits.open(filename, lazy_load_hdus=False) as hdus:\n            assert len(hdus) == 2\n\n        with fits.open(filename) as hdus:\n            assert fits.conf.lazy_load_hdus is True\n            assert len(hdus) == 2\n",
+   "signal": {
+    "kind": "user",
+    "source": "image-preview support channel",
+    "text": "After the inventory scan runs, previews in the same worker take noticeably longer to start for files with many extensions. Restarting the worker brings the usual response time back."
+   },
+   "summary": "An explicit lazy_load_hdus override persists in global configuration, leaking one open call's loading policy into subsequent calls.",
+   "reject": "test does not separate defect from original",
+   "on_defect": "che, capfd, capfdbinary, caplog, capsys, capsysbinary, cov, doctest_namespace, mock, mocker, monkeypatch, pytestconfig, record_xml_property, recwarn, tmpdir, tmpdir_factory, worker_id\n>       use 'pytest --fixtures [testpath]' for help on them.\n\n/tmp/test_hidden_problem.py:4\n1 error in 0.09 seconds\n",
+   "on_clean": "che, capfd, capfdbinary, caplog, capsys, capsysbinary, cov, doctest_namespace, mock, mocker, monkeypatch, pytestconfig, record_xml_property, recwarn, tmpdir, tmpdir_factory, worker_id\n>       use 'pytest --fixtures [testpath]' for help on them.\n\n/tmp/test_hidden_problem.py:4\n1 error in 0.08 seconds\n"
+  },
+  {
+   "path": "astropy/stats/lombscargle/implementations/mle.py",
+   "category": "security weakness (input validation, path handling or escaping that lets bad input through)",
+   "defect_patch": "--- a/astropy/stats/lombscargle/implementations/mle.py\n+++ b/astropy/stats/lombscargle/implementations/mle.py\n@@ -30,8 +30,6 @@\n \n     if t.ndim != 1:\n         raise ValueError(\"t should be one dimensional\")\n-    if frequency.ndim != 0:\n-        raise ValueError(\"frequency must be a scalar\")\n \n     if nterms == 0 and not bias:\n         raise ValueError(\"cannot have nterms=0 and no bias\")\n",
+   "test_code": "import numpy as np\n\nfrom astropy.stats.lombscargle.implementations.mle import design_matrix\n\n\ndef test_reject_broadcasting_frequency_grid():\n    t = np.linspace(0.0, 10.0, 16)\n    frequency = np.linspace(0.1, 0.9, 16)[:, None]\n\n    rejected = False\n    try:\n        design_matrix(t, frequency)\n    except ValueError as exc:\n        rejected = \"frequency must be a scalar\" in str(exc)\n\n    assert rejected, (\n        \"A nonscalar frequency grid must be rejected rather than broadcast \"\n        \"into a quadratically sized design matrix\"\n    )\n",
+   "signal": {
+    "kind": "log",
+    "source": "period-preview-worker",
+    "text": "Request terminated after worker exceeded memory limit; request body was 187 kB. Other preview requests completed normally."
+   },
+   "summary": "Removing scalar-frequency validation allows a column-shaped frequency array to broadcast against the time vector, causing quadratic memory allocation and enabling denial of service.",
+   "reject": "could not read the reported bug's test results"
+  }
+ ]
+}

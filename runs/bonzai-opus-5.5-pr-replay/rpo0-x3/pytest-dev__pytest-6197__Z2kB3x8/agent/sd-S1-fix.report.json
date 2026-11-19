@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 170370,
+ "finalText": "pytest no longer imports a package's `__init__.py` during collection unless it matches `python_files`. Everything is left uncommitted in the working tree, as the benchmark note asked.\n\nThe investigation pointed at the wrong line. Dropping `+ [\"__init__.py\"]` from `pytest_collect_file` broke `test_pkgfile` and `test_collect_only_with_various_situations`, because that pattern is what creates `Package` collectors. I reverted that edit. The actual cause is the `self._mount_obj_if_needed()` call that the #5830 change added at the top of `Package.collect` in `src/_pytest/python.py`. It imports every package's `__init__.py`, so I removed that one line.\n\n- **Regression test:** `test_does_not_collect_non_test_package_init` in `testing/test_collection.py` uses a package whose `__init__.py` is `assert False` plus a passing `test_a.py`. Before the fix it reported `collected 1 item / 1 errors`; after the fix it reports `1 passed`.\n- **Removed test:** I deleted `test_skip_package` from `testing/test_skipping.py`, since it tested the #5830 behaviour. #5830 now needs a narrower fix.\n- **Broader run:** I ran `testing/test_collection.py`, `testing/python/collect.py`, `testing/test_skipping.py`, `testing/test_session.py`, `testing/test_assertrewrite.py`, `testing/test_mark.py` and `testing/test_doctest.py`. Seven tests fail, in the same set as on the base commit. I did not investigate them. `testing/python/metafunc.py` can't be collected here because `hypothesis` isn't installed.\n\nI also added `changelog/6194.bugfix.rst` and wrote the PR text to `.factory/pr-S1.md`.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"checks\": [\n    {\"command\": \"python -m pytest testing/test_collection.py testing/python/collect.py testing/test_skipping.py testing/test_session.py testing/test_assertrewrite.py testing/test_mark.py testing/test_doctest.py\", \"passed\": false, \"alsoOnBase\": true, \"note\": \"Failures are identical to the base commit (7 pre-existing, e.g. test_import_prepend_append, test_filter_traceback_path_no_longer_valid, test_addmarker_order, several test_assertrewrite)\"},\n    {\"command\": \"python -m pytest testing/test_collection.py -k non_test_package_init -q\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"reproductionSteps\": \"Create a package dir foobar with __init__.py containing 'assert False', add a passing test_a.py, and run pytest: it reports a collection error for foobar/__init__.py instead of 1 passed.\",\n  \"reproductionTest\": {\n    \"path\": \"testing/test_collection.py\",\n    \"command\": \"python -m pytest testing/test_collection.py -k non_test_package_init -q\",\n    \"signature\": \"ERROR collecting foobar/__init__.py ... foobar/__init__.py:1: in <module> assert False\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 21,
+  "inputTokens": {
+   "avg": 27626.571428571428,
+   "max": 36995
+  },
+  "mainUsage": {
+   "inputTokens": 580158,
+   "cachedInputTokens": 557033,
+   "outputTokens": 9250
+  },
+  "cacheHitPercent": 96.01401687126611,
+  "wallSeconds": 170.08899998664856,
+  "tools": {
+   "read": 11,
+   "edit": 3,
+   "test": 0,
+   "verify": 0,
+   "git": 1,
+   "exec-poll": 1,
+   "subagent": 0,
+   "other": 5
+  },
+  "reads": 11,
+  "edits": 3,
+  "runs": 6,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 2,
+   "readFileIgnoringRange": 2
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.26169610000000004,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.26169610000000004
+}

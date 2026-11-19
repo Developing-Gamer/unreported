@@ -1,0 +1,37 @@
+[
+  {
+    "source": "S1",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: The report matches Sphinx issue #7780, filed in June 2020. With `napoleon_use_param=True`, the Napoleon extension treated the combined name 'x1, x2' as one parameter name. This produced an invalid doc"
+  },
+  {
+    "source": "S2",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The only way I could make an instance variable's text point at a same-named variable is a cross-reference written inside the class, such as :py:attr:`x` or a default-role `x`. Python domain lookup (fi"
+  },
+  {
+    "source": "S3",
+    "decision": "fix",
+    "reason": "The function that turns default values into signature text, object_description in sphinx/util/inspect.py, has special cases for dict, set and frozenset. Everything else goes through repr(). For an Enu"
+  },
+  {
+    "source": "S4",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The rewritten C domain (3.0) parses c:macro parameters as plain identifiers, as the C preprocessor does. Typed parameters like 'char* message' therefore warn. The 3.0 changelog says the rewrite is str"
+  },
+  {
+    "source": "S5",
+    "decision": "fix",
+    "reason": "The template loader that autosummary uses to generate module and class pages puts each templates_path entry at the front of its search list (insert(0)), so the directories are searched in reverse. Whe"
+  },
+  {
+    "source": "S6",
+    "decision": "fix",
+    "reason": "texescape.escape_abbr only adds the inter-word-space fix (\\@) when a period is followed by a literal space or end of string. A period followed by a newline or tab is left alone, so TeX treats it as a "
+  },
+  {
+    "source": "S7",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The error comes from a separate service, `webhook-relay`. Its stack runs through relay/deliver.py (post_webhook), aiohttp and asyncio, and it reports api.github.com not answering within 30 s. This rep"
+  }
+]

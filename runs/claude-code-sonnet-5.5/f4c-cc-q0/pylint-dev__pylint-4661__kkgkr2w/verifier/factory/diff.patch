@@ -1,0 +1,330 @@
+diff --git a/ChangeLog b/ChangeLog
+index 047ee370..cc0a1cc6 100644
+--- a/ChangeLog
++++ b/ChangeLog
+@@ -21,6 +21,20 @@ Release date: TBA
+ 
+   Close #4120
+ 
++* Fix a false positive for ``protected-access`` when a static method accesses a
++  protected member of an instance of its own class.
++
++  Closes #1802
++
++* Fix a false positive for ``missing-raises-doc`` when the documented exception
++  is given with a dotted path of more than two parts (e.g. ``pkg.mod.ValueError``).
++
++* The default directory for persistent data now follows the XDG Base Directory
++  Specification (``$XDG_CACHE_HOME/pylint``) unless a legacy ``~/.pylint.d``
++  directory already exists.
++
++* Fix the functional test failure summary not listing unexpected messages.
++
+ 
+ What's New in Pylint 2.9.6?
+ ===========================
+diff --git a/doc/faq.rst b/doc/faq.rst
+index c817855f..c563667a 100644
+--- a/doc/faq.rst
++++ b/doc/faq.rst
+@@ -93,8 +93,11 @@ localized using the following rules:
+ 
+ * value of the PYLINTHOME environment variable if set
+ 
+-* ".pylint.d" subdirectory of the user's home directory if it is found
+-	(not always findable on Windows platforms)
++* ".pylint.d" subdirectory of the user's home directory if it already exists
++	(legacy location, always used on Windows platforms)
++
++* "pylint" subdirectory of $XDG_CACHE_HOME (by default "~/.cache/pylint"),
++	following the XDG Base Directory Specification
+ 
+ * ".pylint.d" directory in the current directory
+ 
+diff --git a/doc/whatsnew/2.10.rst b/doc/whatsnew/2.10.rst
+index e94530bf..d3971704 100644
+--- a/doc/whatsnew/2.10.rst
++++ b/doc/whatsnew/2.10.rst
+@@ -23,4 +23,8 @@ Other Changes
+ 
+ * Performance of the Similarity checker has been improved.
+ 
++* The default directory for persistent data now follows the XDG Base Directory
++  Specification (``$XDG_CACHE_HOME/pylint``, i.e. ``~/.cache/pylint``) unless a
++  legacy ``~/.pylint.d`` directory already exists.
++
+ * Added ``time.clock`` to deprecated functions/methods for python 3.3
+diff --git a/pylint/checkers/classes.py b/pylint/checkers/classes.py
+index 8f983d50..3a2358eb 100644
+--- a/pylint/checkers/classes.py
++++ b/pylint/checkers/classes.py
+@@ -1595,7 +1595,7 @@ a metaclass class method.",
+                         return
+ 
+                 if (
+-                    self._is_classmethod(node.frame())
++                    self._is_classmethod_or_staticmethod(node.frame())
+                     and self._is_inferred_instance(node.expr, klass)
+                     and self._is_class_attribute(attrname, klass)
+                 ):
+@@ -1632,11 +1632,12 @@ a metaclass class method.",
+         )
+ 
+     @staticmethod
+-    def _is_classmethod(func):
+-        """Check if the given *func* node is a class method."""
++    def _is_classmethod_or_staticmethod(func):
++        """Check if the given *func* node is a class method or a static method."""
+ 
+         return isinstance(func, astroid.FunctionDef) and (
+-            func.type == "classmethod" or func.name == "__class_getitem__"
++            func.type in {"classmethod", "staticmethod"}
++            or func.name == "__class_getitem__"
+         )
+ 
+     @staticmethod
+diff --git a/pylint/config/__init__.py b/pylint/config/__init__.py
+index 84774d0e..5b62c67d 100644
+--- a/pylint/config/__init__.py
++++ b/pylint/config/__init__.py
+@@ -56,6 +56,24 @@ __all__ = [
+ ]
+ 
+ USER_HOME = os.path.expanduser("~")
++
++
++def _get_default_pylint_home() -> str:
++    """Return the default directory for persistent data.
++
++    Follows the XDG Base Directory Specification on POSIX systems
++    ($XDG_CACHE_HOME/pylint, defaulting to ~/.cache/pylint), but keeps using
++    an already existing legacy ~/.pylint.d directory.
++    """
++    legacy_home = os.path.join(USER_HOME, ".pylint.d")
++    if os.name == "nt" or os.path.isdir(legacy_home):
++        return legacy_home
++    xdg_cache_home = os.environ.get("XDG_CACHE_HOME")
++    if not xdg_cache_home or not os.path.isabs(xdg_cache_home):
++        xdg_cache_home = os.path.join(USER_HOME, ".cache")
++    return os.path.join(xdg_cache_home, "pylint")
++
++
+ if "PYLINTHOME" in os.environ:
+     PYLINT_HOME = os.environ["PYLINTHOME"]
+     if USER_HOME == "~":
+@@ -63,7 +81,7 @@ if "PYLINTHOME" in os.environ:
+ elif USER_HOME == "~":
+     PYLINT_HOME = ".pylint.d"
+ else:
+-    PYLINT_HOME = os.path.join(USER_HOME, ".pylint.d")
++    PYLINT_HOME = _get_default_pylint_home()
+ 
+ 
+ def _get_pdata_path(base_name, recurs):
+@@ -83,7 +101,7 @@ def load_results(base):
+ def save_results(results, base):
+     if not os.path.exists(PYLINT_HOME):
+         try:
+-            os.mkdir(PYLINT_HOME)
++            os.makedirs(PYLINT_HOME)
+         except OSError:
+             print("Unable to create directory %s" % PYLINT_HOME, file=sys.stderr)
+     data_file = _get_pdata_path(base, 1)
+@@ -110,8 +128,9 @@ ENV_HELP = (
+ The following environment variables are used:
+     * PYLINTHOME
+     Path to the directory where persistent data for the run will be stored. If
+-not found, it defaults to ~/.pylint.d/ or .pylint.d (in the current working
+-directory).
++not found, it defaults to $XDG_CACHE_HOME/pylint (~/.cache/pylint) unless a
++legacy ~/.pylint.d/ directory exists, or to .pylint.d (in the current working
++directory) if the home directory cannot be determined.
+     * PYLINTRC
+     Path to the configuration file. See the documentation for the method used
+ to search for configuration file.
+diff --git a/pylint/extensions/docparams.py b/pylint/extensions/docparams.py
+index 341e04df..ba6fc2a3 100644
+--- a/pylint/extensions/docparams.py
++++ b/pylint/extensions/docparams.py
+@@ -304,7 +304,7 @@ class DocstringParameterChecker(BaseChecker):
+         found_excs_full_names = doc.exceptions()
+ 
+         # Extract just the class name, e.g. "error" from "re.error"
+-        found_excs_class_names = {exc.split(".", 1)[-1] for exc in found_excs_full_names}
++        found_excs_class_names = {exc.rsplit(".", 1)[-1] for exc in found_excs_full_names}
+         missing_excs = expected_excs - found_excs_class_names
+         self._add_raise_message(missing_excs, func_node)
+ 
+diff --git a/pylint/testutils/lint_module_test.py b/pylint/testutils/lint_module_test.py
+index 3f11f746..57b11191 100644
+--- a/pylint/testutils/lint_module_test.py
++++ b/pylint/testutils/lint_module_test.py
+@@ -7,7 +7,7 @@ import platform
+ import sys
+ from collections import Counter
+ from io import StringIO
+-from typing import Dict, List, Optional, Tuple
++from typing import List, Optional, Tuple
+ 
+ import pytest
+ from _pytest.config import Config
+@@ -124,17 +124,12 @@ class LintModuleTest:
+     @staticmethod
+     def multiset_difference(
+         expected_entries: Counter, actual_entries: Counter
+-    ) -> Tuple[Counter, Dict[str, int]]:
++    ) -> Tuple[Counter, Counter]:
+         """Takes two multisets and compares them.
+ 
+         A multiset is a dict with the cardinality of the key as the value."""
+         missing = expected_entries - actual_entries
+-        unexpected = {}
+-        for key, value in list(missing.items()):
+-            if value <= 0:
+-                missing.pop(key)
+-                if value < 0:
+-                    unexpected[key] = -value
++        unexpected = actual_entries - expected_entries
+         return missing, unexpected
+ 
+     # pylint: disable=consider-using-with
+diff --git a/tests/extensions/test_check_docs.py b/tests/extensions/test_check_docs.py
+index d43766b9..0b40f6f5 100644
+--- a/tests/extensions/test_check_docs.py
++++ b/tests/extensions/test_check_docs.py
+@@ -1559,6 +1559,30 @@ class TestParamDocChecker(CheckerTestCase):
+         with self.assertNoMessages():
+             self.checker.visit_functiondef(node)
+ 
++    def test_ignores_qualified_exception_names_in_raises_doc(self):
++        """Exceptions documented with a multi-part dotted path still match"""
++        funcs = astroid.extract_node(
++            """
++        def my_func(self):
++            '''This is a docstring.
++
++            :raises pkg.mod.ValueError: Always
++            '''
++            raise ValueError("Always") #@
++
++        def my_other_func(self):
++            '''This is a docstring.
++
++            Raises:
++                pkg.mod.ValueError: Always
++            '''
++            raise ValueError("Always") #@
++        """
++        )
++        for raise_node in funcs:
++            with self.assertNoMessages():
++                self.checker.visit_raise(raise_node)
++
+     def test_finds_missing_raises_from_setter_sphinx(self):
+         """Example of a setter having missing raises documentation in
+         the Sphinx style docstring of the property
+diff --git a/tests/functional/a/access/access_to_protected_members.py b/tests/functional/a/access/access_to_protected_members.py
+index 06438400..fbbc77e2 100644
+--- a/tests/functional/a/access/access_to_protected_members.py
++++ b/tests/functional/a/access/access_to_protected_members.py
+@@ -211,3 +211,25 @@ class Issue1159Subclass(Issue1159):
+         instance = Issue1159OtherClass()
+         instance._bar = 3  # [protected-access]
+         _ = instance._foo  # [protected-access]
++
++
++class Issue3178:  # pylint: disable=unused-private-member
++    """Accessing protected members of an instance in a static method of the same class is OK."""
++
++    @staticmethod
++    def create(value):
++        """Static methods of the class may access protected members of its instances."""
++        instance = Issue3178()
++        instance.__value = value
++        instance._other = value
++        return instance
++
++    @staticmethod
++    def access_other_attr():
++        """Access to protected instance members of other classes is still not OK."""
++        instance = Issue1159OtherClass()
++        _ = instance._foo  # [protected-access]
++
++    def __init__(self):
++        self.__value = None
++        self._other = None
+diff --git a/tests/functional/a/access/access_to_protected_members.txt b/tests/functional/a/access/access_to_protected_members.txt
+index 1b93683d..70e08bbf 100644
+--- a/tests/functional/a/access/access_to_protected_members.txt
++++ b/tests/functional/a/access/access_to_protected_members.txt
+@@ -14,3 +14,4 @@ protected-access:194:12:Issue1159Subclass.access_missing_member:Access to a prot
+ attribute-defined-outside-init:203:8:Issue1159Subclass.assign_missing_member:Attribute '_qux' defined outside __init__
+ protected-access:212:8:Issue1159Subclass.access_other_attr:Access to a protected member _bar of a client class
+ protected-access:213:12:Issue1159Subclass.access_other_attr:Access to a protected member _foo of a client class
++protected-access:231:12:Issue3178.access_other_attr:Access to a protected member _foo of a client class
+diff --git a/tests/lint/unittest_lint.py b/tests/lint/unittest_lint.py
+index 004c2928..1eea5289 100644
+--- a/tests/lint/unittest_lint.py
++++ b/tests/lint/unittest_lint.py
+@@ -632,6 +632,11 @@ def test_pylint_home():
+         expected = ".pylint.d"
+     else:
+         expected = os.path.join(uhome, ".pylint.d")
++    if os.name != "nt" and not os.path.isdir(expected) and uhome != "~":
++        xdg = os.environ.get("XDG_CACHE_HOME")
++        if not xdg or not os.path.isabs(xdg):
++            xdg = os.path.join(uhome, ".cache")
++        expected = os.path.join(xdg, "pylint")
+     assert config.PYLINT_HOME == expected
+ 
+     try:
+@@ -649,6 +654,29 @@ def test_pylint_home():
+         del os.environ["PYLINTHOME"]
+ 
+ 
++@pytest.mark.skipif(os.name == "nt", reason="XDG does not apply on Windows")
++@pytest.mark.usefixtures("pop_pylintrc")
++def test_pylint_home_xdg(monkeypatch, tmp_path):
++    monkeypatch.delenv("PYLINTHOME", raising=False)
++    monkeypatch.setenv("HOME", str(tmp_path))
++    monkeypatch.delenv("XDG_CACHE_HOME", raising=False)
++    try:
++        reload(config)
++        assert config.PYLINT_HOME == str(tmp_path / ".cache" / "pylint")
++
++        monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "xdg"))
++        reload(config)
++        assert config.PYLINT_HOME == str(tmp_path / "xdg" / "pylint")
++
++        # A pre-existing legacy directory keeps being used
++        (tmp_path / ".pylint.d").mkdir()
++        reload(config)
++        assert config.PYLINT_HOME == str(tmp_path / ".pylint.d")
++    finally:
++        monkeypatch.undo()
++        reload(config)
++
++
+ @pytest.mark.usefixtures("pop_pylintrc")
+ def test_pylintrc():
+     with fake_home():
+diff --git a/tests/testutils/test_output_line.py b/tests/testutils/test_output_line.py
+index 18689f43..4cac3190 100644
+--- a/tests/testutils/test_output_line.py
++++ b/tests/testutils/test_output_line.py
+@@ -101,3 +101,15 @@ def test_output_line_from_csv(confidence, expected_confidence):
+         msg="msg",
+         confidence=expected_confidence,
+     )
++
++
++def test_multiset_difference_reports_missing_and_unexpected():
++    from collections import Counter
++
++    from pylint.testutils.lint_module_test import LintModuleTest
++
++    expected = Counter({(1, "a"): 1, (2, "b"): 2})
++    actual = Counter({(2, "b"): 1, (3, "c"): 1})
++    missing, unexpected = LintModuleTest.multiset_difference(expected, actual)
++    assert missing == Counter({(1, "a"): 1, (2, "b"): 1})
++    assert unexpected == Counter({(3, "c"): 1})

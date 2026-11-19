@@ -1,0 +1,37 @@
+[
+  {
+    "source": "S1",
+    "decision": "fix",
+    "reason": "laguerre_poly wraps construct_domain(alpha) in try/except (TypeError, ValueError) and on failure falls back to K, alpha = QQ, QQ(0), the same default used when alpha is omitted. SympifyError subclasse"
+  },
+  {
+    "source": "S2",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: When reported, the srepr printer had no dict or set handler, so their elements were printed with str(). The current ReprPrinter has _print_dict and _print_set that print each element with the repr pri"
+  },
+  {
+    "source": "S3",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The billing-worker service could not open a connection to api.stripe.com (connection refused) when creating a charge. This repository is the SymPy symbolic math library: it has no billing worker, no S"
+  },
+  {
+    "source": "S4",
+    "decision": "fix",
+    "reason": "dup_clear_denoms/dmp_clear_denoms multiply all coefficients by the common denominator via dup_mul_ground/dmp_mul_ground, which return the product list without stripping leading zeros. With EX coeffici"
+  },
+  {
+    "source": "S5",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: posify used to build its positive replacement symbols with only positive=True, so assumptions such as finite=True were lost and is_finite became None. The current code passes the original symbol's ass"
+  },
+  {
+    "source": "S6",
+    "decision": "fix",
+    "reason": "In sympy/polys/partfrac.py, apart() catches PolynomialError from parallel_poly_from_expr and, for commutative input, now returns f unchanged instead of re-raising. Released sympy 1.6 has `raise Polyno"
+  },
+  {
+    "source": "S7",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: Boolean's logic operators only accept Boolean operands (sympify_return([('other', 'Boolean')], NotImplemented)), so S.true & 5 raises TypeError. The function form And(S.true, 5) goes through as_Boolea"
+  }
+]

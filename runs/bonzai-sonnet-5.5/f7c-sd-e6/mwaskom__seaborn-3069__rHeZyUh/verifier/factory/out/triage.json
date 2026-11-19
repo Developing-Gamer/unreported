@@ -1,0 +1,32 @@
+[
+  {
+    "source": "S1",
+    "decision": "fix",
+    "reason": "Seaborn wraps NaN-dropping code in pd.option_context('mode.use_inf_as_null', True). Pandas deprecated that option name in 1.x and removed it in 2.0, so entering the context raises OptionError. The new"
+  },
+  {
+    "source": "S2",
+    "decision": "fix",
+    "reason": "In the objects interface, Nominal scales (explicit or inferred) are set up as plain linear scales. Nothing in the code applies the three categorical-axis conventions: padding of \u00b10.5 around the first "
+  },
+  {
+    "source": "S3",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The stack points at export/worker.py and export/csv_writer.py. Neither exists here, and nothing in the workspace writes CSV exports or runs a worker pod. This repository is the seaborn plotting librar"
+  },
+  {
+    "source": "S4",
+    "decision": "fix",
+    "reason": "The palette widgets build one reusable colormap from Greys and later overwrite only its first 256 colour entries (`cmap._lut[:256] = colors`). Matplotlib keeps the 'under', 'over' and 'bad' colours in"
+  },
+  {
+    "source": "S5",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: With multiple='stack', histplot passes the KDE curves through the same stacking step as the bars (_resolve_multiple, with dodge explicitly excluded), so each curve is a running total over hue levels a"
+  },
+  {
+    "source": "S6",
+    "decision": "fix",
+    "reason": "Brief numeric legends (hue or size) pick tick values with a locator, then filter them with `l >= limits[0] and l < limits[1]`. The upper bound is exclusive, so a tick that lands exactly on the data ma"
+  }
+]

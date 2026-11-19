@@ -1,0 +1,420 @@
+diff --git a/.travis.yml b/.travis.yml
+index 62a5959..107b772 100644
+--- a/.travis.yml
++++ b/.travis.yml
+@@ -4,6 +4,7 @@ python:
+   - 2.7
+   - 3.2
+   - 3.3
++  - 3.4
+ env: HTTPBIN_URL=http://httpbin.org/
+ script: make test
+ install:
+diff --git a/requests/api.py b/requests/api.py
+index 4a39211..9db956f 100644
+--- a/requests/api.py
++++ b/requests/api.py
+@@ -40,8 +40,11 @@ def request(method, url, **kwargs):
+       <Response [200]>
+     """
+ 
+-    session = sessions.Session()
+-    return session.request(method=method, url=url, **kwargs)
++    # Close the session on return so its pooled keep-alive connections do not
++    # stay open until garbage collection. Connections of streamed responses
++    # are checked out of the pool and are closed once released.
++    with sessions.Session() as session:
++        return session.request(method=method, url=url, **kwargs)
+ 
+ 
+ def get(url, **kwargs):
+diff --git a/requests/exceptions.py b/requests/exceptions.py
+index 6759af5..61f5a8f 100644
+--- a/requests/exceptions.py
++++ b/requests/exceptions.py
+@@ -47,5 +47,9 @@ class InvalidSchema(RequestException, ValueError):
+     """See defaults.py for valid schemas."""
+ 
+ 
++class ContentDecodingError(RequestException):
++    """The response body could not be decoded (e.g. corrupt gzip/deflate)."""
++
++
+ class InvalidURL(RequestException, ValueError):
+     """ The URL provided was somehow invalid. """
+diff --git a/requests/models.py b/requests/models.py
+index 9926045..217d308 100644
+--- a/requests/models.py
++++ b/requests/models.py
+@@ -386,13 +386,16 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):
+         self.body = body
+ 
+     def prepare_content_length(self, body):
+-        self.headers['Content-Length'] = '0'
+         if hasattr(body, 'seek') and hasattr(body, 'tell'):
+             body.seek(0, 2)
+             self.headers['Content-Length'] = str(body.tell())
+             body.seek(0, 0)
+         elif body is not None:
+             self.headers['Content-Length'] = str(len(body))
++        elif self.method not in ('GET', 'HEAD'):
++            # Body-less GET/HEAD requests must not advertise a length;
++            # some servers reject them.
++            self.headers['Content-Length'] = '0'
+ 
+     def prepare_auth(self, auth):
+         """Prepares the given HTTP auth data."""
+diff --git a/requests/packages/urllib3/connectionpool.py b/requests/packages/urllib3/connectionpool.py
+index 51c87f5..b2795fa 100644
+--- a/requests/packages/urllib3/connectionpool.py
++++ b/requests/packages/urllib3/connectionpool.py
+@@ -6,6 +6,7 @@
+ 
+ import logging
+ import socket
++import sys
+ import errno
+ 
+ from socket import error as SocketError, timeout as SocketTimeout
+@@ -186,6 +187,16 @@ class HTTPConnectionPool(ConnectionPool, RequestMethods):
+         self.num_connections = 0
+         self.num_requests = 0
+ 
++    def _conn_kwargs(self):
++        """
++        Extra keyword arguments for the connection class. ``strict`` was
++        removed from :mod:`http.client` in Python 3.4, so only pass it where
++        it is still accepted.
++        """
++        if sys.version_info >= (3, 4):
++            return {}
++        return {'strict': self.strict}
++
+     def _new_conn(self):
+         """
+         Return a fresh :class:`httplib.HTTPConnection`.
+@@ -195,7 +206,7 @@ class HTTPConnectionPool(ConnectionPool, RequestMethods):
+                  (self.num_connections, self.host))
+         return HTTPConnection(host=self.host,
+                               port=self.port,
+-                              strict=self.strict)
++                              **self._conn_kwargs())
+ 
+     def _get_conn(self, timeout=None):
+         """
+@@ -539,11 +550,11 @@ class HTTPSConnectionPool(HTTPConnectionPool):
+ 
+             return HTTPSConnection(host=self.host,
+                                    port=self.port,
+-                                   strict=self.strict)
++                                   **self._conn_kwargs())
+ 
+         connection = VerifiedHTTPSConnection(host=self.host,
+                                              port=self.port,
+-                                             strict=self.strict)
++                                             **self._conn_kwargs())
+         connection.set_cert(key_file=self.key_file, cert_file=self.cert_file,
+                             cert_reqs=self.cert_reqs, ca_certs=self.ca_certs)
+ 
+diff --git a/requests/utils.py b/requests/utils.py
+index 0abfde2..2546fee 100644
+--- a/requests/utils.py
++++ b/requests/utils.py
+@@ -14,6 +14,7 @@ import codecs
+ import os
+ import platform
+ import re
++import string
+ import sys
+ import zlib
+ from netrc import netrc, NetrcParseError
+@@ -23,6 +24,7 @@ from . import certs
+ from .compat import parse_http_list as _parse_list_header
+ from .compat import quote, urlparse, bytes, str, OrderedDict, urlunparse
+ from .cookies import RequestsCookieJar, cookiejar_from_dict
++from .exceptions import ContentDecodingError
+ 
+ _hush_pyflakes = (RequestsCookieJar,)
+ 
+@@ -355,22 +357,49 @@ def stream_decompress(iterator, mode='gzip'):
+     if mode not in ['gzip', 'deflate']:
+         raise ValueError('stream_decompress mode must be gzip or deflate')
+ 
+-    zlib_mode = 16 + zlib.MAX_WBITS if mode == 'gzip' else -zlib.MAX_WBITS
+-    dec = zlib.decompressobj(zlib_mode)
++    dec = None
++    if mode == 'gzip':
++        dec = zlib.decompressobj(16 + zlib.MAX_WBITS)
++    pending = bytes()
++
+     try:
+         for chunk in iterator:
++            if dec is None:
++                # 'deflate' is zlib-wrapped per RFC 2616, but some servers
++                # send raw deflate data. Look at the two header bytes to
++                # tell them apart.
++                pending += chunk
++                if len(pending) < 2:
++                    continue
++                chunk, pending = pending, bytes()
++                if _is_zlib_header(chunk):
++                    dec = zlib.decompressobj(zlib.MAX_WBITS)
++                else:
++                    dec = zlib.decompressobj(-zlib.MAX_WBITS)
+             rv = dec.decompress(chunk)
+             if rv:
+                 yield rv
+-    except zlib.error:
+-        for chunk in iterator:
+-            yield chunk
+-    else:
++
++        if dec is None:
++            # Fewer than two bytes in total: nothing valid to decode.
++            if pending:
++                raise zlib.error('incomplete deflate stream')
++            return
++
+         # Make sure everything has been returned from the decompression object
+         buf = dec.decompress(bytes())
+         rv = buf + dec.flush()
+         if rv:
+             yield rv
++    except zlib.error as e:
++        raise ContentDecodingError(
++            'Failed to decode %s response body: %s' % (mode, e))
++
++
++def _is_zlib_header(data):
++    """Whether data starts with a valid zlib header (RFC 1950)."""
++    cmf, flg = bytearray(data[:2])
++    return (cmf & 0x0f) == 8 and ((cmf << 8) + flg) % 31 == 0
+ 
+ 
+ def stream_untransfer(gen, resp):
+@@ -389,6 +418,9 @@ UNRESERVED_SET = frozenset(
+     + "0123456789-._~")
+ 
+ 
++_PERCENT_ESCAPE_RE = re.compile('(%[0-9A-Fa-f]{2})')
++
++
+ def unquote_unreserved(uri):
+     """Un-escape any percent-escape sequences in a URI that are unreserved
+     characters. This leaves all reserved, illegal and non-ASCII bytes encoded.
+@@ -396,7 +428,7 @@ def unquote_unreserved(uri):
+     parts = uri.split('%')
+     for i in range(1, len(parts)):
+         h = parts[i][0:2]
+-        if len(h) == 2 and h.isalnum():
++        if len(h) == 2 and all(c in string.hexdigits for c in h):
+             c = chr(int(h, 16))
+             if c in UNRESERVED_SET:
+                 parts[i] = c + parts[i][2:]
+@@ -410,13 +442,18 @@ def unquote_unreserved(uri):
+ def requote_uri(uri):
+     """Re-quote the given URI.
+ 
+-    This function passes the given URI through an unquote/quote cycle to
+-    ensure that it is fully and consistently quoted.
++    Quotes only illegal characters (e.g. spaces, quotes, braces, non-ASCII).
++    Existing valid percent-escapes are kept exactly as written, even when they
++    escape unreserved characters, because a URL can be signed over its exact
++    bytes (e.g. presigned storage links). A '%' that does not start a valid
++    escape is itself quoted as '%25'.
+     """
+-    # Unquote only the unreserved characters
+-    # Then quote only illegal characters (do not quote reserved, unreserved,
+-    # or '%')
+-    return quote(unquote_unreserved(uri), safe="!#$%&'()*+,/:;=?@[]~")
++    safe = "!#$&'()*+,/:;=?@[]~"
++    parts = _PERCENT_ESCAPE_RE.split(uri)
++    # split() with a capturing group alternates text and escape sequences.
++    for i in range(0, len(parts), 2):
++        parts[i] = quote(parts[i], safe=safe)
++    return ''.join(parts)
+ 
+ 
+ def get_environ_proxies(url):
+diff --git a/test_requests.py b/test_requests.py
+index c974e98..89bc880 100644
+--- a/test_requests.py
++++ b/test_requests.py
+@@ -6,8 +6,10 @@
+ import json
+ import os
+ import unittest
++import zlib
+ 
+ import requests
++from requests.utils import stream_decompress
+ from requests.auth import HTTPDigestAuth
+ from requests.compat import str
+ 
+@@ -63,6 +65,21 @@ class RequestsTestCase(unittest.TestCase):
+ 
+         self.assertEqual(request.path_url, "/get/test%20case")
+ 
++    def test_existing_percent_escapes_are_preserved(self):
++        # Presigned URLs are signed over the exact bytes; escapes of
++        # unreserved characters must not be decoded.
++        url = ("http://example.com/b/a%7Eb%41%2D%5F%2E?X-Amz-Signature=ab%7E%41"
++               "&X-Amz-Credential=k%2F20130524%2Fus-east-1")
++        self.assertEqual(requests.Request('GET', url).prepare().url, url)
++
++    def test_illegal_characters_are_still_quoted(self):
++        request = requests.Request('GET', "http://example.com/a b/%7E{x}").prepare()
++        self.assertEqual(request.url, "http://example.com/a%20b/%7E%7Bx%7D")
++
++    def test_invalid_percent_escapes_do_not_raise(self):
++        request = requests.Request('GET', "http://example.com/%zz/%").prepare()
++        self.assertEqual(request.url, "http://example.com/%25zz/%25")
++
+     def test_params_are_added_before_fragment(self):
+         request = requests.Request('GET',
+             "http://example.com/path#fragment", params={"a": "b"}).prepare()
+@@ -73,6 +90,20 @@ class RequestsTestCase(unittest.TestCase):
+         self.assertEqual(request.url,
+             "http://example.com/path?key=value&a=b#fragment")
+ 
++    def test_no_content_length_for_get_and_head(self):
++        for method in ('GET', 'HEAD'):
++            prep = requests.Request(method, 'http://example.com/').prepare()
++            self.assertTrue('Content-Length' not in prep.headers)
++
++    def test_content_length_zero_for_post_without_body(self):
++        prep = requests.Request('POST', 'http://example.com/').prepare()
++        self.assertEqual(prep.headers['Content-Length'], '0')
++
++    def test_content_length_for_post_with_body(self):
++        prep = requests.Request('POST', 'http://example.com/',
++                                data='hello').prepare()
++        self.assertEqual(prep.headers['Content-Length'], '5')
++
+     def test_HTTP_200_OK_GET_ALTERNATIVE(self):
+         r = requests.Request('GET', httpbin('get'))
+         s = requests.Session()
+@@ -280,5 +311,123 @@ class RequestsTestCase(unittest.TestCase):
+         self.assertEqual(r.links['next']['rel'], 'next')
+ 
+ 
++class StreamDecompressTestCase(unittest.TestCase):
++
++    BODY = json.dumps({'items': list(range(2000))}).encode('utf-8')
++
++    @staticmethod
++    def _zlib(data, wbits):
++        c = zlib.compressobj(6, zlib.DEFLATED, wbits)
++        return c.compress(data) + c.flush()
++
++    @staticmethod
++    def _split(data, size):
++        return [data[i:i + size] for i in range(0, len(data), size)]
++
++    def _decode(self, chunks, mode):
++        return b''.join(stream_decompress(iter(chunks), mode=mode))
++
++    def test_deflate_zlib_wrapped_single_chunk(self):
++        data = self._zlib(self.BODY, zlib.MAX_WBITS)
++        self.assertEqual(self._decode([data], 'deflate'), self.BODY)
++
++    def test_deflate_zlib_wrapped_many_chunks(self):
++        data = self._zlib(self.BODY, zlib.MAX_WBITS)
++        for size in (1, 7, 100):
++            self.assertEqual(
++                self._decode(self._split(data, size), 'deflate'), self.BODY)
++
++    def test_deflate_raw(self):
++        data = self._zlib(self.BODY, -zlib.MAX_WBITS)
++        for size in (1, 100, len(data)):
++            self.assertEqual(
++                self._decode(self._split(data, size), 'deflate'), self.BODY)
++
++    def test_gzip(self):
++        data = self._zlib(self.BODY, 16 + zlib.MAX_WBITS)
++        for size in (1, 100, len(data)):
++            self.assertEqual(
++                self._decode(self._split(data, size), 'gzip'), self.BODY)
++
++    def test_corrupt_gzip_raises(self):
++        # Must not silently return an empty or partial body.
++        self.assertRaises(
++            requests.exceptions.ContentDecodingError,
++            self._decode, [b'{"not": "gzip"}'], 'gzip')
++
++    def test_corrupt_gzip_later_chunk_raises(self):
++        data = bytearray(self._zlib(self.BODY, 16 + zlib.MAX_WBITS))
++        data[len(data) // 2] ^= 0xff
++        chunks = self._split(bytes(data), 50)
++        self.assertRaises(
++            requests.exceptions.ContentDecodingError,
++            self._decode, chunks, 'gzip')
++
++    def test_corrupt_deflate_raises(self):
++        self.assertRaises(
++            requests.exceptions.ContentDecodingError,
++            self._decode, [b'\xff\xff\xff\xff not deflate'], 'deflate')
++
++
++class NewConnectionTestCase(unittest.TestCase):
++    """Creating a connection must work on Python versions whose http.client
++    no longer accepts the ``strict`` argument (3.4+)."""
++
++    def test_http_new_conn(self):
++        from requests.packages.urllib3.connectionpool import HTTPConnectionPool
++        conn = HTTPConnectionPool('localhost')._new_conn()
++        self.assertEqual(conn.host, 'localhost')
++
++    def test_https_new_conn(self):
++        from requests.packages.urllib3.connectionpool import HTTPSConnectionPool
++        conn = HTTPSConnectionPool('localhost')._new_conn()
++        self.assertEqual(conn.host, 'localhost')
++
++
++class SimpleApiConnectionTestCase(unittest.TestCase):
++    """The simple API (requests.get etc.) must not leave a pooled keep-alive
++    connection open after it returns."""
++
++    def test_simple_api_closes_connection(self):
++        import socket
++        import threading
++
++        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
++        server.bind(('127.0.0.1', 0))
++        server.listen(1)
++        server.settimeout(10)
++        port = server.getsockname()[1]
++        closed = []
++
++        def serve():
++            conn, _ = server.accept()
++            conn.settimeout(3)
++            data = b''
++            while b'\r\n\r\n' not in data:
++                data += conn.recv(4096)
++            conn.sendall(b'HTTP/1.1 200 OK\r\n'
++                         b'Content-Length: 2\r\n'
++                         b'Connection: keep-alive\r\n\r\nok')
++            try:
++                # recv() returns b'' once the client closes its end.
++                closed.append(conn.recv(1) == b'')
++            except socket.timeout:
++                closed.append(False)
++            conn.close()
++
++        thread = threading.Thread(target=serve)
++        thread.start()
++        try:
++            # Keep the response alive: it references the session's adapter,
++            # so the connection must be closed explicitly, not by garbage
++            # collection.
++            r = requests.get('http://127.0.0.1:%d/' % port)
++            thread.join(10)
++        finally:
++            server.close()
++        self.assertEqual(r.content, b'ok')
++        self.assertEqual(closed, [True])
++
++
+ if __name__ == '__main__':
+     unittest.main()

@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 106782,
+ "finalText": "I checked the work against your request once more and nothing needed changing. I edited no files, ran commands only with probe, and the report is the single JSON block below with the required fields. Every quote in it is copied exactly from the code or from the probe output.\n\n**The problem is still in the code.** In the newer plotting interface (`seaborn.objects`), axes that show text categories are drawn differently from the older category plots, which is what the user's GitHub issue (ev_s2) reports. The repository is at v0.10.0, so a newer version hasn't already fixed it.\n\n**What I ran.** I couldn't run the existing plot tests to completion: the environment's newer pandas no longer has the option `mode.use_inf_as_null`, so the first drawing test fails for a reason unrelated to this issue. For the comparison below I registered that option inside the probe script only. Grid lines were turned on in all three cases.\n\n| Plot | Axis limits | Grid | Y axis flipped |\n|---|---|---|---|\n| New interface, categories on x | (-0.1, 2.1) | shown | n/a |\n| New interface, categories on y | (-0.1, 2.1) | shown | no |\n| Older `stripplot`, categories on y | (2.5, -0.5) | hidden | yes |\n\n**Why.** When the new interface finishes a chart (`_finalize_figure` in `seaborn/_core/plot.py`), it only applies limits the user set. It never treats category axes specially. The older plots do all three adjustments in `_adjust_cat_axis` in `seaborn/categorical.py`. The category scale setup in `seaborn/_core/scales.py` leaves this padding as a TODO, so the current look wasn't chosen on purpose.\n\n**Fix.** In `_finalize_figure`, for each category axis:\n1. Turn its grid off.\n2. If the user set no limits, set them to -0.5 and n-0.5, reversed on the y axis.\n\nTests should cover the x axis, the y axis, user-set limits, and faceted or paired plots. The issue warns this is trickier than it looks because of matplotlib's automatic axis scaling. Doing it in the final step, after everything is drawn, avoids that.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Category axes in seaborn.objects not styled like catplots\",\n  \"cause\": \"The objects interface's figure finalization (Plotter._finalize_figure) only applies user-set limits; it never special-cases Nominal scales. So category axes get matplotlib's default margins (-0.1..n-0.9), keep the style's grid, and are not inverted on y, unlike classic categorical plots which do all three in _adjust_cat_axis. Nominal._setup leaves the padding as an explicit TODO.\",\n  \"files\": [\n    {\"path\": \"seaborn/_core/plot.py\", \"why\": \"_finalize_figure is where per-axis limits are set; it needs a Nominal branch to drop the grid, set \u00b10.5 limits and invert y\"},\n    {\"path\": \"seaborn/_core/scales.py\", \"why\": \"Nominal scale; its TODO notes the categorical padding was never implemented\"},\n    {\"path\": \"seaborn/categorical.py\", \"why\": \"_adjust_cat_axis is the reference behaviour to mirror\"},\n    {\"path\": \"tests/_core/test_plot.py\", \"why\": \"add tests for nominal axis limits, grid and y inversion\"}\n  ],\n  \"plan\": [\n    \"In Plotter._finalize_figure, for each subplot axis whose self._scales[axis_key] is a Nominal instance, call that axis's grid(False, which='both')\",\n    \"If axis_key is not in p._limits, compute n from the number of major ticks and set limits to (-0.5, n-0.5), or (n-0.5, -0.5) for y, with auto=None\",\n    \"Keep the existing user-limit branch unchanged so explicit limits still win\",\n    \"Add tests covering x, y, an explicit-limit case and paired/faceted plots\"\n  ],\n  \"verification\": [\n    \"so.Plot(x=['a','b','c'], y=[1,2,3]).add(so.Dot()).plot(): x limits are (-0.5, 2.5) and no x grid lines are visible even with axes.grid=True\",\n    \"With y=['a','b','c'], y limits are (2.5, -0.5) and yaxis_inverted() is True\",\n    \"Run tests/_core/test_plot.py and tests/_core/test_scales.py\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.85,\n  \"fixType\": \"frustration\",\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"Figure finalization in the objects interface only applies user-supplied limits and has no handling for Nominal scales (no grid removal, no \u00b10.5 limits, no y inversion).\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"seaborn/_core/plot.py:1636\", \"quote\": \"if axis_key in p._limits:\"},\n      {\"type\": \"code\", \"ref\": \"seaborn/_core/plot.py:1645\", \"quote\": \"ax.set(**{f\\\"{axis}lim\\\": (lo, hi)})\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"rootCause\", \"text\": \"The Nominal scale setup leaves categorical padding as an unimplemented TODO.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"seaborn/_core/scales.py:191\", \"quote\": \"# we use this to (A) set the padding we want for categorial plots\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"other\", \"text\": \"Classic categorical plots disable the grid, set \u00b10.5 limits and invert y, which is the behaviour the issue asks Nominal to match.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"seaborn/categorical.py:222\", \"quote\": \"ax.yaxis.grid(False)\"},\n      {\"type\": \"code\", \"ref\": \"seaborn/categorical.py:224\", \"quote\": \"ax.set_ylim(n - .5, -.5, auto=None)\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"impact\", \"text\": \"Running the objects interface with categorical data shows default margins, a visible grid and a non-inverted y axis, while stripplot on the same data does all three.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe\", \"quote\": \"objects y: ylim (-0.1, 2.1) inverted False ygrid True\"},\n      {\"type\": \"query\", \"ref\": \"probe\", \"quote\": \"stripplot y: ylim (2.5, -0.5) inverted True ygrid False\"}\n    ]},\n    {\"id\": \"c5\", \"role\": \"trigger\", \"text\": \"A user reported in a GitHub issue that Nominal scales should be drawn like categorical axes.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s2\", \"quote\": \"The scale is drawn to +/- 0.5 from the first and last tick, rather than using the normal margin logic\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"Already fixed in the current code\", \"why\": \"The repository is at v0.10.0 and the probe shows the old behaviour; _finalize_figure has no Nominal branch\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe\", \"quote\": \"objects x: xlim (-0.1, 2.1) xgrid True\"}\n    ]},\n    {\"hypothesis\": \"Current look is a deliberate design\", \"why\": \"The scale code marks the padding as a TODO rather than a choice, and the issue is a request to match existing categorical behaviour\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"seaborn/_core/scales.py:190\", \"quote\": \"# TODO Currently just used in non-Coordinate contexts, but should\"}\n    ]}\n  ],\n  \"intendedBehavior\": \"In seaborn.objects, an axis with a Nominal scale and no user limits spans -0.5 to n-0.5 with no grid lines, and on the y axis it is inverted (n-0.5 at the bottom).\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"Nominal._setup leaves categorical padding as a TODO, and the classic categorical code shows the intended look; nothing chose the default-margin, grid-on, non-inverted look for the objects interface.\"},\n  \"plain\": {\n    \"headline\": \"Charts made with seaborn's newer plotting interface draw text-category axes differently from seaborn's older category charts, so they look inconsistent and cluttered.\",\n    \"happened\": \"When a chart puts text categories on an axis, seaborn's older chart functions leave half a step of space at each end, hide the grid lines and list the categories top-down on the vertical axis. The newer interface does none of this: it uses normal number-axis spacing, keeps the grid lines and lists categories bottom-up. Nobody turned this on; the step that makes those adjustments was never added to the newer interface.\",\n    \"matters\": \"Anyone using the newer interface with category data gets charts that look different from the older seaborn charts and have to fix the axes by hand.\",\n    \"fix\": \"When the newer interface finishes a chart, apply the same three adjustments the older category charts make to any axis that shows categories.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 11,
+  "inputTokens": {
+   "avg": 17962.909090909092,
+   "max": 25183
+  },
+  "mainUsage": {
+   "inputTokens": 197592,
+   "cachedInputTokens": 179409,
+   "outputTokens": 9990
+  },
+  "cacheHitPercent": 90.79770436050042,
+  "wallSeconds": 106.61300015449524,
+  "tools": {
+   "read": 7,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 4
+  },
+  "reads": 7,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.32657079999999994,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.32657079999999994
+}

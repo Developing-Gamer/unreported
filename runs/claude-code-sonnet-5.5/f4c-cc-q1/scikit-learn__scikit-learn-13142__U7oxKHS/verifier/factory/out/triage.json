@@ -1,0 +1,9 @@
+[
+{"source":"S1","decision":"fix","reason":"fit_predict computed the final E-step before restoring the best of n_init parameters, so labels disagreed with predict."},
+{"source":"S2","decision":"fix","reason":"TruncatedSVD computed full variance of sparse input along axis=1 (rows) instead of per-feature axis=0, giving wrong explained_variance_ratio_ while the embedding was unchanged."},
+{"source":"S3","decision":"skip","reason":"No specific estimator or code path identified, and the in-repo std/interval code (BayesianRidge, ARD, GPR, Dummy) shows no defect; not enough to act on."},
+{"source":"S4","decision":"skip","reason":"Already fixed: _log_reg_scoring_path builds LogisticRegression with multi_class=multi_class."},
+{"source":"S5","decision":"skip","reason":"Already fixed: get_feature_names calls _validate_vocabulary when vocabulary_ is missing."},
+{"source":"S6","decision":"skip","reason":"Intended behavior: n_components only affects transform; predict uses the full discriminant model."},
+{"source":"S7","decision":"skip","reason":"Timeout from an external webhook-relay service calling api.github.com; not related to this repository's code."}
+]

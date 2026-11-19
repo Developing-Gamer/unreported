@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 159724,
+ "finalText": "I checked the report against your request and it's complete: the cause is in this repository, I confirmed it by calling the library, and nothing in the repository was changed.\n\n**The bug.** `requests.head()` ignores an explicit `allow_redirects=True`. At [api.py](file:///testbed/requests/api.py) line 76 it does `kwargs['allow_redirects'] = False`, an outright assignment. The session's own HEAD method ([sessions.py](file:///testbed/requests/sessions.py) line 398) and `get`/`options` only fill the value in when the caller didn't pass one. So a HEAD check on a URL that redirects stops at the first 301 and returns it. Checks on direct URLs never hit a redirect, which matches the support message.\n\n**Proof.** I ran a local server where `/old` returns 301 pointing to `/new`, which returns 200:\n\n| Call | Status | Redirects followed |\n|---|---|---|\n| `requests.head(u, allow_redirects=True)` | **301** | none (the bug) |\n| `requests.Session().head(u, allow_redirects=True)` | 200 | the 301 |\n| `requests.get(u)` | 200 | the 301 |\n| `requests.head(u)` with no argument | 301 | none (the intended default) |\n\nI couldn't run the existing tests: they call httpbin.org over the network, and the only HEAD test uses a URL that doesn't redirect. This old code also needed a small fix to import on Python 3.11, which I applied only in the throwaway copy.\n\n**Not deliberate.** Not following redirects on HEAD *by default* was chosen: the changelog says \"HEAD requests don't follow redirects anymore\". But the quickstart guide promises \"If you're using HEAD, you can enable redirection as well\", so throwing away that setting is a defect.\n\n**Who feels it.** Anyone monitoring a URL that redirects (for example http to https) gets false 301 results. A working site looks moved or broken, which erodes trust in the monitor.\n\n**Fix.** Change that line to `kwargs.setdefault('allow_redirects', False)` and add a test that a HEAD request with `allow_redirects=True` on a redirecting URL returns 200 with the 301 in its history. The default doesn't change, so the risk is low.\n\nI had no monitoring tools in this run, so there's no Sentry stack, session data or deploy timing behind this. The finding rests on the code and the local reproduction.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"HEAD checks ignore 'follow redirects' setting\",\n  \"cause\": \"requests.head() in requests/api.py assigns kwargs['allow_redirects'] = False unconditionally, overwriting a caller's explicit allow_redirects=True. Any HEAD check against a URL that redirects therefore returns the first 301 instead of following it to the destination's 200; Session.head, get and options use setdefault and are unaffected.\",\n  \"files\": [\n    {\"path\": \"requests/api.py\", \"why\": \"head() hard-overwrites allow_redirects to False (line 76) instead of using setdefault\"},\n    {\"path\": \"test_requests.py\", \"why\": \"add a regression test that requests.head with allow_redirects=True follows a 301\"}\n  ],\n  \"plan\": [\n    \"In requests/api.py head(), change `kwargs['allow_redirects'] = False` to `kwargs.setdefault('allow_redirects', False)` so the default stays no-follow but an explicit True is honoured, matching Session.head.\",\n    \"Add a test: requests.head(<redirecting url>, allow_redirects=True) returns 200 with one 301 in history; requests.head(<redirecting url>) still returns 301 with empty history.\"\n  ],\n  \"verification\": [\n    \"Local server with /old -> 301 Location /new -> 200: requests.head(u, allow_redirects=True) must give 200 and history [301] (currently 301, []).\",\n    \"requests.head(u) with no argument must still give 301 and empty history (documented default).\",\n    \"Run test_requests.py redirect/HEAD tests.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"trivial (one-line change plus a test)\",\n  \"risk\": \"low: only changes behaviour when a caller explicitly passes allow_redirects to requests.head; the default is unchanged\",\n  \"confidence\": 0.93,\n  \"fixType\": \"silentFailure\",\n  \"intendedBehavior\": \"requests.head(url, allow_redirects=True) on a URL that answers 301 follows the redirect and returns the destination's 200 with the 301 in history, while requests.head(url) without the argument still returns the 301.\",\n  \"intent\": {\n    \"deliberate\": false,\n    \"evidence\": \"Not following redirects for HEAD by default is deliberate (HISTORY.rst: 'HEAD requests don't follow redirects anymore.'; quickstart: 'for all verbs except HEAD'), but the docs promise the override works ('If you're using HEAD, you can enable redirection as well'), and Session.head uses kwargs.setdefault('allow_redirects', False). Discarding an explicit allow_redirects=True was not chosen.\"\n  },\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"The module-level head() helper unconditionally overwrites allow_redirects with False, discarding the caller's value.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/api.py:76\", \"quote\": \"kwargs['allow_redirects'] = False\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"rootCause\", \"text\": \"Redirects are only resolved when allow_redirects is truthy, so the 301 response is returned as the final result.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/sessions.py:490\", \"quote\": \"history = [resp for resp in gen] if allow_redirects else []\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"other\", \"text\": \"Session.head uses setdefault, so the same call via a Session honours allow_redirects=True; the module helper is inconsistent with it.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/sessions.py:398\", \"quote\": \"kwargs.setdefault('allow_redirects', False)\"},\n      {\"type\": \"code\", \"ref\": \"requests/api.py:54\", \"quote\": \"kwargs.setdefault('allow_redirects', True)\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"other\", \"text\": \"The documentation promises that HEAD users can turn redirect following on, so ignoring the option breaks the documented contract.\", \"citations\": [\n      {\"type\": \"doc\", \"ref\": \"docs/user/quickstart.rst\", \"quote\": \"If you're using HEAD, you can enable redirection as well::\"},\n      {\"type\": \"code\", \"ref\": \"docs/user/quickstart.rst:381\", \"quote\": \"If you're using HEAD, you can enable redirection as well::\"}\n    ]},\n    {\"id\": \"c5\", \"role\": \"impact\", \"text\": \"The support report describes exactly this: checks on redirecting URLs report 301 despite redirect following being enabled, while direct URLs (no redirect) are fine.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s5\", \"quote\": \"Some URL checks now report 301 instead of the destination's 200, even though redirect following is enabled.\"}\n    ]},\n    {\"id\": \"c6\", \"role\": \"trigger\", \"text\": \"A local reproduction shows requests.head with allow_redirects=True returning 301 with empty history, while Session().head and get follow to 200.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:local-redirect-server\", \"quote\": \"requests.head(allow_redirects=True) 301 []\"},\n      {\"type\": \"query\", \"ref\": \"probe:local-redirect-server\", \"quote\": \"Session().head(allow_redirects=True) 200 [301]\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"Redirect loop logic doesn't recognise 301 as a redirect status\", \"why\": \"REDIRECT_STATI includes codes.moved (301) and requests.get / Session.head follow the 301 to 200 in the probe.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/sessions.py:29\", \"quote\": \"codes.moved, # 301\"},\n      {\"type\": \"query\", \"ref\": \"probe:local-redirect-server\", \"quote\": \"requests.get 200 [301]\"}\n    ]},\n    {\"hypothesis\": \"Location header lookup fails due to header-name casing\", \"why\": \"Response headers are wrapped in CaseInsensitiveDict, and the same server's Location is followed for GET.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/adapters.py:166\", \"quote\": \"response.headers = CaseInsensitiveDict(getattr(resp, 'headers', {}))\"}\n    ]},\n    {\"hypothesis\": \"HEAD not following redirects is the documented, deliberate default and thus expected\", \"why\": \"Only the default is deliberate; the docs explicitly say HEAD users can enable redirection, and the reporter enabled it.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"docs/user/quickstart.rst:354\", \"quote\": \"Requests will automatically perform location redirection for all verbs except\"}\n    ]}\n  ],\n  \"plain\": {\n    \"headline\": \"Uptime checks on web addresses that redirect report \\\"moved\\\" instead of the real page's result, because the quick-check request ignores the \\\"follow redirects\\\" setting.\",\n    \"happened\": \"The monitor checks some sites with a lightweight request that fetches only the page's headers, not its content. That kind of request is meant to skip redirects unless asked, but the library throws away the request to follow them. So when a site says \\\"this page has moved\\\", the check stops there and reports that, never reaching the real page.\",\n    \"matters\": \"Every monitored address that redirects, such as one that sends plain http to https, shows a wrong result, so working sites look moved or broken and people stop trusting the monitor.\",\n    \"fix\": \"Make the quick-check request honour the \\\"follow redirects\\\" setting when the caller turns it on, and keep not following redirects as the default.\"\n  },\n  \"sourceId\": \"S5\"\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 14,
+  "inputTokens": {
+   "avg": 20459.785714285714,
+   "max": 29608
+  },
+  "mainUsage": {
+   "inputTokens": 286437,
+   "cachedInputTokens": 263823,
+   "outputTokens": 11251
+  },
+  "cacheHitPercent": 92.1050702248662,
+  "wallSeconds": 159.59799981117249,
+  "tools": {
+   "read": 11,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 2,
+   "subagent": 0,
+   "other": 5
+  },
+  "reads": 11,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 2,
+   "readFileIgnoringRange": 2
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.39082259999999996,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.39082259999999996
+}

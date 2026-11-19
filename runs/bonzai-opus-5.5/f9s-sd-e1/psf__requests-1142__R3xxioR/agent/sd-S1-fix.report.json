@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 52547,
+ "finalText": "Mislabelled gzip/deflate bodies now come back whole: a plain body sent with `Content-Encoding: gzip` or `deflate` is no longer dropped. Re-checking against the request, the changes are in the working tree uncommitted and the PR text is at `/testbed/.factory/pr-S1.md`. The four new tests pass with the fix, and three of them (the two mislabelled-body tests and the `stream_decompress` pass-through) failed before it.\n\nThe cause was the one the investigation gave. `stream_decompress` in `requests/utils.py` fell back to the raw data on a zlib error but only yielded what was still left in the iterator. The chunk that failed, and any before it, were lost, so small bodies came back empty and larger ones lost their first 10 KB. It now keeps the raw chunks read before the decompressor has produced output. If the body turns out not to be compressed, it yields those chunks first, then the rest. Real gzip bodies still decode, and an error after output has started behaves as before.\n\nI ran the new tests with `/opt/miniconda3/envs/testbed/bin/python -m pytest test_requests.py -k \"mislabelled or real_gzip or passes_through\"`. The default `python` is 3.11 and cannot import this old code, so I used the 3.9 `testbed` environment. On the base commit 21 of the 26 tests fail, apparently because they need network access to httpbin. I did not run the full suite on the fixed code.\n\nThere is nothing visible on screen, so the PR text has no screenshot proof.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"visual\": false,\n  \"checks\": [\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest test_requests.py -k \\\"mislabelled or real_gzip or passes_through\\\"\", \"passed\": true},\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest test_requests.py -q\", \"passed\": false, \"alsoOnBase\": true, \"note\": \"remaining tests need network (httpbin); 21 of 26 tests fail on the base commit as well\"}\n  ],\n  \"reproductionSteps\": \"Build requests.Response() with headers {'content-encoding': 'gzip'} and raw=io.BytesIO(b'{\\\"ok\\\": true}'); r.content returns b'' (with a >10 KB plain body, the first 10 KB is missing). list(stream_decompress(iter([b'abc', b'def']))) returns [b'def'].\",\n  \"reproductionTest\": {\n    \"path\": \"test_requests.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest test_requests.py -k \\\"mislabelled or real_gzip or passes_through\\\"\",\n    \"signature\": \"AssertionError: Lists differ: [b'def'] != [b'abc', b'def']\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 16,
+  "inputTokens": {
+   "avg": 25130.875,
+   "max": 31376
+  },
+  "mainUsage": {
+   "inputTokens": 402094,
+   "cachedInputTokens": 384598,
+   "outputTokens": 6808
+  },
+  "cacheHitPercent": 95.6487786437997,
+  "wallSeconds": 51.98799991607666,
+  "tools": {
+   "read": 8,
+   "edit": 6,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 5
+  },
+  "reads": 8,
+  "edits": 6,
+  "runs": 5,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 4,
+  "editOperations": 6,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1887216,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1887216
+}

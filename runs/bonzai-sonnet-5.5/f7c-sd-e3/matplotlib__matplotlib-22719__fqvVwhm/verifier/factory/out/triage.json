@@ -1,0 +1,42 @@
+[
+  {
+    "source": "S1",
+    "decision": "fix",
+    "reason": "For TrueType fonts the label width used for right-alignment comes from FT2Font.set_text, which uses grid-fitted kerning and a truncated per-glyph advance. The PDF backend then draws the same string wi"
+  },
+  {
+    "source": "S2",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: In 3.4 the date formatters wrapped usetex tick labels in TeX math mode, so characters like ':' and '-' got math-operator spacing and looked spread out versus 3.3. In this checkout (v3.5.0) _wrap_in_te"
+  },
+  {
+    "source": "S3",
+    "decision": "fix",
+    "reason": "When a connector is clipped to a node border, `find_bezier_t_intersecting_with_closedpath` in `bezier.py` bisects the curve until the two bracketing points are closer than `tolerance`. The docstring s"
+  },
+  {
+    "source": "S4",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The error is a refused connection from a `billing-worker` service to api.stripe.com. This repository is Matplotlib, a plotting library. It has no billing worker and no Stripe integration. Searching it"
+  },
+  {
+    "source": "S5",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: Older matplotlib (3.4.x) rejected a SubFigure as a legend parent because the legend only accepted a Figure. The legend now accepts any FigureBase (Figure or SubFigure), and the checkout is v3.5.0, whi"
+  },
+  {
+    "source": "S6",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The default date tick locator locks daily ticks to fixed days of the month (for example 1, 5, 9 ... 29, then the 1st of next month). Month lengths differ, so the gap at each month boundary is shorter "
+  },
+  {
+    "source": "S7",
+    "decision": "fix",
+    "reason": "The category converter treats an empty array as 'all numbers' because all() over zero items is True, so it emits the 3.5 'numbers passed through unit converters' deprecation warning. Under warnings-as"
+  },
+  {
+    "source": "S8",
+    "decision": "fix",
+    "reason": "StrCategoryConverter.convert decides whether data is already numeric with `all(is_numlike(v) ... for v in values)`. For empty data this is true for a vacuous reason, because `all([])` is `True`. The c"
+  }
+]

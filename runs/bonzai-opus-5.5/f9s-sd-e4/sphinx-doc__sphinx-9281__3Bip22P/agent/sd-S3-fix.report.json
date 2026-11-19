@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 47878,
+ "finalText": "Enum members used as parameter defaults now render as `MyEnum.ValueA` in autodoc signatures instead of `<MyEnum.ValueA: 10>`.\n\nI re-checked the work. With the fix stashed, the new test fails with `AssertionError: assert '<MyEnum.ValueA: 10>' == 'MyEnum.ValueA'`, which matches the signature in the report. With the fix restored, the same test passes. The wider run of `test_util_inspect.py`, `test_ext_autodoc.py`, `test_ext_autodoc_configs.py` and `test_domain_py.py` gave 181 passed.\n\nThe fix is an `enum.Enum` case in `object_description()` in `sphinx/util/inspect.py`, ahead of the `repr()` fallback. It returns `ClassName.member_name`. The test is `test_enum_description` in `tests/test_util_inspect.py`, and I added a bug-fix entry to `CHANGES`.\n\nNothing is committed, as instructed. The PR text is in `.factory/pr-S3.md`. The pytest run needed the `testbed` conda env, because the default `python` has no pytest.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"checks\": [\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest tests/test_util_inspect.py tests/test_ext_autodoc.py tests/test_ext_autodoc_configs.py tests/test_domain_py.py -q\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"reproduction\": \"Define an Enum MyEnum and a function with default e: MyEnum = MyEnum.ValueA; call sphinx.util.inspect.object_description(MyEnum.ValueA) or stringify_signature(inspect.signature(func)); it yields '<MyEnum.ValueA: 10>' instead of 'MyEnum.ValueA'.\",\n  \"reproductionTest\": {\n    \"path\": \"tests/test_util_inspect.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest tests/test_util_inspect.py -k enum_description -q\",\n    \"signature\": \"AssertionError: assert '<MyEnum.ValueA: 10>' == 'MyEnum.ValueA'\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 13,
+  "inputTokens": {
+   "avg": 23401.846153846152,
+   "max": 27840
+  },
+  "mainUsage": {
+   "inputTokens": 304224,
+   "cachedInputTokens": 290270,
+   "outputTokens": 4605
+  },
+  "cacheHitPercent": 95.41324813295466,
+  "wallSeconds": 46.43499994277954,
+  "tools": {
+   "read": 6,
+   "edit": 6,
+   "test": 0,
+   "verify": 0,
+   "git": 1,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 3
+  },
+  "reads": 6,
+  "edits": 6,
+  "runs": 4,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 5,
+  "editOperations": 6,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.138974,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.138974
+}

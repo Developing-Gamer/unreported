@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 77713,
+ "finalText": "The check turned up one thing to correct: the code citation for `Q._combine` pointed at line 62 and should point at line 64, where `obj.add(self, conn)` is. The other citations match the files. The verdict is unchanged.\n\nThe saved search is broken by a bug in this repository, and it is fixable. When an \"or\" group is added to an \"and\" group that has only one condition so far, the \"or\" is turned into an \"and\".\n\n**What I ran.**\n- `Q(active=True) & (Q(email=True) | Q(sms=True))` comes out as `(AND: active, (AND: email), sms)`. That matches only customers with both enabled.\n- `Q(b=2) | (Q(a=1) & Q(c=1))` comes out as an OR of b, a and c. That is wrong the other way, because the \"and\" group got folded into the \"or\".\n- The existing test `queries.test_q.QTests.test_deconstruct_or` fails on this code. I did not run the full test files, because the test runner crashed on that failure (tblib isn't installed).\n\n**Cause.** `Node.add` in `django/utils/tree.py` (line 107) tests `len(self) == 1` where it should test `len(data) == 1`. `Q._combine` builds a fresh Q and adds the left side, then the right side, so the right-hand group is merged in whatever its connector is. The comment above that line says the rule is about the incoming node's length. No changelog entry or test asserts the current behaviour, so it was not deliberate.\n\n**Fix.** Change `len(self) == 1` to `len(data) == 1`. Add regression tests for `Q(a) & (Q(b) | Q(c))` and `Q(b) | (Q(a) & Q(c))`. Re-run the `queries` and `utils_tests` tests.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Saved search 'email or SMS' only returns customers with both\",\n  \"cause\": \"Node.add in django/utils/tree.py decides whether to merge a child group into itself using len(self) == 1 instead of len(data) == 1. When an OR group is added to an AND group that has one condition so far, it is merged and its OR connector is lost. Q(active) & (Q(email) | Q(sms)) becomes active AND email AND sms, so only customers with both enabled match.\",\n  \"files\": [\n    {\"path\": \"django/utils/tree.py\", \"why\": \"Node.add squashes on len(self) == 1; it should check len(data) == 1 as its own comment says\"},\n    {\"path\": \"django/db/models/query_utils.py\", \"why\": \"Q._combine relies on Node.add and so passes mis-merged trees into the query builder\"}\n  ],\n  \"plan\": [\n    \"In Node.add, change `len(self) == 1` to `len(data) == 1`\",\n    \"Add regression tests: Q(a) & (Q(b)|Q(c)) keeps the OR group nested; Q(b) | (Q(a)&Q(c)) keeps the AND group nested\",\n    \"Run queries and utils_tests suites, including test_deconstruct_or\"\n  ],\n  \"verification\": [\n    \"print(Q(active=True) & (Q(email=True)|Q(sms=True))) should give an AND containing a nested OR of email and sms\",\n    \"queries.test_q and utils_tests.test_tree pass, including test_deconstruct_or, which fails now\",\n    \"A model query filtered with active and (email or sms) returns customers with only one of the two enabled\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.93,\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"Node.add squashes an incoming node when len(self) == 1, ignoring the incoming node's connector. The comment above it says the rule is about the other node's length.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"django/utils/tree.py:107\", \"quote\": \"and (data.connector == conn_type or len(self) == 1)\"}]},\n    {\"id\": \"c2\", \"text\": \"Q._combine builds an empty Q, then adds self and other, so the second operand is squashed with its connector dropped.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"django/db/models/query_utils.py:64\", \"quote\": \"obj.add(self, conn)\"}]},\n    {\"id\": \"c3\", \"text\": \"Probe: Q(active=True) & (Q(email=True)|Q(sms=True)) gives (AND: ('active', True), (AND: ('email', True)), ('sms', True)), which requires both email and SMS.\", \"role\": \"impact\", \"citations\": [{\"type\": \"evidence\", \"ref\": \"ev_s5\", \"quote\": \"now only shows customers who have both enabled\"}]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"Query.combine or QuerySet.__or__ swaps the connector\", \"why\": \"Q._combine, Q.deconstruct, QuerySet.__or__ and Query.combine all read correctly. The wrong tree comes from Node.add.\", \"citations\": [{\"type\": \"code\", \"ref\": \"django/db/models/sql/query.py:674\", \"quote\": \"self.where.add(w, connector)\"}]},\n    {\"hypothesis\": \"Join promotion turns OR joins into inner joins\", \"why\": \"The JoinPromoter logic is unchanged from the expected form and is not the cause of the narrowed results.\", \"citations\": [{\"type\": \"code\", \"ref\": \"django/db/models/sql/query.py:2634\", \"quote\": \"if self.effective_connector == \\\"OR\\\" and votes < self.num_children:\"}]}\n  ],\n  \"intendedBehavior\": \"Q(active=True) & (Q(email=True) | Q(sms=True)) keeps the OR group nested, so customers with only email or only SMS enabled still match.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"The comment in Node.add says the squash rule is about the length of the other node, but the code tests len(self). No changelog entry or test asserts this behaviour, and the existing test test_deconstruct_or fails on it.\"},\n  \"fixType\": \"error\",\n  \"plain\": {\n    \"headline\": \"The saved search for customers with email or SMS enabled only showed people with both, because search conditions were being combined wrongly.\",\n    \"happened\": \"When a search joined an 'either of these' group onto another condition, the 'either' was turned into 'and'. The search 'active customers who have email or SMS' therefore became 'active customers who have email and SMS'. Customers with just one contact option dropped out of the results.\",\n    \"matters\": \"Any saved search or filter that mixes 'or' groups with other conditions can return the wrong customers, so support staff can miss people they need to contact.\",\n    \"fix\": \"Correct the one check that decides when two condition groups can be merged, and add tests so 'or' groups stay 'or'.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 11,
+  "inputTokens": {
+   "avg": 21986.090909090908,
+   "max": 31990
+  },
+  "mainUsage": {
+   "inputTokens": 241847,
+   "cachedInputTokens": 216857,
+   "outputTokens": 8834
+  },
+  "cacheHitPercent": 89.66702088510505,
+  "wallSeconds": 76.73499989509583,
+  "tools": {
+   "read": 12,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 3
+  },
+  "reads": 12,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 3,
+   "readFileIgnoringRange": 3
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1941734,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1941734
+}

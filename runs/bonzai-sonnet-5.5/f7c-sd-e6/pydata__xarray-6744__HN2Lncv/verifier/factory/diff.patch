@@ -1,0 +1,95 @@
+diff --git a/doc/whats-new.rst b/doc/whats-new.rst
+index f0b1c341..d250fb1f 100644
+--- a/doc/whats-new.rst
++++ b/doc/whats-new.rst
+@@ -38,6 +38,10 @@ Deprecations
+ Bug fixes
+ ~~~~~~~~~
+ 
++- Iterating over a :py:class:`~xarray.core.rolling.DataArrayRolling` object now
++  respects ``center=True``, giving the same windows as the aggregation methods.
++- :py:func:`xarray.testing.assert_allclose` now compares dimension order, so
++  arrays with the same shape but transposed dimensions no longer compare as close.
+ - :py:meth:`xarray.save_mfdataset` now passes ``**kwargs`` on to ``to_netcdf``,
+   allowing the ``encoding`` and ``unlimited_dims`` options with ``save_mfdataset``.
+   (:issue:`6684`)
+diff --git a/xarray/core/rolling.py b/xarray/core/rolling.py
+index aef290f6..bbfc35c9 100644
+--- a/xarray/core/rolling.py
++++ b/xarray/core/rolling.py
+@@ -270,9 +270,12 @@ class DataArrayRolling(Rolling["DataArray"]):
+     def __iter__(self) -> Iterator[tuple[RollingKey, DataArray]]:
+         if self.ndim > 1:
+             raise ValueError("__iter__ is only supported for 1d-rolling")
+-        stops = np.arange(1, len(self.window_labels) + 1)
+-        starts = stops - int(self.window[0])
+-        starts[: int(self.window[0])] = 0
++        window_size = int(self.window[0])
++        dim_size = len(self.window_labels)
++        offset = (window_size + 1) // 2 if self.center[0] else 1
++        stops = np.arange(offset, dim_size + offset)
++        starts = stops - window_size
++        starts[: window_size - offset] = 0
+         for (label, start, stop) in zip(self.window_labels, starts, stops):
+             window = self.obj.isel({self.dim[0]: slice(start, stop)})
+ 
+diff --git a/xarray/testing.py b/xarray/testing.py
+index bdb55623..84125225 100644
+--- a/xarray/testing.py
++++ b/xarray/testing.py
+@@ -155,7 +155,7 @@ def assert_allclose(a, b, rtol=1e-05, atol=1e-08, decode_bytes=True):
+         a = getattr(a, "variable", a)
+         b = getattr(b, "variable", b)
+ 
+-        return set(a.dims) == set(b.dims) and (
++        return a.dims == b.dims and (
+             a._data is b._data or equiv(a.data, b.data)
+         )
+ 
+diff --git a/xarray/tests/test_rolling.py b/xarray/tests/test_rolling.py
+index 2d6efff7..771e4e86 100644
+--- a/xarray/tests/test_rolling.py
++++ b/xarray/tests/test_rolling.py
+@@ -26,6 +26,18 @@ pytestmark = [
+ 
+ 
+ class TestDataArrayRolling:
++    @pytest.mark.parametrize("da", (1,), indirect=True)
++    @pytest.mark.parametrize("center", (True, False))
++    @pytest.mark.parametrize("window", (3, 4, 7))
++    def test_rolling_iter_center(self, da, center, window) -> None:
++        rolling_obj = da.rolling(time=window, center=center)
++        rolling_obj_mean = rolling_obj.mean()
++        for i, (label, window_da) in enumerate(rolling_obj):
++            assert label == da["time"].isel(time=i)
++            actual = rolling_obj_mean.isel(time=i, drop=True)
++            expected = window_da.mean("time", skipna=False)
++            assert_allclose(actual, expected)
++
+     @pytest.mark.parametrize("da", (1, 2), indirect=True)
+     def test_rolling_iter(self, da) -> None:
+         rolling_obj = da.rolling(time=7)
+diff --git a/xarray/tests/test_testing.py b/xarray/tests/test_testing.py
+index 90e12292..61b88e7b 100644
+--- a/xarray/tests/test_testing.py
++++ b/xarray/tests/test_testing.py
+@@ -60,6 +60,19 @@ def test_assert_allclose(obj1, obj2) -> None:
+         xr.testing.assert_allclose(obj1, obj2)
+ 
+ 
++@pytest.mark.parametrize("kind", ["Variable", "DataArray", "Dataset"])
++def test_assert_allclose_dim_order(kind) -> None:
++    data = np.arange(16.0).reshape(4, 4)
++    a = xr.Variable(("x", "y"), data)
++    b = xr.Variable(("y", "x"), data)
++    if kind == "DataArray":
++        a, b = xr.DataArray(a), xr.DataArray(b)
++    elif kind == "Dataset":
++        a, b = xr.Dataset({"v": a}), xr.Dataset({"v": b})
++    with pytest.raises(AssertionError):
++        xr.testing.assert_allclose(a, b)
++
++
+ @pytest.mark.filterwarnings("error")
+ @pytest.mark.parametrize(
+     "duckarray",

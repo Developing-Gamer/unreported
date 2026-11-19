@@ -1,0 +1,35 @@
+diff --git a/seaborn/_core/scales.py b/seaborn/_core/scales.py
+index 55874bf2..ba7d9a25 100644
+--- a/seaborn/_core/scales.py
++++ b/seaborn/_core/scales.py
+@@ -378,6 +378,12 @@ class ContinuousBase(Scale):
+             axis.set_view_interval(vmin, vmax)
+             locs = axis.major.locator()
+             locs = locs[(vmin <= locs) & (locs <= vmax)]
++            # Avoid having an offset / scientific notation in a legend
++            # as we don't represent that anywhere so it ends up incorrect.
++            if hasattr(axis.major.formatter, "set_useOffset"):
++                axis.major.formatter.set_useOffset(False)
++            if hasattr(axis.major.formatter, "set_scientific"):
++                axis.major.formatter.set_scientific(False)
+             labels = axis.major.formatter.format_ticks(locs)
+             new._legend = list(locs), list(labels)
+ 
+diff --git a/tests/_core/test_scales.py b/tests/_core/test_scales.py
+index c4b39f5d..cc26d7e7 100644
+--- a/tests/_core/test_scales.py
++++ b/tests/_core/test_scales.py
+@@ -303,6 +303,13 @@ class TestContinuous:
+         label, = a.major.formatter.format_ticks([100])
+         assert r"10^{2}" in label
+ 
++    def test_legend_no_offset(self, x):
++
++        s = Continuous()._setup(1e6 * x, IntervalProperty())
++        locs, labels = s._legend
++        for loc, label in zip(locs, labels):
++            assert float(label) == loc
++
+     def test_label_type_checks(self):
+ 
+         s = Continuous()

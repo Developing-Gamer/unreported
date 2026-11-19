@@ -1,0 +1,136 @@
+diff --git a/django/db/backends/ddl_references.py b/django/db/backends/ddl_references.py
+index 44e49806f8..ba55de1df8 100644
+--- a/django/db/backends/ddl_references.py
++++ b/django/db/backends/ddl_references.py
+@@ -83,10 +83,14 @@ class Columns(TableColumns):
+ 
+     def __str__(self):
+         def col_str(column, idx):
++            col = self.quote_name(column)
+             try:
+-                return self.quote_name(column) + self.col_suffixes[idx]
++                suffix = self.col_suffixes[idx]
++                if suffix:
++                    col = '{} {}'.format(col, suffix)
+             except IndexError:
+-                return self.quote_name(column)
++                pass
++            return col
+ 
+         return ', '.join(col_str(column, idx) for idx, column in enumerate(self.columns))
+ 
+@@ -114,7 +118,9 @@ class IndexColumns(Columns):
+             # length as self.columns.
+             col = '{} {}'.format(self.quote_name(column), self.opclasses[idx])
+             try:
+-                col = '{} {}'.format(col, self.col_suffixes[idx])
++                suffix = self.col_suffixes[idx]
++                if suffix:
++                    col = '{} {}'.format(col, suffix)
+             except IndexError:
+                 pass
+             return col
+diff --git a/tests/backends/test_ddl_references.py b/tests/backends/test_ddl_references.py
+index d96ebcb57f..c88cbd46bb 100644
+--- a/tests/backends/test_ddl_references.py
++++ b/tests/backends/test_ddl_references.py
+@@ -1,5 +1,5 @@
+ from django.db.backends.ddl_references import (
+-    Columns, ForeignKeyName, IndexName, Statement, Table,
++    Columns, ForeignKeyName, IndexColumns, IndexName, Statement, Table,
+ )
+ from django.test import SimpleTestCase
+ 
+@@ -57,6 +57,34 @@ class ColumnsTests(TableTests):
+         self.assertEqual(str(self.reference), 'FIRST_COLUMN, SECOND_COLUMN')
+ 
+ 
++class ColumnsSuffixesTests(SimpleTestCase):
++    def test_str_col_suffixes(self):
++        reference = Columns(
++            'table', ['first_column', 'second_column'], lambda column: column.upper(),
++            col_suffixes=['DESC', ''],
++        )
++        self.assertEqual(str(reference), 'FIRST_COLUMN DESC, SECOND_COLUMN')
++
++
++class IndexColumnsTests(SimpleTestCase):
++    def test_str_opclasses(self):
++        reference = IndexColumns(
++            'table', ['first_column', 'second_column'], lambda column: column.upper(),
++            col_suffixes=['', 'DESC'], opclasses=['text_pattern_ops', 'varchar_pattern_ops'],
++        )
++        self.assertEqual(
++            str(reference),
++            'FIRST_COLUMN text_pattern_ops, SECOND_COLUMN varchar_pattern_ops DESC',
++        )
++
++    def test_str_opclasses_without_col_suffixes(self):
++        reference = IndexColumns(
++            'table', ['first_column'], lambda column: column.upper(),
++            opclasses=['text_pattern_ops'],
++        )
++        self.assertEqual(str(reference), 'FIRST_COLUMN text_pattern_ops')
++
++
+ class IndexNameTests(ColumnsTests):
+     def setUp(self):
+         def create_index_name(table_name, column_names, suffix):
+diff --git a/tests/indexes/tests.py b/tests/indexes/tests.py
+index 588feaddff..758c1964d5 100644
+--- a/tests/indexes/tests.py
++++ b/tests/indexes/tests.py
+@@ -75,6 +75,22 @@ class SchemaIndexesTests(TestCase):
+         index_sql = connection.schema_editor()._model_indexes_sql(IndexTogetherSingleList)
+         self.assertEqual(len(index_sql), 1)
+ 
++    def test_columns_list_sql(self):
++        index = Index(fields=['headline'], name='whitespace_idx')
++        editor = connection.schema_editor()
++        self.assertIn(
++            '(%s)' % editor.quote_name('headline'),
++            str(index.create_sql(Article, editor)),
++        )
++
++    def test_descending_columns_list_sql(self):
++        index = Index(fields=['-headline'], name='whitespace_idx')
++        editor = connection.schema_editor()
++        self.assertIn(
++            '(%s DESC)' % editor.quote_name('headline'),
++            str(index.create_sql(Article, editor)),
++        )
++
+ 
+ @skipIf(connection.vendor == 'postgresql', 'opclasses are PostgreSQL only')
+ class SchemaIndexesNotPostgreSQLTests(TransactionTestCase):
+@@ -134,6 +150,30 @@ class SchemaIndexesPostgreSQLTests(TransactionTestCase):
+         # index (#19441).
+         self.assertIn('("slug" varchar_pattern_ops)', index_sql[4])
+ 
++    def test_ops_class_columns_lists_sql(self):
++        index = Index(
++            fields=['headline'],
++            name='whitespace_idx',
++            opclasses=['text_pattern_ops'],
++        )
++        with connection.schema_editor() as editor:
++            self.assertIn(
++                '(%s text_pattern_ops)' % editor.quote_name('headline'),
++                str(index.create_sql(Article, editor)),
++            )
++
++    def test_ops_class_descending_columns_list_sql(self):
++        index = Index(
++            fields=['-headline'],
++            name='whitespace_idx',
++            opclasses=['text_pattern_ops'],
++        )
++        with connection.schema_editor() as editor:
++            self.assertIn(
++                '(%s text_pattern_ops DESC)' % editor.quote_name('headline'),
++                str(index.create_sql(Article, editor)),
++            )
++
+     def test_virtual_relation_indexes(self):
+         """Test indexes are not created for related objects"""
+         index_sql = connection.schema_editor()._model_indexes_sql(Article)

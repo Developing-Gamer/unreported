@@ -1,0 +1,300 @@
+diff --git a/seaborn/_core/plot.py b/seaborn/_core/plot.py
+index 4f0290a4..df94ee52 100644
+--- a/seaborn/_core/plot.py
++++ b/seaborn/_core/plot.py
+@@ -14,6 +14,7 @@ from collections.abc import Callable, Generator
+ from typing import Any, List, Optional, cast
+ 
+ from cycler import cycler
++import numpy as np
+ import pandas as pd
+ from pandas import DataFrame, Series, Index
+ import matplotlib as mpl
+@@ -1475,21 +1476,23 @@ class Plotter:
+ 
+                 axes_df = self._filter_subplot_data(df, view)
+ 
+-                with pd.option_context("mode.use_inf_as_null", True):
+-                    if keep_na:
+-                        # The simpler thing to do would be x.dropna().reindex(x.index).
+-                        # But that doesn't work with the way that the subset iteration
+-                        # is written below, which assumes data for grouping vars.
+-                        # Matplotlib (usually?) masks nan data, so this should "work".
+-                        # Downstream code can also drop these rows, at some speed cost.
+-                        present = axes_df.notna().all(axis=1)
+-                        nulled = {}
+-                        for axis in "xy":
+-                            if axis in axes_df:
+-                                nulled[axis] = axes_df[axis].where(present)
+-                        axes_df = axes_df.assign(**nulled)
+-                    else:
+-                        axes_df = axes_df.dropna()
++                # Treat infinite values as missing
++                axes_df = axes_df.replace([np.inf, -np.inf], np.nan)
++
++                if keep_na:
++                    # The simpler thing to do would be x.dropna().reindex(x.index).
++                    # But that doesn't work with the way that the subset iteration
++                    # is written below, which assumes data for grouping vars.
++                    # Matplotlib (usually?) masks nan data, so this should "work".
++                    # Downstream code can also drop these rows, at some speed cost.
++                    present = axes_df.notna().all(axis=1)
++                    nulled = {}
++                    for axis in "xy":
++                        if axis in axes_df:
++                            nulled[axis] = axes_df[axis].where(present)
++                    axes_df = axes_df.assign(**nulled)
++                else:
++                    axes_df = axes_df.dropna()
+ 
+                 subplot_keys = {}
+                 for dim in ["col", "row"]:
+@@ -1631,6 +1634,12 @@ class Plotter:
+             ax = sub["ax"]
+             for axis in "xy":
+                 axis_key = sub[axis]
++                axis_obj = getattr(ax, f"{axis}axis")
++
++                # Scale-specific axis finishing (e.g. categorical-style axes)
++                # This comes first so that explicit limits can override it.
++                if axis_key in self._scales:
++                    self._scales[axis_key]._finalize(p, axis_obj)
+ 
+                 # Axis limits
+                 if axis_key in p._limits:
+diff --git a/seaborn/_core/scales.py b/seaborn/_core/scales.py
+index bbd71ec1..0166b409 100644
+--- a/seaborn/_core/scales.py
++++ b/seaborn/_core/scales.py
+@@ -38,6 +38,7 @@ from seaborn._core.rules import categorical_order
+ 
+ from typing import TYPE_CHECKING
+ if TYPE_CHECKING:
++    from seaborn._core.plot import Plot
+     from seaborn._core.properties import Property
+     from numpy.typing import ArrayLike, NDArray
+ 
+@@ -101,6 +102,10 @@ class Scale:
+     ) -> Scale:
+         raise NotImplementedError()
+ 
++    def _finalize(self, p: Plot, axis: Axis) -> None:
++        """Perform scale-specific axis tweaks after adding artists."""
++        pass
++
+     def __call__(self, data: Series) -> ArrayLike:
+ 
+         trans_data: Series | NDArray | list
+@@ -227,6 +232,19 @@ class Nominal(Scale):
+ 
+         return new
+ 
++    def _finalize(self, p: Plot, axis: Axis) -> None:
++        """Draw the axis like a categorical axis in the classic interface."""
++        ax = axis.axes
++        name = axis.axis_name
++        axis.grid(False, which="both")
++        # Explicit limits are applied by the caller after this, so they take precedence
++        nticks = len(axis.get_major_ticks())
++        lo, hi = -.5, nticks - .5
++        if name == "y":
++            lo, hi = hi, lo
++        set_lim = getattr(ax, f"set_{name}lim")
++        set_lim(lo, hi, auto=None)
++
+     def tick(self, locator: Locator | None = None):
+         """
+         Configure the selection of ticks for the scale's axis or legend.
+diff --git a/seaborn/_oldcore.py b/seaborn/_oldcore.py
+index 192af381..315fd417 100644
+--- a/seaborn/_oldcore.py
++++ b/seaborn/_oldcore.py
+@@ -1116,13 +1116,13 @@ class VectorPlotter:
+                 parts = []
+                 grouped = self.plot_data[var].groupby(self.converters[var], sort=False)
+                 for converter, orig in grouped:
+-                    with pd.option_context('mode.use_inf_as_null', True):
+-                        orig = orig.dropna()
+-                        if var in self.var_levels:
+-                            # TODO this should happen in some centralized location
+-                            # it is similar to GH2419, but more complicated because
+-                            # supporting `order` in categorical plots is tricky
+-                            orig = orig[orig.isin(self.var_levels[var])]
++                    # Treat infinite values as missing
++                    orig = orig.replace([np.inf, -np.inf], np.nan).dropna()
++                    if var in self.var_levels:
++                        # TODO this should happen in some centralized location
++                        # it is similar to GH2419, but more complicated because
++                        # supporting `order` in categorical plots is tricky
++                        orig = orig[orig.isin(self.var_levels[var])]
+                     comp = pd.to_numeric(converter.convert_units(orig))
+                     if converter.get_scale() == "log":
+                         comp = np.log10(comp)
+diff --git a/seaborn/categorical.py b/seaborn/categorical.py
+index 3394c9c7..5aee00af 100644
+--- a/seaborn/categorical.py
++++ b/seaborn/categorical.py
+@@ -1790,8 +1790,12 @@ class _LVPlotter(_CategoricalPlotter):
+         vals = np.asarray(vals)
+         # Remove infinite values while handling a 'object' dtype
+         # that can come from pd.Float64Dtype() input
+-        with pd.option_context('mode.use_inf_as_null', True):
+-            vals = vals[~pd.isnull(vals)]
++        vals = (
++            pd.Series(vals)
++            .replace([np.inf, -np.inf], np.nan)
++            .dropna()
++            .to_numpy()
++        )
+         n = len(vals)
+         p = self.outlier_prop
+ 
+diff --git a/seaborn/utils.py b/seaborn/utils.py
+index e7e0d872..a4887b2c 100644
+--- a/seaborn/utils.py
++++ b/seaborn/utils.py
+@@ -685,7 +685,7 @@ def locator_to_legend_entries(locator, limits, dtype):
+     raw_levels = locator.tick_values(*limits).astype(dtype)
+ 
+     # The locator can return ticks outside the limits, clip them here
+-    raw_levels = [l for l in raw_levels if l >= limits[0] and l < limits[1]]
++    raw_levels = [l for l in raw_levels if l >= limits[0] and l <= limits[1]]
+ 
+     class dummy_axis:
+         def get_view_interval(self):
+diff --git a/seaborn/widgets.py b/seaborn/widgets.py
+index 604e08bc..fb05e523 100644
+--- a/seaborn/widgets.py
++++ b/seaborn/widgets.py
+@@ -31,6 +31,9 @@ def _init_mutable_colormap():
+ def _update_lut(cmap, colors):
+     """Change the LUT values in a matplotlib colormap in-place."""
+     cmap._lut[:256] = colors
++    # The under/over/bad colors live in extra LUT entries; refresh them so
++    # they follow the new first and last colors rather than the initial ones
++    cmap._set_extremes()
+ 
+ 
+ def _show_cmap(cmap):
+diff --git a/tests/_core/test_plot.py b/tests/_core/test_plot.py
+index 03a64917..fa14d528 100644
+--- a/tests/_core/test_plot.py
++++ b/tests/_core/test_plot.py
+@@ -661,6 +661,13 @@ class TestPlotting:
+         Plot().plot()
+         assert m.n_splits == 0
+ 
++    def test_infinite_values_dropped(self):
++
++        m = MockMark()
++        Plot(x=[1, np.inf, 3, -np.inf], y=[1, 2, 3, 4]).add(m).plot()
++        assert_array_equal(m.passed_data[0]["x"], [1, 3])
++        assert_array_equal(m.passed_data[0]["y"], [1, 3])
++
+     def test_single_split_single_layer(self, long_df):
+ 
+         m = MockMark()
+@@ -1159,6 +1166,36 @@ class TestPlotting:
+         ax = p._figure.axes[0]
+         assert ax.get_xlim() == (0.5, 2.5)
+ 
++    def test_nominal_x_axis_tweaks(self):
++
++        p = Plot(x=["a", "b", "c"], y=[1, 2, 3])
++        ax1 = p.plot()._figure.axes[0]
++        assert ax1.get_xlim() == (-.5, 2.5)
++        assert not any(t.get_visible() for t in ax1.xaxis.get_gridlines())
++
++        lim = (-1, 2.1)
++        ax2 = p.limit(x=lim).plot()._figure.axes[0]
++        assert ax2.get_xlim() == lim
++
++    def test_nominal_y_axis_tweaks(self):
++
++        p = Plot(x=[1, 2, 3], y=["a", "b", "c"])
++        ax1 = p.plot()._figure.axes[0]
++        assert ax1.get_ylim() == (2.5, -.5)
++        assert not any(t.get_visible() for t in ax1.yaxis.get_gridlines())
++
++        lim = (-1, 2.1)
++        ax2 = p.limit(y=lim).plot()._figure.axes[0]
++        assert ax2.get_ylim() == lim
++
++    def test_nominal_axis_tweaks_with_grid_style(self):
++
++        with mpl.rc_context({"axes.grid": True}):
++            p = Plot(x=["a", "b"], y=[1, 2]).scale(x=Nominal())
++            ax = p.plot()._figure.axes[0]
++        assert not any(t.get_visible() for t in ax.xaxis.get_gridlines())
++        assert any(t.get_visible() for t in ax.yaxis.get_gridlines())
++
+     def test_labels_axis(self, long_df):
+ 
+         label = "Y axis"
+diff --git a/tests/test_relational.py b/tests/test_relational.py
+index ce4fbd45..64364602 100644
+--- a/tests/test_relational.py
++++ b/tests/test_relational.py
+@@ -1322,6 +1322,15 @@ class TestScatterPlotter(SharedAxesLevelTests, Helpers):
+             self.func(data=long_df, x="x", y="y", fc="C4", ax=ax)
+             assert self.get_last_color(ax) == to_rgba("C4")
+ 
++    @pytest.mark.parametrize("var", ["hue", "size"])
++    def test_brief_legend_includes_max_tick(self, var):
++
++        x = np.arange(101)
++        ax = plt.figure().subplots()
++        self.func(x=x, y=x, legend="brief", ax=ax, **{var: x})
++        labels = [t.get_text() for t in ax.get_legend().get_texts()]
++        assert labels[-1] == "100"
++
+     def test_legend_data(self, long_df):
+ 
+         m = mpl.markers.MarkerStyle("o")
+diff --git a/tests/test_utils.py b/tests/test_utils.py
+index 02839a02..56e4f97e 100644
+--- a/tests/test_utils.py
++++ b/tests/test_utils.py
+@@ -335,6 +335,16 @@ def test_locator_to_legend_entries():
+         assert re.match(f"1e.0{exp}", str_levels[i])
+ 
+ 
++def test_locator_to_legend_entries_includes_max_tick():
++
++    locator = mpl.ticker.MaxNLocator(nbins=6)
++    levels, str_levels = utils.locator_to_legend_entries(
++        locator, (0, 100), int
++    )
++    assert levels == [0, 20, 40, 60, 80, 100]
++    assert str_levels[-1] == "100"
++
++
+ def test_move_legend_matplotlib_objects():
+ 
+     fig, ax = plt.subplots()
+diff --git a/tests/test_widgets.py b/tests/test_widgets.py
+new file mode 100644
+index 00000000..e02502b1
+--- /dev/null
++++ b/tests/test_widgets.py
+@@ -0,0 +1,20 @@
++import numpy as np
++import numpy.testing as npt
++
++from seaborn.widgets import _init_mutable_colormap, _update_lut
++
++
++class TestMutableColormap:
++
++    def test_extremes_follow_lut(self):
++
++        cmap = _init_mutable_colormap()
++        colors = np.zeros((256, 4))
++        colors[:, 0] = np.linspace(.2, 1, 256)
++        colors[:, 3] = 1
++        _update_lut(cmap, colors)
++
++        npt.assert_array_equal(cmap(np.inf), colors[-1])
++        npt.assert_array_equal(cmap(-np.inf), colors[0])
++        npt.assert_array_equal(cmap(1.0), colors[-1])
++        npt.assert_array_equal(cmap(0.0), colors[0])

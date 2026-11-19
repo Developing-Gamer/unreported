@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 58905,
+ "finalText": "I re-checked the report against the request. One citation quote spanned two lines, so it might not match the source text exactly. I've shortened it to a single line. I didn't run anything again: the probe copy still can't import astropy because `erfa` is missing, so this rests on reading the code. I also had no access to the monitoring sources, so I couldn't confirm which configuration change started it.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Bad name-lookup database setting silently becomes 'all'\",\n  \"cause\": \"The setting that picks which database name lookups query (`sesame_database`) accepts any value. Anything other than exactly 'all', 'simbad', 'ned' or 'vizier' is silently replaced by 'all', for example 'SIMBAD', 'Ned' or 'simbad '. With 'all', the first match across SIMBAD, NED and VizieR is returned, so ambiguous names can resolve to a different object or position. The lookup still succeeds and nothing is raised or warned.\",\n  \"files\": [\n    {\"path\": \"astropy/coordinates/name_resolve.py\", \"why\": \"`sesame_database.validate` returns 'all' for unknown values instead of raising. `get_icrs_coordinates` then queries all databases and takes the first '%J' match.\"},\n    {\"path\": \"astropy/coordinates/tests/test_name_resolve.py\", \"why\": \"Needs a test that an invalid database name raises, and that the valid names still work.\"}\n  ],\n  \"plan\": [\n    \"In `sesame_database.validate`, raise ValueError(f\\\"Unknown database '{value}'\\\") for values outside the four allowed names, instead of returning 'all'.\",\n    \"Optionally accept case-insensitive input by lower-casing and stripping the value before checking it.\",\n    \"Update the `sesame_database` docstring to say that invalid values raise.\",\n    \"Add a changelog entry.\"\n  ],\n  \"verification\": [\n    \"Add a test that `sesame_database.set('SIMBAD')` or `sesame_database.set('bogus')` either raises ValueError or normalizes to 'simbad'. It must never fall back to 'all'.\",\n    \"Run astropy/coordinates/tests/test_name_resolve.py, including the existing valid-database case with `remote_data` enabled.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"likely\",\n  \"effort\": \"small\",\n  \"risk\": \"low. Anyone relying on the silent fallback will now get an error, which is the point of the fix.\",\n  \"confidence\": 0.65,\n  \"intendedBehavior\": \"Setting the name-resolve database to an unsupported value raises a clear error instead of silently querying all databases.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"Nothing in the code shows the silent fallback to 'all' was a chosen outcome. No test asserts it, there is no changelog entry for it, and no comment explains it. The `sesame_database` docstring lists only 'all', 'simbad', 'ned' and 'vizier' as allowed values, so an unsupported value returning a normal-looking result is outside that contract.\"},\n  \"fixType\": \"silentFailure\",\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"Invalid database names are silently coerced to 'all' rather than rejected.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"astropy/coordinates/name_resolve.py:58\", \"quote\": \"if value not in [\\\"all\\\", \\\"simbad\\\", \\\"ned\\\", \\\"vizier\\\"]:\"}]},\n    {\"id\": \"c2\", \"text\": \"With 'all', the lookup takes the first '%J' match in the response, so an ambiguous name can resolve to a different position without any warning.\", \"role\": \"impact\", \"citations\": [{\"type\": \"code\", \"ref\": \"astropy/coordinates/name_resolve.py:84\", \"quote\": \"pattr = re.compile(r\\\"%J\\\\s*([0-9\\\\.]+)\\\\s*([\\\\+\\\\-\\\\.0-9]+)\\\")\"}]},\n    {\"id\": \"c3\", \"text\": \"The lookup returns a SkyCoord with no warning, so the wrong result looks like a success.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"astropy/coordinates/name_resolve.py:207\", \"quote\": \"sc = SkyCoord(ra=ra, dec=dec, unit=(u.degree, u.degree), frame=\\\"icrs\\\")\"}]}\n  ],\n  \"ruledOut\": [\n    {\"why\": \"The failover across Sesame mirrors does not explain it. The URL list is de-duplicated by domain and mirrors are tried in order, and failures raise NameResolveError instead of returning a different position.\", \"citations\": [{\"type\": \"code\", \"ref\": \"astropy/coordinates/name_resolve.py:164\", \"quote\": \"for url in urls:\"}]}\n  ],\n  \"plain\": {\n    \"headline\": \"Some ambiguous object names resolved to a different sky position with no error, because a mistyped database setting was silently ignored.\",\n    \"happened\": \"The name lookup lets you choose which astronomy database to ask. If the choice isn't spelled exactly right, for example with a capital letter, it quietly falls back to asking all databases. For an ambiguous name, the first database to answer can then give a different position. The lookup still reports success and shows no warning.\",\n    \"matters\": \"Anyone who configures the lookup database and gets even a small spelling or casing difference can receive coordinates from a different database without knowing.\",\n    \"fix\": \"Reject unrecognised database settings with a clear error, or accept different capitalisation, instead of quietly using all databases.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 6,
+  "inputTokens": {
+   "avg": 15574.833333333334,
+   "max": 19623
+  },
+  "mainUsage": {
+   "inputTokens": 93449,
+   "cachedInputTokens": 80836,
+   "outputTokens": 5035
+  },
+  "cacheHitPercent": 86.50279831779902,
+  "wallSeconds": 47.21600008010864,
+  "tools": {
+   "read": 5,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 1
+  },
+  "reads": 5,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.0980417,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.0980417
+}

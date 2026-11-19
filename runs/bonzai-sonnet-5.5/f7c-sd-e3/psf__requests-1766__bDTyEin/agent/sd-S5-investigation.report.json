@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 150001,
+ "finalText": "I re-checked the report against the request. I changed no files and ran commands only with the probe tool. One citation quote was too short to count, so I replaced it. The corrected report follows.\n\nThe cause is in `requests/api.py`, where `requests.head()` ignores an explicit `allow_redirects=True`. In the probe, `requests.head(u, allow_redirects=True)` returned 301 against a local server that redirects `/c` to `/d`. `Session.head` with the same argument returned 200.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"requests.head ignores allow_redirects=True\",\n  \"cause\": \"In requests/api.py, `head()` does `kwargs['allow_redirects'] = False`. That overwrites whatever the caller passed, so `requests.head(url, allow_redirects=True)` never follows redirects and returns the 301 itself. `get()` and `options()` use `setdefault(..., True)`, and `Session.head()` uses `setdefault(..., False)`, so only the module-level `head()` drops the caller's choice. A check that calls `requests.head` on a URL that redirects sees 301. A check on a direct URL sees 200.\",\n  \"files\": [\n    {\"path\": \"requests/api.py\", \"why\": \"head() forces allow_redirects=False instead of defaulting it, so an explicit True is discarded.\"}\n  ],\n  \"plan\": [\n    \"In requests/api.py head(), replace `kwargs['allow_redirects'] = False` with `kwargs.setdefault('allow_redirects', False)`. This matches Session.head and keeps the no-follow default.\",\n    \"Add a test in test_requests.py. Serve a 301 to a 200 and assert that `requests.head(url, allow_redirects=True)` returns 200 with one history entry, and that `requests.head(url)` still returns 301.\"\n  ],\n  \"verification\": [\n    \"I ran a local server returning HEAD 301 on /c with Location /d, and 200 on /d. `requests.head(u, allow_redirects=True).status_code` gave 301 and `requests.Session().head(u, allow_redirects=True).status_code` gave 200.\",\n    \"After the fix the first call should also give 200, and `requests.head(u)` with no argument should still give 301.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small: one line plus a test\",\n  \"risk\": \"low: only callers who explicitly pass allow_redirects=True to requests.head change, and that is the behaviour they asked for\",\n  \"confidence\": 0.9,\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"requests.head() overwrites allow_redirects with False, so an explicit True is ignored.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"requests/api.py:76\", \"quote\": \"kwargs['allow_redirects'] = False\"}]},\n    {\"id\": \"c2\", \"text\": \"Session.head, get and options use setdefault, so only the module-level head() is inconsistent.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"requests/sessions.py:398\", \"quote\": \"kwargs.setdefault('allow_redirects', False)\"}, {\"type\": \"code\", \"ref\": \"requests/api.py:54\", \"quote\": \"kwargs.setdefault('allow_redirects', True)\"}]},\n    {\"id\": \"c3\", \"text\": \"Reproduced against a local server: requests.head with allow_redirects=True returned 301, while Session.head with the same argument returned 200.\", \"role\": \"impact\", \"citations\": [{\"type\": \"code\", \"ref\": \"requests/api.py:77\", \"quote\": \"return request('head', url, **kwargs)\"}]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"The redirect loop in Session.resolve_redirects mishandles 301s.\", \"why\": \"Probe runs through GET, POST and HEAD with absolute, relative, scheme-relative, query-only, fragment and multi-hop Locations all followed to 200.\", \"citations\": [{\"type\": \"code\", \"ref\": \"requests/sessions.py:76\", \"quote\": \"while ('location' in resp.headers and resp.status_code in REDIRECT_STATI):\"}]},\n    {\"hypothesis\": \"308 handling explains it.\", \"why\": \"A 308 is not followed here, but that would show 308, not 301, and it matches the existing design of REDIRECT_STATI.\", \"citations\": [{\"type\": \"code\", \"ref\": \"requests/sessions.py:29\", \"quote\": \"codes.moved, # 301\"}, {\"type\": \"code\", \"ref\": \"requests/sessions.py:32\", \"quote\": \"codes.temporary_moved, # 307\"}]}\n  ],\n  \"intendedBehavior\": \"requests.head(url, allow_redirects=True) follows redirects and returns the final response, while requests.head(url) still does not follow them.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"The default of not following redirects for HEAD is intentional and kept. Silently overriding an explicit allow_redirects=True is not documented anywhere, and it contradicts the sibling get/options/Session.head code.\"},\n  \"fixType\": \"error\",\n  \"headline\": \"Some website checks reported a redirect instead of the final page because one request type ignored the instruction to follow redirects.\",\n  \"happened\": \"The monitor asks the web library to look at a page without downloading it and to follow redirects. For that request type the library always overrides the instruction and stops at the first redirect. So pages that move to a new address report the redirect status instead of the destination's OK.\",\n  \"matters\": \"Every check that uses this request type on a URL that redirects reports a false problem, while direct URLs look fine.\",\n  \"fix\": \"Make that request type honour the caller's choice to follow redirects, and keep not following as the default when nothing is said.\"\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 30,
+  "inputTokens": {
+   "avg": 31983.7,
+   "max": 55565
+  },
+  "mainUsage": {
+   "inputTokens": 959511,
+   "cachedInputTokens": 910908,
+   "outputTokens": 18440
+  },
+  "cacheHitPercent": 94.93460731560138,
+  "wallSeconds": 149.05000019073486,
+  "tools": {
+   "read": 28,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 9
+  },
+  "reads": 28,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 3,
+   "readFileIgnoringRange": 3
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.4880571,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.4880571
+}

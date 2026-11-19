@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 30715,
+ "finalText": "The code already has the fix for this issue, so it is covered and needs no new change. I didn't run anything with probe, so this comes from reading the code only.\n\n```json\n{\n  \"verdict\": \"covered\",\n  \"title\": \"Enum choices in templates already fixed\",\n  \"cause\": \"Django templates call any callable they resolve with no arguments. Enum classes are callable and need a value, so `{% if x == YearInSchool.FRESHMAN %}` raised an error. The metaclass for Choices, IntegerChoices and TextChoices now sets do_not_call_in_templates = True on every class it builds. The template engine checks that attribute and skips the call, so the reported failure no longer occurs in this code.\",\n  \"files\": [\n    {\"path\": \"django/db/models/enums.py\", \"why\": \"ChoicesMeta.__new__ sets cls.do_not_call_in_templates = True on every Choices class.\"},\n    {\"path\": \"django/template/base.py\", \"why\": \"Variable resolution skips the call when the resolved object has do_not_call_in_templates.\"}\n  ],\n  \"plan\": [\"No change needed. Anyone hitting this should upgrade to a release that includes the do_not_call_in_templates line in enums.py. Upstream this is the fix for ticket #31154, which I recall landing in Django 3.0.3. I did not confirm that from this repository, whose history is a single snapshot commit.\"],\n  \"verification\": [\"Render a template with {% if v == Enum.MEMBER %} using a TextChoices class in the context. It should compare without raising.\", \"A regression test for this is not present in tests/model_enums. Adding one would be worthwhile.\"],\n  \"userFacing\": true,\n  \"certainty\": \"likely\",\n  \"effort\": \"none\",\n  \"risk\": \"low\",\n  \"confidence\": 0.85,\n  \"coveredBy\": null,\n  \"fixedIn\": {\"commit\": \"unknown (repository history is a single snapshot commit)\", \"release\": \"3.0.3 (from memory, not confirmed here)\"},\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"ChoicesMeta marks every Choices class as not to be called in templates.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"django/db/models/enums.py:34\", \"quote\": \"cls.do_not_call_in_templates = True\"}]},\n    {\"id\": \"c2\", \"text\": \"The template engine honours the attribute when resolving variables.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"django/template/base.py:852\", \"quote\": \"if getattr(current, 'do_not_call_in_templates', False):\"}]}\n  ],\n  \"intendedBehavior\": \"Comparing a value to an enumeration member such as YearInSchool.FRESHMAN in a template renders without error.\",\n  \"fixType\": \"error\"\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 3,
+  "inputTokens": {
+   "avg": 13216.333333333334,
+   "max": 14419
+  },
+  "mainUsage": {
+   "inputTokens": 39649,
+   "cachedInputTokens": 32246,
+   "outputTokens": 1456
+  },
+  "cacheHitPercent": 81.32865898257207,
+  "wallSeconds": 24.09600019454956,
+  "tools": {
+   "read": 4,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 0
+  },
+  "reads": 4,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.0395127,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.0395127
+}

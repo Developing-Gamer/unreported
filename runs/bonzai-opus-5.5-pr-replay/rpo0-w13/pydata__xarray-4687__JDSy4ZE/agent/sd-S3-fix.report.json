@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 100860,
+ "finalText": "`xr.where` now takes a `keep_attrs` argument, and with `keep_attrs=True` the result keeps the attrs of `x`. I re-ran the `where` tests and they pass, and `.factory/pr-S3.md` exists with a one-line title followed by the description.\n\n- **Cause:** as the investigation said, `xr.where` called `apply_ufunc` without `keep_attrs`, so it fell back to the global default and dropped all attrs.\n- **Change in `xarray/core/computation.py`:** with `keep_attrs=None` (the default) it follows the global `keep_attrs` option, so the default behaviour is unchanged. With `True`, the result takes the attrs of `x`, never those of `cond`. A scalar `x` gives no attrs.\n- **Test:** `test_where_attrs` in `xarray/tests/test_computation.py`. On the starting commit it failed with `TypeError: where() got an unexpected keyword argument 'keep_attrs'`.\n- **Checks:** `test_computation.py` and `test_duck_array_ops.py` pass. `test_dataarray.py` and `test_dataset.py` can't be collected here because of a pandas `UndefinedVariableError` import error, so I didn't run them.\n- **Docs:** I added a changelog entry in `doc/whats-new.rst` without an issue number, since the number isn't in the evidence.\n- **Dataset limit:** with a Dataset `x`, `keep_attrs=True` applies the dataset's attrs to every variable too. I did not handle that.\n- **Housekeeping:** nothing is committed, per the benchmark note.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest xarray/tests/test_computation.py xarray/tests/test_duck_array_ops.py -q\", \"passed\": true},\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest xarray/tests/test_dataarray.py\", \"passed\": false, \"alsoOnBase\": true, \"note\": \"collection error: pandas UndefinedVariableError import, unrelated to this change\"}\n  ],\n  \"visual\": false,\n  \"reproductionSteps\": \"Call xr.where(cond, x, y, keep_attrs=True) with x a DataArray with attrs; before the fix it raised TypeError (no keep_attrs argument), and without the argument result attrs were {} even with the keep_attrs option set.\",\n  \"reproductionTest\": {\n    \"path\": \"xarray/tests/test_computation.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest xarray/tests/test_computation.py -k where_attrs -q\",\n    \"signature\": \"TypeError: where() got an unexpected keyword argument 'keep_attrs'\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 16,
+  "inputTokens": {
+   "avg": 26360.125,
+   "max": 33643
+  },
+  "mainUsage": {
+   "inputTokens": 421762,
+   "cachedInputTokens": 401999,
+   "outputTokens": 8248
+  },
+  "cacheHitPercent": 95.31418193199008,
+  "wallSeconds": 99.2170000076294,
+  "tools": {
+   "read": 9,
+   "edit": 5,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 5
+  },
+  "reads": 9,
+  "edits": 5,
+  "runs": 5,
+  "reReads": {
+   "total": 1,
+   "readFile": 1,
+   "shell": 0,
+   "sameFile": 4,
+   "readFileIgnoringRange": 3
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 3,
+  "editOperations": 12,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.21226930000000002,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.21226930000000002
+}

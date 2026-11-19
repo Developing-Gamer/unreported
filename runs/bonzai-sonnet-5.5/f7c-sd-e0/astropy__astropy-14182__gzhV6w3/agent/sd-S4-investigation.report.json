@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 79213,
+ "finalText": "Importing `astropy.io.ascii` still crashes in this code when Python runs with docstrings stripped (`python -OO`). I read the code and ran one probe check, but I did not reproduce the full import. The probe copy has no numpy or erfa installed.\n\nThe report text in the evidence is cut off, so I found the full issue on GitHub (astropy #14095). It reports `AttributeError: 'NoneType' object has no attribute 'expandtabs'` on `import astropy.io.ascii`. The reporter was on astropy 5.0.4, and upstream closed the issue as invalid/question. The issue doesn't say how they ran Python. This error is what `python -OO` produces, because that flag removes docstrings.\n\nWhat I confirmed:\n- **Missing check:** `core.py` calls `inspect.cleandoc(cls.__doc__)` at lines 1234 and 1247 with no check for a missing docstring. A probe call of `inspect.cleandoc(None)` raises the exact `AttributeError` from the report.\n- **Wider reach:** `astropy.table` imports `astropy.io.ascii.connect` at load time (line 118), and that import loads the whole ascii package. So the crash can reach `import astropy.table` as well.\n- **Not intended:** Other astropy code already guards against missing docstrings (`astropy/utils/masked/core.py:105`), and `CHANGES.rst` has earlier `-OO` fix entries. Nothing says the `io.ascii` crash was chosen.\n\nThe fix is to add the class docstring to the generated reader and writer docstrings only when it exists, at both places in `core.py`. A regression test belongs in `astropy/io/ascii/tests/test_read.py` (the file exists). It should run `python -OO -c \"import astropy.io.ascii\"` in a subprocess, skipped when docstrings are already stripped. A changelog entry should accompany it. I rated certainty \"likely\" rather than confirmed, because I did not run the full import.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Importing astropy.io.ascii crashes under python -OO\",\n  \"cause\": \"When a reader class is defined, the metaclass builds a registry docstring by calling inspect.cleandoc(cls.__doc__) with no None check. Under python -OO, or any run with docstrings stripped, cls.__doc__ is None, so importing astropy.io.ascii raises AttributeError: 'NoneType' object has no attribute 'expandtabs'. astropy.table imports the ascii connect module at load time, so the failure can reach astropy.table too. The project already supports -OO elsewhere, and nothing shows this crash was chosen.\",\n  \"files\": [\n    {\"path\": \"astropy/io/ascii/core.py\", \"why\": \"MetaBaseReader.__init__ calls inspect.cleandoc(cls.__doc__) at lines 1234 and 1247 without guarding against a None docstring\"},\n    {\"path\": \"astropy/io/ascii/tests/test_read.py\", \"why\": \"Place for a regression test that imports astropy.io.ascii in a python -OO subprocess\"}\n  ],\n  \"plan\": [\n    \"In MetaBaseReader.__init__, append the class docstring to the generated reader and writer docstrings only when cls.__doc__ is not None, at both places.\",\n    \"Add a subprocess test that runs python -OO -c 'import astropy.io.ascii', skipped when docstrings are already stripped.\",\n    \"Add a changelog entry for the io.ascii bug fix.\"\n  ],\n  \"verification\": [\n    \"python -OO -c 'import astropy.io.ascii; import astropy.table' exits 0 after the change and raises AttributeError before it.\",\n    \"Run astropy/io/ascii/tests in a normal run to confirm the registry docstrings are unchanged when docstrings exist.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"likely\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.8,\n  \"intendedBehavior\": \"Importing astropy.io.ascii succeeds under python -OO, and the registered ascii readers and writers still get their generic docstring when class docstrings are missing.\",\n  \"intent\": {\n    \"deliberate\": false,\n    \"evidence\": \"Other astropy code guards against missing docstrings (astropy/utils/masked/core.py:105, the -OO canary in astropy/utils/tests/test_parsing.py, and -OO fix entries in CHANGES.rst). Nothing says io.ascii was meant to fail under -OO.\"\n  },\n  \"claims\": [\n    {\n      \"id\": \"c1\",\n      \"text\": \"The reader metaclass passes cls.__doc__ to inspect.cleandoc without a None check, which fails when docstrings are stripped.\",\n      \"role\": \"rootCause\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"astropy/io/ascii/core.py:1234\", \"quote\": \"func.__doc__ += inspect.cleandoc(cls.__doc__).strip()\"},\n        {\"type\": \"code\", \"ref\": \"astropy/io/ascii/core.py:1247\", \"quote\": \"func.__doc__ += inspect.cleandoc(cls.__doc__).strip()\"}\n      ]\n    },\n    {\n      \"id\": \"c2\",\n      \"text\": \"Importing astropy.table pulls in astropy.io.ascii, so the crash can reach beyond the ascii module.\",\n      \"role\": \"impact\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"astropy/table/__init__.py:118\", \"quote\": \"import astropy.io.ascii.connect\"}\n      ]\n    },\n    {\n      \"id\": \"c3\",\n      \"text\": \"The project guards against missing docstrings elsewhere, so supporting -OO is intended.\",\n      \"role\": \"other\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"astropy/utils/masked/core.py:105\", \"quote\": \"if cls.__doc__ is None:\"}\n      ]\n    }\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"A syntax error or broken import in the io.ascii modules\", \"why\": \"compileall over io/ascii, table and io/registry reported no errors, and the import lists in the io.ascii modules look consistent.\"},\n    {\"hypothesis\": \"A circular import between astropy.table and astropy.io.ascii\", \"why\": \"Reading the import order shows each module finds the other already in sys.modules, so the partial import resolves. I did not run it.\"}\n  ],\n  \"fixType\": \"error\",\n  \"plain\": {\n    \"headline\": \"Loading the ascii table-reading part of astropy crashes when Python runs with docstrings stripped.\",\n    \"happened\": \"When Python starts with its most aggressive optimisation flag, it removes the description text from code. The ascii readers build their help text from those descriptions without checking they exist. Loading the module then stops with an unclear 'NoneType' error.\",\n    \"matters\": \"Anyone running astropy in an optimised or stripped-down Python setup cannot load the ascii reader, and table loading can fail with it.\",\n    \"fix\": \"Skip adding the class description to the help text when it is missing, and add a test that loads the module in that mode.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 15,
+  "inputTokens": {
+   "avg": 22426.066666666666,
+   "max": 32426
+  },
+  "mainUsage": {
+   "inputTokens": 336391,
+   "cachedInputTokens": 310955,
+   "outputTokens": 9244
+  },
+  "cacheHitPercent": 92.4385610792203,
+  "wallSeconds": 78.875,
+  "tools": {
+   "read": 17,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 4
+  },
+  "reads": 17,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.218204,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.218204
+}

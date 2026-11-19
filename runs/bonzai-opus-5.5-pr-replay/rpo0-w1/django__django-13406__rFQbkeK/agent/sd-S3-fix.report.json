@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 51008,
+ "finalText": "Everything the request named is in place. The fix and the regression test are uncommitted in the working tree, and the PR text is at `/testbed/.factory/pr-S3.md`. `queryset_pickle` passes, and the wider run (`queries`, `aggregation`, `aggregation_regress`) passed earlier.\n\n**Fix.** The `QuerySet.query` setter in `django/db/models/query.py` now sets `_iterable_class = ValuesIterable` when the assigned query has `values_select`. A pickled `values()` query reassigned to a fresh queryset therefore returns dicts, not broken model instances.\n\n**Test.** `test_query_pickled_values` in `tests/queryset_pickle/tests.py` covers `values()`, `values_list()` and `values().annotate(Count)`. Before the fix it failed with `AttributeError: 'NoneType' object has no attribute 'attname'`.\n\nA `values_list()` query reassigned this way yields dicts, not tuples, because the query alone doesn't record the tuple or flat shape.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"command\": \"cd tests && PYTHONPATH=/testbed python runtests.py queryset_pickle queries aggregation aggregation_regress --parallel 1\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"reproductionSteps\": \"Create a Group queryset with values('name').annotate(c=Count('id')); pickle/unpickle qs.query; assign it to Group.objects.all().query and list it. Before the fix it yields broken model instances / AttributeError instead of dicts.\",\n  \"reproductionTest\": {\n    \"path\": \"tests/queryset_pickle/tests.py\",\n    \"command\": \"cd tests && PYTHONPATH=/testbed python runtests.py queryset_pickle\",\n    \"signature\": \"AttributeError(\\\"'NoneType' object has no attribute 'attname'\\\")\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 11,
+  "inputTokens": {
+   "avg": 22918.363636363636,
+   "max": 26473
+  },
+  "mainUsage": {
+   "inputTokens": 252102,
+   "cachedInputTokens": 239519,
+   "outputTokens": 4468
+  },
+  "cacheHitPercent": 95.00876629300839,
+  "wallSeconds": 48.389999866485596,
+  "tools": {
+   "read": 5,
+   "edit": 3,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 5
+  },
+  "reads": 5,
+  "edits": 3,
+  "runs": 5,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 2,
+  "editOperations": 2,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.12402830000000001,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.12402830000000001
+}

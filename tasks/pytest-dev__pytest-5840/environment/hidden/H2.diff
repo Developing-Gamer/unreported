@@ -1,0 +1,13 @@
+diff --git a/src/_pytest/pastebin.py b/src/_pytest/pastebin.py
+index 91aa5f1fd..41d612f02 100644
+--- a/src/_pytest/pastebin.py
++++ b/src/_pytest/pastebin.py
+@@ -85,7 +85,7 @@ def pytest_terminal_summary(terminalreporter):
+         terminalreporter.write_sep("=", "Sending information to Paste Service")
+         for rep in terminalreporter.stats.get("failed"):
+             try:
+-                msg = rep.longrepr.reprtraceback.reprentries[-1].reprfileloc
++                msg = rep.longrepr.reprtraceback.reprentries[0].reprfileloc
+             except AttributeError:
+                 msg = tr._getfailureheadline(rep)
+             tw = _pytest.config.create_terminal_writer(

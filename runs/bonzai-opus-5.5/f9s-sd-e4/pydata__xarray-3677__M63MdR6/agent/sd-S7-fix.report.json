@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 49570,
+ "finalText": "Chunked and unchunked results now match for the reported case. For `np.arange(20.)` with `rolling(t=4, center=True).mean()`, both give `[nan nan 1.5 \u2026 17.5 nan]`.\n\n`git status` also lists changes in `dataset.py`, `merge.py`, `variable.py`, `test_merge.py` and `test_variable.py`. They were already in the working tree before I started, and the `whats-new.rst` entries for them were there too. They belong to the merge and `.values` work, not this fix, so I left them alone.\n\nMy changes are the one-line fix in `xarray/core/dask_array_ops.py`, the `window=4` cases in `test_duck_array_ops.py` and `test_dataarray.py`, the `whats-new.rst` line and `.factory/pr-S7.md`. The test results and report are in my previous message.",
+ "totals": {
+  "turns": 1,
+  "requests": 10,
+  "inputTokens": {
+   "avg": 25427.9,
+   "max": 29386
+  },
+  "mainUsage": {
+   "inputTokens": 254279,
+   "cachedInputTokens": 238785,
+   "outputTokens": 4083
+  },
+  "cacheHitPercent": 93.90669304189493,
+  "wallSeconds": 49.03099989891052,
+  "tools": {
+   "read": 4,
+   "edit": 6,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 4
+  },
+  "reads": 4,
+  "edits": 6,
+  "runs": 4,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 6,
+  "editOperations": 6,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.12730999999999998,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.12730999999999998
+}

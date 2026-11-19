@@ -1,0 +1,37 @@
+[
+  {
+    "source": "S1",
+    "decision": "fix",
+    "reason": "In BaseMixture.fit_predict the final E-step that produces the returned labels runs before self._set_parameters(best_params), so with n_init>1 the labels come from the last initialization's parameters "
+  },
+  {
+    "source": "S2",
+    "decision": "fix",
+    "reason": "TruncatedSVD.fit_transform computes the total variance for sparse input with mean_variance_axis(X, axis=1), i.e. per-row variances summed, while the numerator explained_variance_ and the dense branch "
+  },
+  {
+    "source": "S3",
+    "decision": "fix",
+    "reason": "BayesianRidge.predict(return_std=True) with normalize=True only divides X by X_scale_ (line 298) and never subtracts X_offset_, but sigma_ was estimated on centred-and-scaled data. The quadratic form "
+  },
+  {
+    "source": "S4",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: In older releases, _log_reg_scoring_path built its scoring LogisticRegression with only fit_intercept, so multi_class fell back to 'ovr' and probability scorers such as neg_log_loss were computed from"
+  },
+  {
+    "source": "S5",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: Before 0.20, CountVectorizer.get_feature_names called _check_vocabulary without first calling _validate_vocabulary, so a vectorizer constructed with a vocabulary but never fitted had no vocabulary_ at"
+  },
+  {
+    "source": "S6",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: LinearDiscriminantAnalysis applies n_components only in transform(), which slices the projection to _max_components. predict/decision_function come from LinearClassifierMixin and use the full-dimensio"
+  },
+  {
+    "source": "S7",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The error is raised in the webhook-relay service's relay/deliver.py (post_webhook) when api.github.com does not answer within 30 s. That module, aiohttp usage, and any webhook delivery code do not exi"
+  }
+]

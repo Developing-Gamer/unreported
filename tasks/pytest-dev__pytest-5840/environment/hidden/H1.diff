@@ -1,0 +1,13 @@
+diff --git a/src/_pytest/_argcomplete.py b/src/_pytest/_argcomplete.py
+index 688c9077d..f93b6899a 100644
+--- a/src/_pytest/_argcomplete.py
++++ b/src/_pytest/_argcomplete.py
+@@ -73,7 +73,7 @@ class FastFilesCompleter:
+             prefix_dir = 0
+         completion = []
+         globbed = []
+-        if "*" not in prefix and "?" not in prefix:
++        if "*" not in prefix or "?" not in prefix:
+             # we are on unix, otherwise no bash
+             if not prefix or prefix[-1] == os.path.sep:
+                 globbed.extend(glob(prefix + ".*"))

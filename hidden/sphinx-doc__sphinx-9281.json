@@ -1,0 +1,30 @@
+{
+ "task": "sphinx-doc__sphinx-9281",
+ "kept": [
+  {
+   "path": "sphinx/util/template.py",
+   "category": "silent wrong result (a value or output that is subtly wrong, no exception)",
+   "defect_patch": "diff --git a/sphinx/util/template.py b/sphinx/util/template.py\nindex a61008602..330c41404 100644\n--- a/sphinx/util/template.py\n+++ b/sphinx/util/template.py\n@@ -111,7 +111,7 @@ class SphinxTemplateLoader(BaseLoader):\n \n         for templates_path in templates_paths:\n             loader = SphinxFileSystemLoader(path.join(confdir, templates_path))\n-            self.loaders.append(loader)\n+            self.loaders.insert(0, loader)\n \n         for templates_path in system_templates_paths:\n             loader = SphinxFileSystemLoader(templates_path)\n",
+   "test_code": "from jinja2 import Environment\n\nfrom sphinx.util.template import SphinxTemplateLoader\n\n\ndef test_first_configured_template_directory_takes_precedence(tmp_path):\n    preferred = tmp_path / 'preferred'\n    legacy = tmp_path / 'legacy'\n    system = tmp_path / 'system'\n    for directory in (preferred, legacy, system):\n        directory.mkdir()\n\n    (preferred / 'page.html').write_text('Current branding', encoding='utf-8')\n    (legacy / 'page.html').write_text('Legacy branding', encoding='utf-8')\n    (system / 'page.html').write_text('Default branding', encoding='utf-8')\n\n    loader = SphinxTemplateLoader(\n        confdir=str(tmp_path),\n        templates_paths=['preferred', 'legacy'],\n        system_templates_paths=[str(system)],\n    )\n    environment = Environment(loader=loader)\n\n    assert environment.get_template('!page.html').render() == 'Default branding'\n    assert environment.get_template('page.html').render() == 'Current branding'\n",
+   "signal": {
+    "kind": "user",
+    "source": "Documentation support channel",
+    "text": "Some documentation pages have reverted to the old branding, while the rest still look current. Clean rebuilds produce the same result."
+   },
+   "summary": "Prepending each user template loader reverses configured directory precedence, silently selecting later overrides when multiple directories contain the same template."
+  },
+  {
+   "path": "sphinx/util/texescape.py",
+   "category": "silent wrong result (a value or output that is subtly wrong, no exception)",
+   "defect_patch": "diff --git a/sphinx/util/texescape.py b/sphinx/util/texescape.py\nindex 8dcc08a9b..3b80dcfa2 100644\n--- a/sphinx/util/texescape.py\n+++ b/sphinx/util/texescape.py\n@@ -128,7 +128,7 @@ def hlescape(s: str, latex_engine: str = None) -> str:\n \n def escape_abbr(text: str) -> str:\n     \"\"\"Adjust spacing after abbreviations. Works with @ letter or other.\"\"\"\n-    return re.sub(r'\\.(?=\\s|$)', r'.\\@{}', text)\n+    return re.sub(r'\\.(?= |$)', r'.\\@{}', text)\n \n \n def init() -> None:\n",
+   "test_code": "import pytest\n\nfrom sphinx.util.texescape import escape_abbr\n\n\n@pytest.mark.parametrize('separator', [' ', '\\t', '\\n', '\\r\\n'])\ndef test_abbreviation_spacing_across_source_whitespace(separator):\n    text = 'See fig.' + separator + '2 for details'\n    expected = r'See fig.\\@{}' + separator + '2 for details'\n    assert escape_abbr(text) == expected\n",
+   "signal": {
+    "kind": "user",
+    "source": "documentation-support",
+    "text": "Some line-wrapped abbreviations in our PDF now have a noticeably larger gap before the next word, though the HTML looks unchanged."
+   },
+   "summary": "Abbreviation escaping recognizes only literal spaces instead of all whitespace, omitting spacing corrections before tabs and line breaks."
+  }
+ ],
+ "rejected": []
+}

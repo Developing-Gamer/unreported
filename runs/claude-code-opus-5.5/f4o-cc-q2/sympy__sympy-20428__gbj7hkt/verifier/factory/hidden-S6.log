@@ -1,0 +1,22 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+___________ test_nonpolynomial_denominator_reports_unsupported_input ___________
+
+    def test_nonpolynomial_denominator_reports_unsupported_input():
+        x = Symbol('x')
+        expr = 1/(x + sin(x))
+        error = None
+    
+        try:
+            apart(expr, x)
+        except PolynomialError as exc:
+            error = exc
+    
+>       assert error is not None, 'Unsupported input was silently accepted'
+E       AssertionError: Unsupported input was silently accepted
+E       assert None is not None
+
+/tmp/test_hidden_S6.py:15: AssertionError
+=========================== short test summary info ============================
+FAILED ../tmp/test_hidden_S6.py::test_nonpolynomial_denominator_reports_unsupported_input
+1 failed in 0.18s

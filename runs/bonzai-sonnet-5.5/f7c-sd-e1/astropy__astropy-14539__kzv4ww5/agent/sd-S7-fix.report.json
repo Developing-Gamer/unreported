@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 52594,
+ "finalText": "The change is complete and matches the request. Nothing further was needed beyond the earlier checks.\n\nThe working tree also shows modifications in `name_resolve.py`, `io/fits/diff.py` and their tests. Those were already there; they match the open PRs #1000 and #1001, and I didn't touch them.\n\nMy changes are in `astropy/coordinates/angle_utilities.py` and `astropy/coordinates/tests/test_angle_generators.py`. I also added the changelog entry `docs/changes/coordinates/14600.bugfix.rst`. The PR text is at `/testbed/.factory/pr-S7.md`, with its title on the first line.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"command\": \"python -m pytest astropy/coordinates/tests/test_angle_generators.py astropy/coordinates/tests/test_angles.py\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"reproductionSteps\": \"Call uniform_spherical_random_volume(size=3, max_radius='10 kpcs'). Before the fix it returned a dimensionless distance with all values below 1 and no error. After the fix it raises ValueError.\",\n  \"reproductionTest\": {\n    \"path\": \"astropy/coordinates/tests/test_angle_generators.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest astropy/coordinates/tests/test_angle_generators.py -p no:cacheprovider\",\n    \"signature\": \"Failed: DID NOT RAISE <class 'ValueError'>\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 9,
+  "inputTokens": {
+   "avg": 23335.777777777777,
+   "max": 27438
+  },
+  "mainUsage": {
+   "inputTokens": 210022,
+   "cachedInputTokens": 196478,
+   "outputTokens": 3652
+  },
+  "cacheHitPercent": 93.5511517840988,
+  "wallSeconds": 50.80799984931946,
+  "tools": {
+   "read": 6,
+   "edit": 3,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 2
+  },
+  "reads": 6,
+  "edits": 3,
+  "runs": 2,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 2,
+  "editOperations": 2,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.10966460000000001,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.10966460000000001
+}

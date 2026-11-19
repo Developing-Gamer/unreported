@@ -1,0 +1,9 @@
+[
+  {"source": "S1", "decision": "skip", "reason": "Already fixed in this checkout: NumpyDocstring splits 'x1, x2 : array_like, optional' into separate :param:/:type: fields (napoleon_use_param=True) or renders '**x1, x2** (*array_like, optional*)' (False), so the type and 'optional' are both shown."},
+  {"source": "S2", "decision": "skip", "reason": "Already fixed in this checkout: the Python domain's 'variable' (var/ivar/cvar) PyTypedField no longer has a rolename, so variable names are not auto-linked to same-named objects."},
+  {"source": "S3", "decision": "fix", "reason": "sphinx.util.inspect.object_description() used repr() for Enum members, so signature defaults rendered as '<MyEnum.ValueA: 10>' instead of 'MyEnum.ValueA'."},
+  {"source": "S4", "decision": "skip", "reason": "Intended behavior: C macro parameters are identifiers only, so the C domain correctly rejects typed parameters like 'char* message'; document such macros with c:function instead."},
+  {"source": "S5", "decision": "skip", "reason": "Too vague to act on: no project, theme, configuration or reproducer; a clean rebuild giving mixed branding points to project templates or static files, not a known defect in Sphinx."},
+  {"source": "S6", "decision": "skip", "reason": "Too vague to act on: no source snippet or LaTeX output, and the LaTeX abbreviation handling (visit_abbreviation, sphinxstyleabbreviation) shows no regression that would explain extra spacing."},
+  {"source": "S7", "decision": "skip", "reason": "Network timeout reaching api.github.com in an unrelated webhook-relay service; not code in this repository."}
+]

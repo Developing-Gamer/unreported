@@ -1,0 +1,8 @@
+[
+{"source":"S1","decision":"skip","reason":"Describes a job-api service behaviour with no relation to code in this HTTP client library; nothing actionable."},
+{"source":"S2","decision":"skip","reason":"Connection refused to api.stripe.com is a network/environment error correctly surfaced by requests, not a defect in this repository."},
+{"source":"S3","decision":"fix","reason":"A unicode method such as u'POST' stayed unicode on Python 2 and made httplib decode binary multipart bodies as ASCII; method is now coerced to a native str."},
+{"source":"S4","decision":"skip","reason":"Already fixed: prepare_content_length does not add Content-Length for body-less GET/HEAD requests in this checkout (verified)."},
+{"source":"S5","decision":"fix","reason":"Same UnicodeDecodeError in httplib._send_output caused by a unicode method name; fixed together with S3."},
+{"source":"S6","decision":"skip","reason":"Garbled Traditional Chinese in a document preview is too vague and points to an application, not to code in this repository."}
+]

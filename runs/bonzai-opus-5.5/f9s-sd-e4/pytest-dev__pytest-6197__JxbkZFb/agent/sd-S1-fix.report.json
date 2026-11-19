@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 195309,
+ "finalText": "I fixed the regression, but the cause was not where the investigation said. The change is uncommitted in the working tree, as the benchmark note asked. The new regression test fails on the base commit and passes with the fix.\n\n**Cause:** `Package.collect` in `src/_pytest/python.py` called `self._mount_obj_if_needed()`, which imports `__init__.py` as soon as the package is collected. The `+ [\"__init__.py\"]` pattern in `pytest_collect_file` was not the trigger. Dropping that pattern also broke `Test_getinitialnodes::test_pkgfile`, so I removed only the eager import and kept the pattern. `Package.setup` still imports the package once tests under it run.\n\n**Changes:**\n- **Regression test:** `test_does_not_collect_non_test_package_init` in `testing/test_collection.py` uses a package whose `__init__.py` is `assert False` plus a passing `test_a.py`. Before the fix it fails with `ERROR collecting foobar/__init__.py` and `1 errors during collection`. After the fix it reports `1 passed`.\n- **Removed test:** I deleted `test_skip_package` from `testing/test_skipping.py`. It checked the #5830 behaviour (`pytestmark` in `__init__.py` skipping the package's tests), which needs the eager import. That behaviour is now reverted, and #5830 needs a narrower fix.\n- **Changelog:** `changelog/6194.bugfix.rst` covers the fix and the #5830 revert.\n- **PR text:** the pull request description is in `.factory/pr-S1.md`.\n\n**Verification:** I ran the suites with the `testbed` conda env's Python 3.9, since the default Python 3.11 can't run this pytest version.\n- `testing/test_collection.py` and `testing/test_skipping.py`: 147 passed, 1 xfailed.\n- `testing/test_session.py` plus `testing/python` (without `metafunc.py`, which needs `hypothesis`, not installed): compared before and after the fix, the only new failure was `test_skip_package`, which I then removed.\n- The other failures also fail on the base commit: `test_import_prepend_append`, `test_filter_traceback_path_no_longer_valid` and some `fixtures.py` tests.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"checks\": [\n    {\"name\": \"pytest testing/test_collection.py testing/test_skipping.py\", \"passed\": true},\n    {\"name\": \"pytest testing/test_collection.py testing/python/collect.py testing/test_skipping.py testing/test_session.py testing/python --ignore=testing/python/metafunc.py\", \"passed\": false, \"alsoOnBase\": true, \"note\": \"only pre-existing failures remain (test_import_prepend_append, test_filter_traceback_path_no_longer_valid, some fixtures.py tests); the one new failure, test_skip_package, was removed because it asserted the reverted #5830 behaviour\"}\n  ],\n  \"visual\": false,\n  \"reproduction\": \"In a temp dir: foobar/__init__.py containing `assert False`, a passing test_a.py, then run pytest 5.2.3. It reports an error collecting foobar/__init__.py; after the fix it reports 1 passed.\",\n  \"reproductionTest\": {\n    \"path\": \"testing/test_collection.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest testing/test_collection.py -k non_test_package_init -q\",\n    \"signature\": \"ERROR collecting foobar/__init__.py ... assert False / Interrupted: 1 errors during collection\"\n  },\n  \"pullRequest\": null,\n  \"note\": \"Per the benchmark note, nothing was committed or pushed. The PR text is at .factory/pr-S1.md.\"\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 21,
+  "inputTokens": {
+   "avg": 28941.761904761905,
+   "max": 37383
+  },
+  "mainUsage": {
+   "inputTokens": 607777,
+   "cachedInputTokens": 584264,
+   "outputTokens": 9539
+  },
+  "cacheHitPercent": 96.13131131977683,
+  "wallSeconds": 194.6769998073578,
+  "tools": {
+   "read": 6,
+   "edit": 4,
+   "test": 0,
+   "verify": 0,
+   "git": 1,
+   "exec-poll": 2,
+   "subagent": 0,
+   "other": 8
+  },
+  "reads": 6,
+  "edits": 4,
+  "runs": 9,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 1,
+  "editOperations": 1,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.27100230000000003,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.27100230000000003
+}

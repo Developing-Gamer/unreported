@@ -1,0 +1,37 @@
+[
+  {
+    "source": "S1",
+    "decision": "skip",
+    "reason": "Self-Driving verdict unknown: "
+  },
+  {
+    "source": "S2",
+    "decision": "skip",
+    "reason": "Self-Driving verdict unknown: "
+  },
+  {
+    "source": "S3",
+    "decision": "skip",
+    "reason": "Self-Driving verdict unknown: "
+  },
+  {
+    "source": "S4",
+    "decision": "skip",
+    "reason": "Self-Driving verdict unknown: "
+  },
+  {
+    "source": "S5",
+    "decision": "skip",
+    "reason": "Self-Driving verdict unknown: "
+  },
+  {
+    "source": "S6",
+    "decision": "fix",
+    "reason": "viewcode's doctree_read skips epub builders when viewcode_enable_epub is False, but collect_pages (the html-collect-pages handler) has no such check and only tests whether env._viewcode_modules exists"
+  },
+  {
+    "source": "S7",
+    "decision": "skip",
+    "reason": "Self-Driving verdict unknown: "
+  }
+]

@@ -1,0 +1,30 @@
+{
+ "task": "mwaskom__seaborn-3187",
+ "kept": [
+  {
+   "path": "seaborn/_core/moves.py",
+   "category": "silent wrong result (a value or output that is subtly wrong, no exception)",
+   "defect_patch": "diff --git a/seaborn/_core/moves.py b/seaborn/_core/moves.py\nindex 179926e7..7fd5713b 100644\n--- a/seaborn/_core/moves.py\n+++ b/seaborn/_core/moves.py\n@@ -131,11 +131,11 @@ class Dodge(Move):\n             return w.shift(1).fillna(0).cumsum() + (w - w.sum()) / 2\n \n         new_widths = groupby_pos(groups[\"width\"]).transform(scale_widths)\n-        offsets = groupby_pos(new_widths).transform(widths_to_offsets)\n-\n         if self.gap:\n             new_widths *= 1 - self.gap\n \n+        offsets = groupby_pos(new_widths).transform(widths_to_offsets)\n+\n         groups[\"_dodged\"] = groups[orient] + offsets\n         groups[\"width\"] = new_widths\n \n",
+   "test_code": "import numpy as np\nimport pandas as pd\nimport pytest\n\nfrom seaborn._core.groupby import GroupBy\nfrom seaborn._core.moves import Dodge\n\n\n@pytest.mark.parametrize(\"orient\", [\"x\", \"y\"])\ndef test_dodge_gap_preserves_mark_centers(orient):\n    other = {\"x\": \"y\", \"y\": \"x\"}[orient]\n    data = pd.DataFrame({\n        orient: [0.0, 0.0, 1.0, 1.0],\n        other: [2.0, 4.0, 3.0, 5.0],\n        \"color\": [\"a\", \"b\", \"a\", \"b\"],\n        \"width\": [0.8, 0.8, 0.8, 0.8],\n    })\n\n    result = Dodge(gap=0.5)(\n        data, GroupBy([orient, \"color\"]), orient, {}\n    )\n\n    np.testing.assert_allclose(result[\"width\"], [0.2, 0.2, 0.2, 0.2])\n    np.testing.assert_allclose(result[orient], [-0.2, 0.2, 0.8, 1.2])\n",
+   "signal": {
+    "kind": "user",
+    "source": "chart-review",
+    "text": "Increasing the spacing setting makes our grouped bars thinner, but the bars within each group still touch."
+   },
+   "summary": "Dodge computes positional offsets after shrinking widths for the gap, pulling marks together instead of leaving space between them."
+  },
+  {
+   "path": "seaborn/_marks/base.py",
+   "category": "silent wrong result (a value or output that is subtly wrong, no exception)",
+   "defect_patch": "diff --git a/seaborn/_marks/base.py b/seaborn/_marks/base.py\nindex 87e0216d..547b525c 100644\n--- a/seaborn/_marks/base.py\n+++ b/seaborn/_marks/base.py\n@@ -279,7 +279,7 @@ def resolve_color(\n         return mpl.colors.to_rgba(color, alpha)\n     else:\n         if np.ndim(color) == 2 and color.shape[1] == 4:\n-            return mpl.colors.to_rgba_array(color)\n+            return mpl.colors.to_rgba_array(color, alpha)\n         alpha = np.where(visible(color, axis=1), alpha, np.nan)\n         return mpl.colors.to_rgba_array(color, alpha)\n \n",
+   "test_code": "import numpy as np\nimport pandas as pd\nimport seaborn.objects as so\n\nfrom seaborn._marks.base import resolve_color\n\n\ndef test_explicit_rgba_opacity_is_preserved_for_multiple_points():\n    rgba = (0.2, 0.4, 0.6, 0.25)\n    mark = so.Dot(color=rgba, alpha=0.85)\n    data = pd.DataFrame({\"x\": [0, 1, 2], \"y\": [1, 3, 2]})\n\n    np.testing.assert_allclose(resolve_color(mark, {}), rgba)\n    np.testing.assert_allclose(\n        resolve_color(mark, data),\n        np.tile(rgba, (len(data), 1)),\n    )\n",
+   "signal": {
+    "kind": "user",
+    "source": "visualization-support",
+    "text": "Since the last deploy, the points in our layered scatter charts look much more opaque, but their legend swatches still look translucent."
+   },
+   "summary": "Resolving arrays of RGBA colors now overwrites their embedded opacity with the separate alpha property, while scalar RGBA colors still preserve it."
+  }
+ ],
+ "rejected": []
+}

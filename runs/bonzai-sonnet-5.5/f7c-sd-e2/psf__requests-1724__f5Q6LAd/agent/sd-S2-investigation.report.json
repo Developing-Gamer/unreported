@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 21818,
+ "finalText": "The error is not caused by this repository. I found nothing in the code that produces it, and I did not run any probe commands.\n\n`HTTPAdapter.send` in `requests/adapters.py` catches the retry-exhausted exception from the bundled urllib3 and re-raises it as `ConnectionError`. That is the library doing its job. The message says the connection to api.stripe.com:443 was refused (`[Errno 111]`) before any HTTP request went out.\n\nThat points to the network path from the billing-worker host. Likely causes are an egress firewall or proxy rule, a wrong proxy or DNS setting in the worker's environment, or a Stripe or network outage. I could not check which one, because there is no Sentry, PostHog or deploy data in this run.\n\nTwo things in the code are worth knowing:\n- **Wrapped exception:** the wrapped `MaxRetryError` message is the only detail shown, so the error looks like a library failure when it is a plain refused connection.\n- **No retries by default:** the default adapter has `max_retries=0`, so a brief refusal fails the charge call straight away. That is the library's documented default, not a bug. Billing-worker would have to opt in to retries itself.\n\nThe `git log` showed only a single snapshot commit (v2.0.1), so there was no history to check for a recent regression.\n\n```json\n{\n  \"verdict\": \"outsideCode\",\n  \"title\": \"Stripe connection refused from billing worker\",\n  \"cause\": \"The connection to api.stripe.com:443 was refused at the network level (Errno 111). The bundled requests library correctly wraps the retry-exhausted urllib3 error as ConnectionError in HTTPAdapter.send. Nothing in this repository causes a refused connection. The likely causes are in the billing-worker environment: egress firewall or proxy rules, proxy or DNS configuration, or a Stripe or network outage.\",\n  \"files\": [\n    {\"path\": \"requests/adapters.py\", \"why\": \"HTTPAdapter.send converts MaxRetryError and socket errors into requests ConnectionError; this is correct behaviour, not the cause.\"}\n  ],\n  \"plan\": [\n    \"From a billing-worker host, run a TLS connection test to api.stripe.com:443 and check DNS resolution.\",\n    \"Check HTTPS_PROXY/NO_PROXY environment variables, egress firewall or security-group rules, and any recent infrastructure change for the service.\",\n    \"Check Stripe's status page for an outage at the time of the error.\",\n    \"Optionally make billing-worker mount an HTTPAdapter with max_retries and use idempotency keys for charges, so a brief network blip does not fail the charge.\"\n  ],\n  \"verification\": [\n    \"After the network or proxy fix, a call from the worker host to https://api.stripe.com/v1/charges returns an HTTP response such as 401 instead of a refused connection.\",\n    \"The billing-worker error log stops showing Errno 111 ConnectionErrors.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"likely\",\n  \"effort\": \"low\",\n  \"risk\": \"low\",\n  \"confidence\": 0.7,\n  \"headline\": \"Charges to Stripe failed because the billing service could not reach Stripe's servers.\",\n  \"happened\": \"The billing worker tried to create a charge at Stripe. The connection was refused before any request was sent. The request library reported this as a connection error, which is what it should do.\",\n  \"matters\": \"Any charge attempted while the worker cannot reach Stripe fails, so customers may not be billed or may see a payment error.\",\n  \"fix\": \"Check the billing worker's network access to Stripe (firewall, proxy, DNS) and Stripe's status; no change to this library is needed.\",\n  \"claims\": [\n    {\n      \"id\": \"c1\",\n      \"text\": \"The library re-raises the retry-exhausted error as ConnectionError, so the reported error is the library working as designed.\",\n      \"role\": \"rootCause\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"requests/adapters.py:355\", \"quote\": \"except MaxRetryError as e:\\n            raise ConnectionError(e)\"}\n      ]\n    }\n  ],\n  \"ruledOut\": [\n    {\n      \"hypothesis\": \"A bug in requests wrongly raising ConnectionError\",\n      \"why\": \"The adapter maps socket and retry-exhausted errors to ConnectionError by design. Errno 111 is an OS-level refusal that the library cannot produce.\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"requests/adapters.py:352\", \"quote\": \"except socket.error as sockerr:\\n            raise ConnectionError(sockerr)\"}\n      ]\n    }\n  ],\n  \"intendedBehavior\": \"When Stripe is reachable, the billing worker's charge request returns an HTTP response; when it is not, requests raises ConnectionError.\",\n  \"intent\": {\"deliberate\": true, \"evidence\": \"Wrapping urllib3 connection failures as requests.ConnectionError is the library's documented contract.\"},\n  \"fixType\": \"error\"\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 3,
+  "inputTokens": {
+   "avg": 12606.666666666666,
+   "max": 13512
+  },
+  "mainUsage": {
+   "inputTokens": 37820,
+   "cachedInputTokens": 31324,
+   "outputTokens": 2314
+  },
+  "cacheHitPercent": 82.82390269698573,
+  "wallSeconds": 21.32100009918213,
+  "tools": {
+   "read": 3,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 0
+  },
+  "reads": 3,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.0456408,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.0456408
+}

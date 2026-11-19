@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 147000,
+ "finalText": "I rechecked the report against the request. The verdict holds, and every quote cited from the code or docs matches the files exactly.\n\nThe narrow bands disappeared because of a deliberate, documented change, not a bug. Since version 3.4, the mesh drawing that `hist2d` uses lines each cell up with screen pixels by default (the `pcolormesh.snap` setting). When a bin is narrower than a pixel, that alignment usually collapses it to nothing.\n\n**What the reporter hit.** Their call draws 2,048 bins across a plot only about 500 pixels wide, so each bin is about a quarter of a pixel. In 3.3.4 the alignment wasn't actually applied, so some thin bins happened to land on a pixel and showed up as bands. From 3.4 on most of them vanish.\n\n**Why it's deliberate.**\n- The 3.4.0 release notes announce pixel alignment as the new default. They say it removes faint lines between partly transparent cells and that `pcolormesh.snap: False` restores the old look.\n- The setting's comment in the default config file says the same.\n- Upstream, the same report is matplotlib issue #23505. A maintainer confirmed `snap=False` gives the 3.3.4 result and closed it as \"not planned\". The reason: with more bins than pixels, some bins will be lost whatever the setting.\n\n**What I ran.** With synthetic data shaped like the reporter's call (2,048 by 30 bins, 40 single-bin bands) on this checkout (3.6.0):\n- Default settings: 3 pixel columns showed a band colour, and 11,591 pixels were coloured.\n- `snap=False`: 12 band columns and 54,671 coloured pixels.\n\nSo the default hides most bands, and turning alignment off only partly helps: most of the 40 are still missing. The existing `hist2d` and `pcolormesh` tests pass (14 passed, 3 skipped).\n\n**Who feels it.** Anyone who redraws an old plot that has far more bins than pixels and saves it at normal resolution sees fewer bands than before. They can get the old look back with `snap=False`, or use fewer bins or a higher save resolution. Changing the default back would bring back the faint-lines problem the 3.4 change fixed.\n\n**What's left.** No code change. Optionally, the `hist2d` docs could suggest `snap=False` or a higher dpi when there are more bins than pixels.\n\n```json\n{\n  \"verdict\": \"notActionable\",\n  \"title\": \"Thin hist2d bins vanish due to pixel snapping default\",\n  \"cause\": \"hist2d draws its bins with pcolormesh, which since Matplotlib 3.4 defaults to snapping mesh cells to pixel boundaries (rcParams['pcolormesh.snap'] = True). When bins are narrower than a pixel (the report uses 2048 x-bins across a ~500 px axes), snapping collapses most of them to zero width, so narrow bands that 3.3.4 drew by chance disappear. The change is documented in the 3.4.0 what's-new with the opt-out snap=False / pcolormesh.snap=False, and upstream (matplotlib#23505) closed the same report as not planned.\",\n  \"files\": [\n    {\"path\": \"lib/matplotlib/axes/_axes.py\", \"why\": \"hist2d passes bins straight to pcolormesh, which defaults snap to rcParams['pcolormesh.snap']\"},\n    {\"path\": \"lib/matplotlib/mpl-data/matplotlibrc\", \"why\": \"Default pcolormesh.snap: True, with the comment that False gives the previous behaviour\"},\n    {\"path\": \"doc/users/prev_whats_new/whats_new_3.4.0.rst\", \"why\": \"Release note announcing snapping on by default for pcolormesh and how to restore the old behaviour\"}\n  ],\n  \"plan\": [\n    \"No code change. Optionally add a note to the hist2d docstring: when there are more bins than pixels, pass snap=False or save at a higher dpi.\"\n  ],\n  \"verification\": [\n    \"Probe on this checkout (3.6.0): hist2d(px, py, range=[[0,2047],[0,30]], bins=[2048,30], cmin=1) with 40 single-bin bands showed 3 band-coloured pixel columns and 11591 coloured pixels by default, versus 12 and 54671 with snap=False.\",\n    \"Existing tests: pytest lib/matplotlib/tests/test_axes.py -k 'hist2d or pcolormesh' -> 14 passed, 3 skipped.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"none\",\n  \"risk\": \"none\",\n  \"confidence\": 0.85,\n  \"fixType\": \"frustration\",\n  \"intendedBehavior\": \"With default settings, pcolormesh/hist2d snaps cells to pixel boundaries, and passing snap=False reproduces the pre-3.4 unsnapped rendering of sub-pixel bins.\",\n  \"intent\": {\n    \"deliberate\": true,\n    \"evidence\": \"doc/users/prev_whats_new/whats_new_3.4.0.rst: 'This version now applies snapping by default. To restore the old behavior (e.g., for test images), you may set :rc:`pcolormesh.snap` to `False`.' The matplotlibrc comment says the same, and the upstream issue matplotlib#23505 was closed as not planned after a maintainer confirmed that snap=False gives the 3.3.4 behaviour.\"\n  },\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"hist2d renders through pcolormesh, which takes its snap default from the pcolormesh.snap rc setting.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/axes/_axes.py:7132\", \"quote\": \"pc = self.pcolormesh(xedges, yedges, h.T, **kwargs)\"},\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/axes/_axes.py:6224\", \"quote\": \"kwargs.setdefault('snap', mpl.rcParams['pcolormesh.snap'])\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"rootCause\", \"text\": \"The default turns snapping on, and the shipped config says False restores the previous behaviour.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/mpl-data/matplotlibrc:139\", \"quote\": \"#pcolormesh.snap: True  # Whether to snap the mesh to pixel boundaries. This is\"},\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/mpl-data/matplotlibrc:141\", \"quote\": \"# unchanged. Set to False to obtain the previous behavior.\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"other\", \"text\": \"The 3.4.0 release notes announce snapping on by default for pcolormesh as a deliberate change, with an opt-out.\", \"citations\": [\n      {\"type\": \"doc\", \"ref\": \"doc/users/prev_whats_new/whats_new_3.4.0.rst\", \"quote\": \"edges of a mesh with transparency. This version now applies snapping by\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"trigger\", \"text\": \"The reporter draws 2048 x-bins with hist2d, far more bins than the axes has pixels, and moved from 3.3.4 (before the change) to 3.5.1 (after it).\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s7\", \"quote\": \"and when i tried it again, with exactly the same code, the same data the bands are gone\"}\n    ]},\n    {\"id\": \"c5\", \"role\": \"impact\", \"text\": \"Upstream maintainers confirmed that snap=False restores the 3.3.4 output and closed the issue as not planned, since sub-pixel bins are aliased in any case.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"web:github_issue_23505_comments\", \"quote\": \"I can confirm that `snap=False` gives the 3.3.4 behaviour.\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"hist2d binning (np.histogram2d, cmin handling) changed and drops counts\", \"why\": \"hist2d only computes the histogram and passes it to pcolormesh, and the returned counts still contain the bands; only the rendering differs between snap=True and snap=False in the probe.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/axes/_axes.py:7124\", \"quote\": \"h, xedges, yedges = np.histogram2d(x, y, bins=bins, range=range,\"}\n    ]},\n    {\"hypothesis\": \"Turning snapping off would fully restore all narrow bands\", \"why\": \"In the probe, snap=False still showed only 12 of 40 band columns; with more bins than pixels the output is aliased regardless, so changing the default would not make sub-pixel bins reliable.\", \"citations\": []}\n  ],\n  \"plain\": {\n    \"headline\": \"Thin bands in a 2D histogram stopped showing after an upgrade because newer versions line each cell up with screen pixels by default, which hides cells thinner than a pixel.\",\n    \"happened\": \"The person's chart has about four times as many columns as the image has pixels across. Older versions drew these thin columns without lining them up with pixels, so some of them showed up. Since version 3.4, cells are lined up with pixels by default to remove faint lines between transparent cells, and that makes most cells thinner than a pixel disappear.\",\n    \"matters\": \"Anyone who redraws an old chart that has more bins than pixels gets a different-looking picture with fewer visible bands.\",\n    \"fix\": \"No code change is needed: the person can turn the pixel alignment off for this chart (snap=False), or use fewer bins or a higher image resolution.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 16,
+  "inputTokens": {
+   "avg": 21305.8125,
+   "max": 32717
+  },
+  "mainUsage": {
+   "inputTokens": 340893,
+   "cachedInputTokens": 315166,
+   "outputTokens": 14227
+  },
+  "cacheHitPercent": 92.45305711762929,
+  "wallSeconds": 146.3069999217987,
+  "tools": {
+   "read": 10,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 9
+  },
+  "reads": 10,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.47617220000000005,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.47617220000000005
+}

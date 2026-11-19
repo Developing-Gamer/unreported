@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 207045,
+ "finalText": "The fix is in the working tree, uncommitted as instructed, and the final check found nothing off. The density for `Normal('Y', Bernoulli('X', 1/4), 1)` now integrates to 1.\n\n`CompoundDistribution._marginalise` in `sympy/stats/compound_rv.py` summed a finite or discrete parameter only up to `rv_dom._sup - 1`, which left out the last value of its support. It now sums up to `rv_dom._sup`, as the continuous branch already did.\n\nI added `test_finite_param_CompoundDist_normalised` to `sympy/stats/tests/test_compound_rv.py`. It checks the exact two-term density for the Bernoulli case and that the density integrates to 1 for both the Bernoulli and `Die('D', 3)` means. The integral check is numeric because sympy can't simplify that integral to exactly 1.\n\nI ran `python -m pytest sympy/stats/tests/test_compound_rv.py -q -p no:warnings`:\n- **Without the fix (stashed):** 2 failed (the new test and the existing `test_bernoulli_CompoundDist`), 5 passed.\n- **With the fix:** all 7 passed.\n\nThe PR title and description are in `.factory/pr-S1.md`.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"command\": \"python -m pytest sympy/stats/tests/test_compound_rv.py -q -p no:warnings\", \"passed\": true, \"note\": \"7 passed with fix; 2 failed without\"}\n  ],\n  \"visual\": false,\n  \"missingEnv\": [],\n  \"reproduction\": \"Run density(Normal('Y', Bernoulli('X', S(1)/4), 1))(x) and integrate over (-oo, oo): the X=1 term is missing and the integral is 0.75 instead of 1.\",\n  \"reproductionTest\": {\n    \"path\": \"sympy/stats/tests/test_compound_rv.py\",\n    \"command\": \"python -m pytest sympy/stats/tests/test_compound_rv.py -q -p no:warnings\",\n    \"signature\": \"assert 3*sqrt(2)*exp(-x**2/2)/(8*sqrt(pi)) == (sqrt(2)*exp(-(x - 1)**2/2)/(8*sqrt(pi)) + 3*sqrt(2)*exp(-x**2/2)/(8*sqrt(pi)))\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 20,
+  "inputTokens": {
+   "avg": 26010.05,
+   "max": 31537
+  },
+  "mainUsage": {
+   "inputTokens": 520201,
+   "cachedInputTokens": 502536,
+   "outputTokens": 6922
+  },
+  "cacheHitPercent": 96.60419722376542,
+  "wallSeconds": 205.5090000629425,
+  "tools": {
+   "read": 6,
+   "edit": 7,
+   "test": 0,
+   "verify": 0,
+   "git": 2,
+   "exec-poll": 4,
+   "subagent": 0,
+   "other": 2
+  },
+  "reads": 6,
+  "edits": 7,
+  "runs": 4,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 3,
+  "editOperations": 7,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.21386770000000005,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.21386770000000005
+}

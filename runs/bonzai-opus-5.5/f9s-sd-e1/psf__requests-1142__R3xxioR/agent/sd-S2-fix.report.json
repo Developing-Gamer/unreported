@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 60386,
+ "finalText": "Everything the task named is in place: the fix, the regression test and the PR description in `.factory/pr-S2.md`. I changed nothing further this turn.\n\nThe working tree also contains changes I didn't make. `requests/utils.py` has the `stream_decompress` change from the earlier mislabelled-gzip work (open PR #1000), and `test_requests.py` may include its tests. I left them alone. They aren't part of this fix and are not mentioned in `.factory/pr-S2.md`, so they should be kept out of this PR.\n\nThe report JSON from my previous message still applies unchanged.",
+ "totals": {
+  "turns": 1,
+  "requests": 14,
+  "inputTokens": {
+   "avg": 24349.14285714286,
+   "max": 29014
+  },
+  "mainUsage": {
+   "inputTokens": 340888,
+   "cachedInputTokens": 325758,
+   "outputTokens": 5819
+  },
+  "cacheHitPercent": 95.56159207716317,
+  "wallSeconds": 59.49899983406067,
+  "tools": {
+   "read": 4,
+   "edit": 3,
+   "test": 0,
+   "verify": 1,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 7
+  },
+  "reads": 4,
+  "edits": 3,
+  "runs": 8,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 3,
+  "editOperations": 3,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1611506,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1611506
+}

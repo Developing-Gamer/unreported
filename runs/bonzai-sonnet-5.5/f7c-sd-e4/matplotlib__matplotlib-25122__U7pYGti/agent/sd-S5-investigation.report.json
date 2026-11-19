@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 37505,
+ "finalText": "The cause is in this repository and a fix is small. I could not reproduce the wrong numbers by running code: the probe environment has no numpy. The finding rests on reading `_spectral_helper` in `lib/matplotlib/mlab.py` and on the scipy implementation the issue cites. I made no edits and ran no other checks.\n\n**Cause.** `_spectral_helper` normalises spectra by the sum of the absolute window values (`np.abs(window).sum()`) in three places:\n- Magnitude mode, line 398.\n- Complex mode, line 403.\n- The power spectrum with `scale_by_freq=False`, line 430, where it divides by the square of that sum.\n\nFor a window with negative lobes, such as flattop, the sum of absolute values differs from the signed sum. Amplitude and power come out wrong, whereas scipy uses `window.sum()`. The density branch (`scale_by_freq=True`, line 427) is not affected, because it squares the window before summing. Windows with no negative values, such as hann and hamming, give the same result either way.\n\n**Intent.** Nothing in the code, comments or tests says the absolute value is wanted. It looks copied from the density branch, where it is harmless.\n\n**Plan.**\n1. Change lines 398 and 403 to divide by `window.sum()`.\n2. Change line 430 to divide by `window.sum()**2`.\n3. Optionally simplify line 427 to `(window**2).sum()`, which gives the same value.\n4. Add flattop-window regression tests in `lib/matplotlib/tests/test_mlab.py`.\n\n**Verification.**\n- Run `pytest lib/matplotlib/tests/test_mlab.py` and the spectrum tests in `lib/matplotlib/tests/test_axes.py`.\n- A pure sine through `magnitude_spectrum` with a flattop window should come out at the right amplitude.\n- `psd` with a flattop window and `scale_by_freq=False` should match `scipy.signal.welch(scaling='spectrum')`.\n\nAnyone using a flattop or similar window to measure signal amplitude or power gets wrong numbers today, so it is user-facing. Effort is small and risk is low.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Spectrum scaling wrong for windows with negative values\",\n  \"cause\": \"In mlab._spectral_helper the window normalisation uses np.abs(window) when it should use the signed window. The psd scale_by_freq=False branch divides by np.abs(window).sum()**2, and the magnitude and complex modes divide by np.abs(window).sum(). For windows with negative lobes, such as flattop, sum(abs(w)) differs from sum(w), so amplitude and power are scaled wrongly; scipy uses window.sum().\",\n  \"files\": [\n    {\"path\": \"lib/matplotlib/mlab.py\", \"why\": \"_spectral_helper lines 398, 403 and 430 use np.abs(window).sum() where it should be window.sum()\"},\n    {\"path\": \"lib/matplotlib/tests/test_mlab.py\", \"why\": \"add a regression test with a flattop window\"}\n  ],\n  \"plan\": [\n    \"Line 398: np.abs(result) / window.sum()\",\n    \"Line 403: result /= window.sum()\",\n    \"Line 430: result /= window.sum()**2\",\n    \"Optionally simplify line 427 to (window**2).sum(), which is equivalent\",\n    \"Add flattop tests for psd(scale_by_freq=False), magnitude_spectrum and complex_spectrum\"\n  ],\n  \"verification\": [\n    \"pytest lib/matplotlib/tests/test_mlab.py and spectrum tests in test_axes.py\",\n    \"Flattop-windowed sine through magnitude_spectrum has the correct amplitude\",\n    \"psd with flattop and scale_by_freq=False matches scipy.signal.welch(scaling='spectrum')\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"likely\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.85,\n  \"intendedBehavior\": \"magnitude_spectrum, complex_spectrum and psd with scale_by_freq=False normalise by the signed sum of the window (and its square), so a flattop-windowed sinusoid has the correct amplitude and power.\",\n  \"intent\": {\"deliberate\": false, \"note\": \"No comment or test asserts that abs() is wanted; the abs() on the scale_by_freq=True branch is harmless because the window is squared.\"},\n  \"fixType\": \"silentFailure\",\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"Magnitude mode normalises by the sum of absolute window values rather than the signed sum.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"lib/matplotlib/mlab.py:398\", \"quote\": \"result = np.abs(result) / np.abs(window).sum()\"}]},\n    {\"id\": \"c2\", \"text\": \"The non-density PSD branch divides by the square of the sum of absolute window values.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"lib/matplotlib/mlab.py:430\", \"quote\": \"result /= np.abs(window).sum()**2\"}]},\n    {\"id\": \"c3\", \"text\": \"Complex mode has the same abs-sum normalisation.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"lib/matplotlib/mlab.py:403\", \"quote\": \"result /= np.abs(window).sum()\"}]}\n  ],\n  \"plain\": {\n    \"headline\": \"Spectrum plots made with some window shapes (like flattop) show wrongly scaled amplitudes or power.\",\n    \"happened\": \"When the library normalises a spectrum for the chosen window, it adds up the absolute values of the window instead of its true values. For windows that dip below zero this gives a different total. The resulting magnitude, complex and power-spectrum values are scaled incorrectly.\",\n    \"matters\": \"Anyone using a flattop or similar window to measure signal amplitude or power gets numbers that are off.\",\n    \"fix\": \"Use the window's true sum in the normalisation, as scipy does, and add tests with a flattop window.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 5,
+  "inputTokens": {
+   "avg": 13907,
+   "max": 16246
+  },
+  "mainUsage": {
+   "inputTokens": 69535,
+   "cachedInputTokens": 60301,
+   "outputTokens": 4546
+  },
+  "cacheHitPercent": 86.72035665492199,
+  "wallSeconds": 37.29299998283386,
+  "tools": {
+   "read": 3,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 1
+  },
+  "reads": 3,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.08059820000000001,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.08059820000000001
+}

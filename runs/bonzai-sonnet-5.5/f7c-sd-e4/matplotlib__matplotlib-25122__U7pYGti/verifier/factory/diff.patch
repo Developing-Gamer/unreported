@@ -1,0 +1,164 @@
+diff --git a/lib/matplotlib/axis.py b/lib/matplotlib/axis.py
+index 0b4646cd5d..70707007d0 100644
+--- a/lib/matplotlib/axis.py
++++ b/lib/matplotlib/axis.py
+@@ -866,6 +866,10 @@ class Axis(martist.Artist):
+         - registered callbacks
+         """
+         self.label._reset_visual_defaults()
++        # The label-specific rcParams must be reapplied after the reset.
++        self.label.set_color(mpl.rcParams['axes.labelcolor'])
++        self.label.set_fontsize(mpl.rcParams['axes.labelsize'])
++        self.label.set_fontweight(mpl.rcParams['axes.labelweight'])
+         self.offsetText._reset_visual_defaults()
+         self.labelpad = mpl.rcParams['axes.labelpad']
+ 
+diff --git a/lib/matplotlib/backends/qt_compat.py b/lib/matplotlib/backends/qt_compat.py
+index a1a239ae9c..b1b96f93d6 100644
+--- a/lib/matplotlib/backends/qt_compat.py
++++ b/lib/matplotlib/backends/qt_compat.py
+@@ -38,10 +38,10 @@ _ETS = {  # Mapping of QT_API_ENV to requested binding.
+ # First, check if anything is already imported.
+ if sys.modules.get("PyQt6.QtCore"):
+     QT_API = QT_API_PYQT6
+-elif sys.modules.get("PyQt5.QtCore"):
+-    QT_API = QT_API_PYQT5
+ elif sys.modules.get("PySide6.QtCore"):
+     QT_API = QT_API_PYSIDE6
++elif sys.modules.get("PyQt5.QtCore"):
++    QT_API = QT_API_PYQT5
+ elif sys.modules.get("PySide2.QtCore"):
+     QT_API = QT_API_PYSIDE2
+ # Otherwise, check the QT_API environment variable (from Enthought).  This can
+diff --git a/lib/matplotlib/mlab.py b/lib/matplotlib/mlab.py
+index 3552904c3d..efa2f84cae 100644
+--- a/lib/matplotlib/mlab.py
++++ b/lib/matplotlib/mlab.py
+@@ -395,12 +395,12 @@ def _spectral_helper(x, y=None, NFFT=None, Fs=None, detrend_func=None,
+     elif mode == 'psd':
+         result = np.conj(result) * result
+     elif mode == 'magnitude':
+-        result = np.abs(result) / np.abs(window).sum()
++        result = np.abs(result) / window.sum()
+     elif mode == 'angle' or mode == 'phase':
+         # we unwrap the phase later to handle the onesided vs. twosided case
+         result = np.angle(result)
+     elif mode == 'complex':
+-        result /= np.abs(window).sum()
++        result /= window.sum()
+ 
+     if mode == 'psd':
+ 
+@@ -424,10 +424,10 @@ def _spectral_helper(x, y=None, NFFT=None, Fs=None, detrend_func=None,
+             result /= Fs
+             # Scale the spectrum by the norm of the window to compensate for
+             # windowing loss; see Bendat & Piersol Sec 11.5.2.
+-            result /= (np.abs(window)**2).sum()
++            result /= (window**2).sum()
+         else:
+             # In this case, preserve power in the segment, not amplitude
+-            result /= np.abs(window).sum()**2
++            result /= window.sum()**2
+ 
+     t = np.arange(NFFT/2, len(x) - NFFT/2 + 1, NFFT - noverlap)/Fs
+ 
+diff --git a/lib/matplotlib/tests/test_axes.py b/lib/matplotlib/tests/test_axes.py
+index b12b5d0bab..5ed6977370 100644
+--- a/lib/matplotlib/tests/test_axes.py
++++ b/lib/matplotlib/tests/test_axes.py
+@@ -8431,3 +8431,17 @@ def test_zorder_and_explicit_rasterization():
+     ln, = ax.plot(range(5), rasterized=True, zorder=1)
+     with io.BytesIO() as b:
+         fig.savefig(b, format='pdf')
++
++
++@pytest.mark.parametrize("clear", [False, True])
++def test_axis_label_rcparams_after_clear(clear):
++    # Axis.clear() must keep the axes.label* rcParams for the axis labels.
++    with rc_context({'axes.labelsize': 19, 'axes.labelweight': 'bold',
++                     'axes.labelcolor': 'r'}):
++        fig, ax = plt.subplots()
++        if clear:
++            ax.cla()
++        for axis in [ax.xaxis, ax.yaxis]:
++            assert axis.label.get_fontsize() == 19
++            assert axis.label.get_fontweight() == 'bold'
++            assert axis.label.get_color() == 'r'
+diff --git a/lib/matplotlib/tests/test_backends_interactive.py b/lib/matplotlib/tests/test_backends_interactive.py
+index 498aa3b48c..8336207851 100644
+--- a/lib/matplotlib/tests/test_backends_interactive.py
++++ b/lib/matplotlib/tests/test_backends_interactive.py
+@@ -586,3 +586,41 @@ def test_figure_leak_20490(env, time_mem):
+ 
+     growth = int(result.stdout)
+     assert growth <= acceptable_memory_leakage
++
++
++@pytest.mark.parametrize("loaded, expected", [
++    (["PyQt5", "PySide6"], "PySide6"),
++    (["PySide2", "PyQt5", "PySide6"], "PySide6"),
++    (["PySide2", "PyQt5"], "PyQt5"),
++    (["PySide2", "PySide6", "PyQt6"], "PyQt6"),
++])
++def test_qt_compat_already_imported_order(loaded, expected):
++    # If several Qt bindings are already imported, the documented preference
++    # order is PyQt6, PySide6, PyQt5, PySide2.  Fake bindings are used so that
++    # the test does not depend on the installed Qt packages.
++    code = """
++import sys
++from unittest import mock
++
++for name in {loaded!r}:
++    pkg = mock.MagicMock(__version__="6.4.0")
++    core = mock.MagicMock(PYQT_VERSION_STR="6.4.0")
++    core.QLibraryInfo.version.return_value.segments.return_value = [6, 4, 0]
++    pkg.QtCore = core
++    sys.modules[name] = pkg
++    sys.modules[name + ".QtCore"] = core
++    sys.modules[name + ".QtGui"] = pkg.QtGui
++    sys.modules[name + ".QtWidgets"] = pkg.QtWidgets
++sys.modules["sip"] = mock.MagicMock()
++sys.modules["shiboken2"] = mock.MagicMock()
++sys.modules["shiboken6"] = mock.MagicMock()
++
++from matplotlib.backends import qt_compat
++print(qt_compat.QT_API)
++""".format(loaded=loaded)
++    env = {k: v for k, v in os.environ.items() if k != "QT_API"}
++    env["PYTHONPATH"] = os.pathsep.join(sys.path)
++    proc = subprocess.run([sys.executable, "-c", code], env=env, text=True,
++                          stdout=subprocess.PIPE, stderr=subprocess.PIPE,
++                          timeout=60, check=True)
++    assert proc.stdout.strip() == expected
+diff --git a/lib/matplotlib/tests/test_mlab.py b/lib/matplotlib/tests/test_mlab.py
+index 86beb5c8c8..b545600a6b 100644
+--- a/lib/matplotlib/tests/test_mlab.py
++++ b/lib/matplotlib/tests/test_mlab.py
+@@ -1072,3 +1072,27 @@ def test_psd_oversampling():
+                     sides='onesided')
+     Su_1side = np.append([Su[0]], Su[1:4] + Su[4:][::-1])
+     assert_almost_equal(np.sum(P), np.sum(Su_1side))  # same energy
++
++
++def _flattop(n):
++    # Flat-top window; has negative lobes, so sum(abs(w)) != sum(w).
++    k = 2 * np.pi * np.arange(n) / n
++    return (0.21557895 - 0.41663158 * np.cos(k) + 0.277263158 * np.cos(2 * k)
++            - 0.083578947 * np.cos(3 * k) + 0.006947368 * np.cos(4 * k))
++
++
++def test_spectral_helper_window_negative_values():
++    # A constant signal must have unit amplitude at DC regardless of window.
++    n = 64
++    x = np.ones(n)
++    window = _flattop(n)
++    assert (window < 0).any()
++    kw = dict(NFFT=n, Fs=1, window=window, noverlap=0, sides='onesided')
++    mag, _ = mlab.magnitude_spectrum(x, Fs=1, window=window)
++    assert_allclose(mag[0], 1)
++    cmplx, _ = mlab.complex_spectrum(x, Fs=1, window=window)
++    assert_allclose(cmplx[0], 1)
++    pxx, _ = mlab.psd(x, scale_by_freq=False, **kw)
++    assert_allclose(pxx[0], 1)
++    pxx, _ = mlab.psd(x, scale_by_freq=True, **kw)
++    assert_allclose(pxx[0], window.sum()**2 / (window**2).sum())

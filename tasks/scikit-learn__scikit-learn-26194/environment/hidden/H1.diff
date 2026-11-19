@@ -1,0 +1,13 @@
+diff --git a/sklearn/svm/_bounds.py b/sklearn/svm/_bounds.py
+index 83cb72d30..516f407fe 100644
+--- a/sklearn/svm/_bounds.py
++++ b/sklearn/svm/_bounds.py
+@@ -72,7 +72,7 @@ def l1_min_c(X, y, *, loss="squared_hinge", fit_intercept=True, intercept_scalin
+         bias = np.full(
+             (np.size(y), 1), intercept_scaling, dtype=np.array(intercept_scaling).dtype
+         )
+-        den = max(den, abs(np.dot(Y, bias)).max())
++        den = max(den, abs(np.dot(Y, bias).max()))
+ 
+     if den == 0.0:
+         raise ValueError(

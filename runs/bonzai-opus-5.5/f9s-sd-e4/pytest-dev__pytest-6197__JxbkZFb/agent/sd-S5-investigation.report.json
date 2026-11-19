@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 113416,
+ "finalText": "I rechecked the report against the request, and the cause stands. The extra lines that projects and plugins add to the test-run header (here, the build metadata) are thrown away, while the Python version line still appears.\n\n**Cause:** in `src/_pytest/hookspec.py:530-531`, the hook that collects those extra lines, `pytest_report_header`, is marked `@hookspec(firstresult=True)`. That makes pytest keep only the first answer it gets. pytest's own answer (the `rootdir:` and `plugins:` lines) comes first, so lines from a project's `conftest.py` or other plugins are dropped. The Python version line is printed directly at session start, which is why it survives, and the tests still pass.\n\n**What I ran (all in the throwaway copy, nothing written to the repository):**\n- **Existing tests:** `testing/test_terminal.py -k header` gives 4 failed, 3 passed. The failures say `remains unmatched: '*hello: 42*'`, meaning the line the test's `conftest.py` adds never appears.\n- **Small project:** a `conftest.py` whose header hook returns `[\"build: 1234 sha=abc\"]`. The build line is missing from the header.\n- **With the fix applied:** after removing `firstresult=True` from that line, the header tests give 7 passed, and the build line prints under the platform line.\n\n**Not deliberate:** the hook's own description says it returns \"a string or list of strings\" for the header. The docs show `conftest.py` adding header lines, the existing tests expect them, and no changelog entry mentions the change.\n\nIn the one change from my first report, the changelog citation under `ruledOut` was mislabelled. It quoted a search result but was filed as a document, so I've made it a query citation.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Custom header lines dropped from test-run banner\",\n  \"cause\": \"The hook spec for pytest_report_header is declared with @hookspec(firstresult=True), so pluggy stops at the first non-None result instead of collecting every plugin's and conftest's header lines. The terminal reporter's own pytest_report_header (rootdir/plugins) answers first, so lines added by conftest.py or other plugins, such as build metadata, never get printed. The platform/Python line is written directly in pytest_sessionstart, which is why it still appears.\",\n  \"files\": [\n    {\"path\": \"src/_pytest/hookspec.py\", \"why\": \"pytest_report_header is wrongly marked firstresult=True (line 530).\"},\n    {\"path\": \"src/_pytest/terminal.py\", \"why\": \"pytest_sessionstart prints the platform line directly, then expects a list of results from every plugin and reverses and flattens it (lines 553-576).\"}\n  ],\n  \"plan\": [\n    \"Remove firstresult=True from the pytest_report_header hookspec in src/_pytest/hookspec.py so that every implementation's lines are collected.\",\n    \"Add a changelog entry about restoring header lines from conftest.py files and plugins.\",\n    \"Rely on the existing TestGenericReporting::test_pytest_report_header tests, which fail today and pass after the fix.\"\n  ],\n  \"verification\": [\n    \"Run pytest testing/test_terminal.py -k header: 4 fail today and all 7 pass with the fix (checked in probe).\",\n    \"Run pytest in a project whose conftest.py header hook returns ['build: 1234 sha=abc']: the line shows up under the platform line (checked in probe).\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"trivial (one-line change)\",\n  \"risk\": \"low\",\n  \"confidence\": 0.95,\n  \"fixType\": \"silentFailure\",\n  \"intendedBehavior\": \"When a conftest.py defines pytest_report_header returning 'hello: 42', running pytest prints 'hello: 42' in the session header together with the rootdir line.\",\n  \"intent\": {\n    \"deliberate\": false,\n    \"evidence\": \"The hook's docstring says it returns 'a string or list of strings to be displayed as header info'. The docs show conftest.py adding header lines. TestGenericReporting::test_pytest_report_header checks that lines from several conftest files all appear, and terminal.py reverses and flattens a list of results. No changelog entry records making this hook firstresult.\"\n  },\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"The pytest_report_header hookspec is marked firstresult, so only one implementation's header lines are returned.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"src/_pytest/hookspec.py:530\", \"quote\": \"@hookspec(firstresult=True)\\ndef pytest_report_header(config, startdir):\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"other\", \"text\": \"The platform/Python line is written directly in pytest_sessionstart, and the extra header lines only come from the hook, which is why the runtime label survives while the custom lines vanish.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"src/_pytest/terminal.py:554\", \"quote\": \"msg = \\\"platform {} -- Python {}\\\".format(sys.platform, verinfo)\"},\n      {\"type\": \"code\", \"ref\": \"src/_pytest/terminal.py:568\", \"quote\": \"lines = self.config.hook.pytest_report_header(\\n            config=self.config, startdir=self.startdir\\n        )\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"impact\", \"text\": \"The existing header tests fail because the conftest header line is missing from the output.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:pytest testing/test_terminal.py -k header\", \"quote\": \"E           remains unmatched: '*hello: 42*'\"},\n      {\"type\": \"query\", \"ref\": \"probe:pytest testing/test_terminal.py -k header\", \"quote\": \"4 failed, 3 passed, 130 deselected in 3.12s\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"trigger\", \"text\": \"Any project whose conftest.py adds header lines (such as build metadata) loses them, while the tests still pass.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s5\", \"quote\": \"The test-run banner still shows our runtime label, but the build metadata has disappeared. The tests themselves finish normally.\"}\n    ]},\n    {\"id\": \"c5\", \"role\": \"other\", \"text\": \"After removing firstresult=True, the header tests pass and the conftest build line is printed again.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:pytest testing/test_terminal.py -k header (patched)\", \"quote\": \"7 passed, 130 deselected in 2.20s\"},\n      {\"type\": \"query\", \"ref\": \"probe:pytest in /tmp/r (patched)\", \"quote\": \"build: 1234 sha=abc\\nrootdir: /tmp/r\"}\n    ]},\n    {\"id\": \"c6\", \"role\": \"other\", \"text\": \"The documented contract is for plugins and conftest files to each add header strings, so dropping all but one answer is not a design choice.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"src/_pytest/hookspec.py:532\", \"quote\": \"return a string or list of strings to be displayed as header info for terminal reporting.\"},\n      {\"type\": \"code\", \"ref\": \"doc/en/example/simple.rst:343\", \"quote\": \"def pytest_report_header(config):\\n        return \\\"project deps: mylib-1.1\\\"\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"The header-writing code in terminal.py drops or filters the extra lines.\", \"why\": \"_write_report_lines_from_hooks prints every flattened item it receives. With only the hookspec changed, all lines print.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"src/_pytest/terminal.py:573\", \"quote\": \"def _write_report_lines_from_hooks(self, lines):\\n        lines.reverse()\\n        for line in collapse(lines):\"}\n    ]},\n    {\"hypothesis\": \"The change is deliberate and recorded in the changelog.\", \"why\": \"Searching the changelog directory for report_header finds no entry.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"search:changelog report_header\", \"quote\": \"No matches (2 files searched).\"}\n    ]}\n  ],\n  \"plain\": {\n    \"headline\": \"Teams' own build details vanished from the start of their test runs because pytest keeps only one source of header lines.\",\n    \"happened\": \"When a test run starts, pytest prints a header: the Python version, then extra lines that plugins and project settings can add. A setting tells pytest to keep only the first answer when it asks for those extra lines. pytest's own answer comes first, so everyone else's lines, such as build details, are quietly dropped.\",\n    \"matters\": \"Every project or plugin that adds information to the test-run header loses it, with no error, so teams lose build details they rely on to tell runs apart.\",\n    \"fix\": \"Remove that setting so pytest prints the header lines from every source again, which the existing tests already check.\"\n  },\n  \"sourceId\": \"S5\"\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 12,
+  "inputTokens": {
+   "avg": 19105.666666666668,
+   "max": 27643
+  },
+  "mainUsage": {
+   "inputTokens": 229268,
+   "cachedInputTokens": 208623,
+   "outputTokens": 10450
+  },
+  "cacheHitPercent": 90.99525446202698,
+  "wallSeconds": 112.41600012779236,
+  "tools": {
+   "read": 6,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 6
+  },
+  "reads": 6,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.3539216,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.3539216
+}

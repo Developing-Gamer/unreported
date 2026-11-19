@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 129573,
+ "finalText": "The fix is in: `PreparedRequest.prepare_method` now converts the method to the native `str` type, so `u'POST'` no longer reaches httplib as unicode on Python 2. I did not run the original `files=` upload against httpbin, since there was no network. What I did check is that the prepared method is now a native `str`.\n\nThe cause matched the investigation. `prepare_method` only upper-cased the method, so httplib built a unicode header block and then joined the binary multipart body onto it, forcing an ASCII decode. The change is one line in `requests/models.py`: `to_native_string(self.method.upper())`. `Session.request` needed no change, because the method passes through `prepare_method` afterwards.\n\nI added `test_prepared_method_is_native_string` to `test_requests.py`. It checks that `u'post'` and `b'post'` prepare to a native-`str` `'POST'`, and it needs no network.\n\nChecks, run with `/opt/miniconda3/envs/testbed/bin/python` (Python 2.7.18):\n- **Before the fix:** the new test fails at `assert type(pr.method) is type('')`, because the method stays `unicode`.\n- **After the fix:** the new test passes.\n- **Full suite:** 89 passed and 1 failed. The failure is an `SSLError: CERTIFICATE_VERIFY_FAILED` in a test that needs the network. On the base commit (my changes stashed, so without the new test) the suite shows 86 passed and the same SSL failure.\n\nI did not add a HISTORY.rst entry, because that file only lists released versions. The change is left uncommitted in the working tree, as the benchmark note asked. The PR text is in `.factory/pr-S3.md`. Open PR #1000 only changes redirect handling in `Session.resolve_redirects`, so it does not cover this.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest test_requests.py -q\", \"passed\": false, \"alsoOnBase\": true, \"note\": \"1 failure from SSL certificate verification (network); 89 passed. The new test passes.\"}\n  ],\n  \"visual\": false,\n  \"reproduction\": \"On Python 2.7, build requests.Request(u'post', url).prepare() and check type(method); it is unicode before the fix, native str after. With a non-ASCII binary file upload and method=u'POST', httplib raises UnicodeDecodeError.\",\n  \"reproductionTest\": {\n    \"path\": \"test_requests.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest test_requests.py -q -k prepared_method\",\n    \"signature\": \"assert type(pr.method) is type('') -> AssertionError\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 15,
+  "inputTokens": {
+   "avg": 24001.466666666667,
+   "max": 28738
+  },
+  "mainUsage": {
+   "inputTokens": 360022,
+   "cachedInputTokens": 345166,
+   "outputTokens": 5867
+  },
+  "cacheHitPercent": 95.87358550310815,
+  "wallSeconds": 128.09599995613098,
+  "tools": {
+   "read": 5,
+   "edit": 5,
+   "test": 0,
+   "verify": 0,
+   "git": 2,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 4
+  },
+  "reads": 5,
+  "edits": 5,
+  "runs": 6,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 4,
+  "editOperations": 4,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.16482619999999998,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.16482619999999998
+}

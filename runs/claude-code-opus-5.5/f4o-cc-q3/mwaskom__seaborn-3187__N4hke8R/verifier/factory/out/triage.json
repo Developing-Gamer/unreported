@@ -1,0 +1,7 @@
+[
+  {"source": "S1", "decision": "fix", "reason": "Reproduced: both the objects Continuous scale legend and utils.locator_to_legend_entries format labels with a ScalarFormatter offset/scientific multiplier that is never shown, so large values are mislabeled (e.g. 3e6 shown as '3')."},
+  {"source": "S2", "decision": "fix", "reason": "Dodge(gap=...) shrinks widths before computing offsets, so the narrowed bars are re-packed edge to edge and still touch within each group."},
+  {"source": "S3", "decision": "skip", "reason": "Already fixed in this checkout: pointplot with ci='sd' and errorbar='sd' now produce identical error bars that match the sample standard deviation."},
+  {"source": "S4", "decision": "skip", "reason": "Not enough to act on: Dot/Dots draw points and legend swatches through the same property resolution, and the report ties the change to the reporter's own deploy without a reproducible example."},
+  {"source": "S5", "decision": "skip", "reason": "A GitHub API timeout in an unrelated webhook-relay service, outside this repository."}
+]

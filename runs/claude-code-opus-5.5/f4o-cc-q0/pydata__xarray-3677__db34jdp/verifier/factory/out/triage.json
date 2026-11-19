@@ -1,0 +1,10 @@
+[
+  {"source": "S1", "decision": "skip", "reason": "Connection refused to api.stripe.com from the billing-worker service is a network/third-party availability problem unrelated to xarray's code."},
+  {"source": "S2", "decision": "fix", "reason": "as_compatible_data unconditionally unwrapped any object's `.values` attribute, so arbitrary objects assigned into object arrays were coerced; reproduced on this checkout."},
+  {"source": "S3", "decision": "skip", "reason": "Already fixed in this version: the issue's example no longer triggers any dask computation (ProgressBar prints nothing) when adding arrays with 2D dask coordinates."},
+  {"source": "S4", "decision": "fix", "reason": "Dataset.merge passed a DataArray straight to dataset_merge_method, which calls .items() on it and raises AttributeError; reproduced on this checkout."},
+  {"source": "S5", "decision": "skip", "reason": "Already fixed in this version: combine_by_coords only checks monotonicity along concatenated dims, and the issue's example combines without error."},
+  {"source": "S6", "decision": "fix", "reason": "Same root cause as S4 (Dataset.merge with a DataArray hits DataArray.items in coerce_pandas_values); fixed in the S4 PR."},
+  {"source": "S7", "decision": "fix", "reason": "dask rolling_window over-trimmed by one element (drop_size had a spurious +1) for centered even-sized windows, shifting dask (large-data) results by one sample relative to numpy."},
+  {"source": "S8", "decision": "fix", "reason": "_CachedAccessor swallowed AttributeError raised in an accessor's __init__ and cached None on the object, so the accessor silently and permanently returned None instead of raising."}
+]

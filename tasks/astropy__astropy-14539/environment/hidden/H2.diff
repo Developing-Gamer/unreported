@@ -1,0 +1,18 @@
+diff --git a/astropy/coordinates/angle_utilities.py b/astropy/coordinates/angle_utilities.py
+index 7dc1fcaaf..bbd216036 100644
+--- a/astropy/coordinates/angle_utilities.py
++++ b/astropy/coordinates/angle_utilities.py
+@@ -228,7 +228,12 @@ def uniform_spherical_random_volume(size=1, max_radius=1):
+ 
+     usph = uniform_spherical_random_surface(size=size)
+ 
+-    r = np.cbrt(rng.uniform(size=size)) * u.Quantity(max_radius, copy=False)
++    try:
++        radius_scale = u.Quantity(max_radius, copy=False)
++    except ValueError:
++        radius_scale = u.Quantity(1)
++
++    r = np.cbrt(rng.uniform(size=size)) * radius_scale
+     return SphericalRepresentation(usph.lon, usph.lat, r)
+ 
+ 

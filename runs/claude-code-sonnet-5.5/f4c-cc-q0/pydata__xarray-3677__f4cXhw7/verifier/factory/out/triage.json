@@ -1,0 +1,10 @@
+[
+{"source":"S1","decision":"skip","reason":"A connection-refused error calling api.stripe.com from billing-worker is an external/network problem, not a defect in this repository."},
+{"source":"S2","decision":"fix","reason":"as_compatible_data called getattr(data,'values') on any object, coercing arbitrary objects with a values attribute; now only DataArray/pandas types are unwrapped."},
+{"source":"S3","decision":"skip","reason":"Already fixed in this checkout: merge uses lazy_array_equiv so 2D dask coords are not computed (verified no compute on a+b)."},
+{"source":"S4","decision":"fix","reason":"Dataset.merge did not convert a DataArray argument to a Dataset, raising AttributeError on .items()."},
+{"source":"S5","decision":"skip","reason":"Already fixed: monotonicity is only checked on concat dims, and the reported example now combines successfully."},
+{"source":"S6","decision":"fix","reason":"Same AttributeError 'DataArray' has no attribute 'items' in Dataset.merge as S4; fixed by the same change."},
+{"source":"S7","decision":"fix","reason":"Dask rolling_window over-dropped by one (drop_size had a stray +1) for even windows with center=True, shifting results one sample versus numpy."},
+{"source":"S8","decision":"fix","reason":"_CachedAccessor swallowed AttributeError from accessor __init__ and cached None; it now raises RuntimeError and caches nothing."}
+]

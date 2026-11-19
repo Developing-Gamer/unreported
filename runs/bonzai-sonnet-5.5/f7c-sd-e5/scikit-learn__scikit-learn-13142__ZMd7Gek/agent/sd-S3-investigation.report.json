@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 73920,
+ "finalText": "I re-checked the report against the request. Two things were off, and both are fixed below. The report was missing the plain-language fields (headline, what happened, who it affects, the fix). One citation also pointed at line 297 when the quoted code is on line 298.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Bayesian regressor prediction intervals too wide\",\n  \"cause\": \"BayesianRidge and ARDRegression compute prediction std from a posterior covariance fitted on centred features, but predict() never centres the query rows. BayesianRidge only rescales when normalize is set and never subtracts X_offset_; ARDRegression never stores X_offset_/X_scale_, so it skips centring by default and raises AttributeError with normalize=True. Std therefore grows with the feature mean while point predictions are unchanged. I reproduced this with probe: features shifted by +1000 give std of about 66.8 for both estimators, against about 0.49 when centred.\",\n  \"files\": [\n    {\"path\": \"sklearn/linear_model/bayes.py\", \"why\": \"BayesianRidge.predict (line ~298) and ARDRegression.fit/predict (lines ~514, ~625) mishandle X centring for return_std\"},\n    {\"path\": \"sklearn/linear_model/tests/test_bayes.py\", \"why\": \"test_return_std only uses near-centred data; add a large-offset regression test\"}\n  ],\n  \"plan\": [\n    \"Store X_offset_ and X_scale_ in ARDRegression.fit\",\n    \"In both predict methods, centre and scale X with (X - X_offset_) / X_scale_ before computing the posterior variance\",\n    \"In ARDRegression.predict, apply the lambda_ < threshold_lambda column mask after the transform\",\n    \"Add tests with features offset by ~1000, normalize both off and on, asserting std stays near the noise level and no AttributeError\"\n  ],\n  \"verification\": [\n    \"Probe: fitting on X+1000 gives std ~66 today and ~0.49 after the fix, for both classes\",\n    \"Run sklearn/linear_model/tests/test_bayes.py plus the new tests\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.85,\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"BayesianRidge.predict does not subtract X_offset_ before using sigma_, which was fitted on centred X, and only rescales when normalize is set.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"sklearn/linear_model/bayes.py:298\", \"quote\": \"X = X / self.X_scale_\"}, {\"type\": \"code\", \"ref\": \"sklearn/linear_model/bayes.py:299\", \"quote\": \"sigmas_squared_data = (np.dot(X, self.sigma_) * X).sum(axis=1)\"}]},\n    {\"id\": \"c2\", \"text\": \"ARDRegression.fit never stores X_offset_/X_scale_, so predict cannot centre queries by default and fails with normalize=True.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"sklearn/linear_model/bayes.py:626\", \"quote\": \"X = (X - self.X_offset_) / self.X_scale_\"}, {\"type\": \"code\", \"ref\": \"sklearn/linear_model/bayes.py:514\", \"quote\": \"X, y, X_offset_, y_offset_, X_scale_ = self._preprocess_data(\"}]},\n    {\"id\": \"c3\", \"text\": \"Models whose features have large means get much wider intervals while point forecasts are unchanged, matching the alert.\", \"role\": \"impact\", \"citations\": [{\"type\": \"evidence\", \"ref\": \"ev_s3\", \"quote\": \"Prediction interval widths rose sharply for several regional models after the latest rollout\"}]}\n  ],\n  \"intendedBehavior\": \"BayesianRidge and ARDRegression predict(return_std=True) return the same posterior std regardless of a constant shift in the features, and never raise for normalize=True.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"Docstrings promise the posterior predictive std; no changelog or comment says uncentred queries are intended; ARDRegression.predict already tries to subtract X_offset_.\"},\n  \"fixType\": \"silentFailure\",\n  \"plain\": {\n    \"headline\": \"Forecast uncertainty ranges looked far too wide for some regions because the uncertainty calculation ignored how far the inputs sit from their average.\",\n    \"happened\": \"The forecasting models learn their uncertainty after shifting the input numbers so they centre on zero. When producing a forecast, they skip that shift for the uncertainty part only. The forecast value itself is correct, but the uncertainty range grows with the size of the inputs.\",\n    \"matters\": \"Anyone relying on the confidence ranges for regions with large-valued inputs sees ranges tens of times too wide, while accuracy checks look fine.\",\n    \"fix\": \"Apply the same input shift when computing the uncertainty range as when the model was trained, and add a test using large-valued inputs.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 12,
+  "inputTokens": {
+   "avg": 21446.666666666668,
+   "max": 28998
+  },
+  "mainUsage": {
+   "inputTokens": 257360,
+   "cachedInputTokens": 235360,
+   "outputTokens": 7572
+  },
+  "cacheHitPercent": 91.45166304009948,
+  "wallSeconds": 73.27900004386902,
+  "tools": {
+   "read": 11,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 5
+  },
+  "reads": 11,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 2,
+   "readFileIgnoringRange": 2
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.17777800000000002,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.17777800000000002
+}

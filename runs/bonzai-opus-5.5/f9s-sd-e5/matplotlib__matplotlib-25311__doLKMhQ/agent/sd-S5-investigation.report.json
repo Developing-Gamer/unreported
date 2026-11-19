@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 103308,
+ "finalText": "I checked the report against the request and it holds: I didn't edit any files, and the only commands I ran were in the probe's throwaway copy.\n\n**What people see:** a saved chart style with a badly written font setting exports in a default-looking font at the default size (10), with no error saying the setting is invalid.\n\n**Cause:** in `lib/matplotlib/_fontconfig_pattern.py`, lines 90\u201391, the code that reads compact font settings (like `Sans-12:bold`) has a fallback. When it can't read a setting and the text has no `:`, it treats the whole text as a font name instead of raising an error. That name matches no installed font, the size and weight are dropped, and the setting check in `rcsetup.py` lets it through. Nothing in the release notes, tests or comments says this was meant. The only related note, the 3.7 deprecation of unknown words after a `:`, covers a different case, and that case still warns.\n\n**Shown in the probe copy:**\n- `parse_fontconfig_pattern('Sans-abc')` returns `{'family': ['Sans-abc']}`.\n- `validate_font_properties('Sans-abc')` accepts it.\n- `FontProperties('Sans-abc')` gives family `['Sans-abc']` at size `10.0`.\n- The existing font-setting tests pass because none of them tries a bad setting. The `test_rcparams.py` failures come from missing modules and image comparisons in the copy, not from font handling.\n\n**Fix:** remove the two fallback lines so every unreadable setting raises `ValueError` again, and add tests that bad settings are rejected and valid ones still work.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Bad font settings silently fall back to default font\",\n  \"cause\": \"parse_fontconfig_pattern catches pyparsing's ParseException and, when the pattern has no ':', returns {'family': [pattern]} instead of raising ValueError. A malformed pattern such as 'Sans-abc' is accepted as a made-up family name: the size, weight and style it held are dropped, rcParams validation passes, and FontProperties falls back to the default font at size 10. The validator relies on this function, so malformed style files are no longer reported as invalid.\",\n  \"files\": [\n    {\"path\": \"lib/matplotlib/_fontconfig_pattern.py\", \"why\": \"Lines 90-91 turn a parse failure into a family-only result instead of raising ValueError.\"},\n    {\"path\": \"lib/matplotlib/rcsetup.py\", \"why\": \"validate_font_properties depends on parse_fontconfig_pattern raising for invalid patterns; it is used for the mathtext.* rcParams.\"},\n    {\"path\": \"lib/matplotlib/tests/test_fontconfig_pattern.py\", \"why\": \"No test covers malformed patterns; add regression tests here.\"}\n  ],\n  \"plan\": [\n    \"Delete the `if \\\":\\\" not in pattern: return {\\\"family\\\": [pattern]}` fallback in parse_fontconfig_pattern so every ParseException raises ValueError with the parser's explanation.\",\n    \"Add tests that parse_fontconfig_pattern and rcsetup.validate_font_properties raise ValueError for 'Sans-abc', 'DejaVu Sans-12-' and 'foo=bar'.\",\n    \"Keep the existing tests for valid patterns (e.g. 'Sans-12:bold') and for the deprecated-unknown-constant warning passing.\"\n  ],\n  \"verification\": [\n    \"pytest lib/matplotlib/tests/test_fontconfig_pattern.py lib/matplotlib/tests/test_rcparams.py lib/matplotlib/tests/test_font_manager.py\",\n    \"python -c \\\"from matplotlib.rcsetup import validate_font_properties as v; v('Sans-abc')\\\" raises ValueError\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.85,\n  \"fixType\": \"silentFailure\",\n  \"intendedBehavior\": \"parse_fontconfig_pattern('Sans-abc') and validate_font_properties('Sans-abc') raise ValueError instead of returning a family-only result.\",\n  \"intent\": {\n    \"deliberate\": false,\n    \"evidence\": \"The only related changelog entry (doc/api/prev_api_changes/api_changes_3.7.0/deprecations.rst:142) deprecates unknown constants such as 'DejaVu Sans:foo', and that path still warns. No changelog entry, test or comment chooses to accept malformed patterns as family names; the comment beside the fallback only covers the error message.\"\n  },\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"On a parse failure, parse_fontconfig_pattern returns the raw text as a family name whenever it contains no ':', instead of raising ValueError.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/_fontconfig_pattern.py:90\", \"quote\": \"if \\\":\\\" not in pattern:\\n            return {\\\"family\\\": [pattern]}\"},\n      {\"type\": \"query\", \"ref\": \"probe:python parse_fontconfig_pattern\", \"quote\": \"'Sans-abc' {'family': ['Sans-abc']}\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"rootCause\", \"text\": \"The rcParams validator for font-property settings depends on that parser raising, so malformed values are now accepted.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/rcsetup.py:401\", \"quote\": \"def validate_font_properties(s):\\n    parse_fontconfig_pattern(s)\\n    return s\"},\n      {\"type\": \"query\", \"ref\": \"probe:python validate_font_properties\", \"quote\": \"validator: Sans-abc\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"impact\", \"text\": \"A FontProperties built from a malformed pattern gets a nonexistent family and the default size 10, so the export looks like the default font.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:python FontProperties\", \"quote\": \"['Sans-abc'] 10.0\"},\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/font_manager.py:853\", \"quote\": \"for key, val in parse_fontconfig_pattern(pattern).items():\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"trigger\", \"text\": \"A support message says saved chart styles now export with a default-looking font and size instead of reporting that the font setting is invalid.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s5\", \"quote\": \"now export with the default-looking font and size instead of reporting that the font setting is invalid\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"This is the documented 3.7 deprecation of unknown fontconfig constants\", \"why\": \"That deprecation covers words after ':' (e.g. 'DejaVu Sans:foo') and still warns; the silent fallback only applies to patterns without ':', and no release note covers it.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/_fontconfig_pattern.py:103\", \"quote\": \"_api.warn_deprecated(\\n                    \\\"3.7\\\", message=f\\\"Support for unknown constants\"}\n    ]},\n    {\"hypothesis\": \"The font.size validator lets invalid sizes through\", \"why\": \"font.size uses validate_float, and validate_fontsize raises ValueError for non-numeric, unnamed sizes, so neither swallows errors.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/rcsetup.py:367\", \"quote\": \"raise ValueError(\\\"%s is not a valid font size. Valid font sizes \"}\n    ]}\n  ],\n  \"plain\": {\n    \"headline\": \"Charts with a badly written font setting now export in a plain default font instead of showing an error, because the font-setting reader quietly accepts anything it can't understand.\",\n    \"happened\": \"Someone saved a chart style whose font setting contains a mistake. Instead of rejecting it, the program treats the whole setting as the name of a font that doesn't exist. It drops the size and weight, falls back to the default font at the default size, and never says anything was wrong.\",\n    \"matters\": \"Anyone with a small mistake in a saved style gets charts that look wrong, with no message pointing at the setting to fix.\",\n    \"fix\": \"Make the font-setting reader report an error again whenever it can't understand a setting, and add tests so it stays that way.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 14,
+  "inputTokens": {
+   "avg": 17744.285714285714,
+   "max": 24869
+  },
+  "mainUsage": {
+   "inputTokens": 248420,
+   "cachedInputTokens": 230545,
+   "outputTokens": 9445
+  },
+  "cacheHitPercent": 92.8045245954432,
+  "wallSeconds": 102.50300002098083,
+  "tools": {
+   "read": 7,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 6
+  },
+  "reads": 7,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.324352,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.324352
+}

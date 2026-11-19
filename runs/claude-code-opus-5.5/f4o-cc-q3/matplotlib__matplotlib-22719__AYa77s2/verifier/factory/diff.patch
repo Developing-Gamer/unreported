@@ -1,0 +1,44 @@
+diff --git a/lib/matplotlib/category.py b/lib/matplotlib/category.py
+index c823b68fd9..973da0d743 100644
+--- a/lib/matplotlib/category.py
++++ b/lib/matplotlib/category.py
+@@ -58,7 +58,7 @@ class StrCategoryConverter(units.ConversionInterface):
+             is_numlike = all(units.ConversionInterface.is_numlike(v)
+                              and not isinstance(v, (str, bytes))
+                              for v in values)
+-        if is_numlike:
++        if values.size and is_numlike:
+             _api.warn_deprecated(
+                 "3.5", message="Support for passing numbers through unit "
+                 "converters is deprecated since %(since)s and support will be "
+diff --git a/lib/matplotlib/tests/test_category.py b/lib/matplotlib/tests/test_category.py
+index f0e424bd8e..0d55a9d105 100644
+--- a/lib/matplotlib/tests/test_category.py
++++ b/lib/matplotlib/tests/test_category.py
+@@ -1,4 +1,6 @@
+ """Catch all for categorical functions"""
++import warnings
++
+ import pytest
+ import numpy as np
+ 
+@@ -312,3 +314,19 @@ def test_hist():
+     n, bins, patches = ax.hist(['a', 'b', 'a', 'c', 'ff'])
+     assert n.shape == (10,)
+     np.testing.assert_allclose(n, [2., 0., 0., 1., 0., 0., 1., 0., 0., 1.])
++
++
++def test_no_deprecation_on_empty_data():
++    """
++    Empty data on a categorical axis must not trigger the deprecated
++    numeric-passthrough path of StrCategoryConverter.
++    """
++    f, ax = plt.subplots()
++    ax.xaxis.update_units(["a", "b"])
++    with warnings.catch_warnings():
++        warnings.simplefilter("error", MatplotlibDeprecationWarning)
++        lines = ax.plot([], [])
++        assert lines[0].get_xdata().size == 0
++        converted = ax.convert_xunits([])
++    assert isinstance(converted, np.ndarray)
++    assert converted.size == 0

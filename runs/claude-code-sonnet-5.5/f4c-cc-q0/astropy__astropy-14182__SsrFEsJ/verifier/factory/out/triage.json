@@ -1,0 +1,9 @@
+[
+{"source":"S1","decision":"fix","reason":"ascii.rst RST writer/reader did not accept header_rows; added support."},
+{"source":"S2","decision":"fix","reason":"TimeSeries required-column check used an order-insensitive set test (missed misplaced columns, test_required_columns failed); now compares the ordered prefix."},
+{"source":"S3","decision":"skip","reason":"Support message about a customer CSV format change; no defect in this repository's code is identified."},
+{"source":"S4","decision":"fix","reason":"MetaBaseReader called inspect.cleandoc on a None __doc__ (e.g. under python -OO); now tolerates missing docstrings."},
+{"source":"S5","decision":"skip","reason":"minversion already uses packaging Version, and minversion('numpy','1.14dev') works in this checkout."},
+{"source":"S6","decision":"skip","reason":"Vague production message with no identifiable code, function or reproduction in this repository."},
+{"source":"S7","decision":"skip","reason":"OOMKill of an external export-job worker pod; not code in this repository."}
+]

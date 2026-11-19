@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 239944,
+ "finalText": "The fix is in and the work matches your request. The four new nominal tests pass (`-k nominal_`: 4 passed). I did not re-run the wider suite or flake8 after this last look.\n\nThe working tree also holds changes I did not make. They replace `mode.use_inf_as_null` with explicit inf-to-NaN handling, which is what open PR #1000 describes. They touch `seaborn/_core/plot.py` (the `import numpy as np` line and the block near line 1476), `seaborn/_oldcore.py`, `seaborn/categorical.py` and an untracked `tests/test_inf_handling.py`.\n\nI left them alone and my fix doesn't depend on them. My own changes are the `Nominal` import and the `_finalize_figure` block in `plot.py`, plus the three tests in `tests/_core/test_plot.py`. If you open a pull request, keep the inf-handling changes out of it.\n\nThe PR text is in `.factory/pr-S2.md`. Nothing is committed or pushed.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"checks\": [\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest tests/_core tests/_marks tests/_stats -q\", \"passed\": true},\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m flake8 seaborn/_core/plot.py\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"reproductionSteps\": [\n    \"Run so.Plot(x=['a','b','c'], y=[1,2,3]).plot() and read ax.get_xlim(): before the fix it is about (-0.055, 2.055) instead of (-0.5, 2.5), and the x grid is visible when the style enables it\",\n    \"Run so.Plot(x=[1,2,3], y=['a','b','c']).plot(): the y axis is not inverted and ylim is not (2.5, -0.5)\"\n  ],\n  \"reproductionTest\": {\n    \"path\": \"tests/_core/test_plot.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest tests/_core/test_plot.py -q -k nominal_\",\n    \"signature\": \"assert (-0.055000000...0000000000001) == (2.5, -0.5)\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 27,
+  "inputTokens": {
+   "avg": 31227.85185185185,
+   "max": 42157
+  },
+  "mainUsage": {
+   "inputTokens": 843152,
+   "cachedInputTokens": 814853,
+   "outputTokens": 8100
+  },
+  "cacheHitPercent": 96.64366567356775,
+  "wallSeconds": 238.41600012779236,
+  "tools": {
+   "read": 16,
+   "edit": 5,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 5,
+   "subagent": 0,
+   "other": 5
+  },
+  "reads": 16,
+  "edits": 5,
+  "runs": 5,
+  "reReads": {
+   "total": 1,
+   "readFile": 1,
+   "shell": 0,
+   "sameFile": 3,
+   "readFileIgnoringRange": 3
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 2,
+  "editOperations": 4,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.3146891,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.3146891
+}

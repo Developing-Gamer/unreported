@@ -1,0 +1,13 @@
+diff --git a/seaborn/_marks/base.py b/seaborn/_marks/base.py
+index 87e0216d..547b525c 100644
+--- a/seaborn/_marks/base.py
++++ b/seaborn/_marks/base.py
+@@ -279,7 +279,7 @@ def resolve_color(
+         return mpl.colors.to_rgba(color, alpha)
+     else:
+         if np.ndim(color) == 2 and color.shape[1] == 4:
+-            return mpl.colors.to_rgba_array(color)
++            return mpl.colors.to_rgba_array(color, alpha)
+         alpha = np.where(visible(color, axis=1), alpha, np.nan)
+         return mpl.colors.to_rgba_array(color, alpha)
+ 

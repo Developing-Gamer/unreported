@@ -1,0 +1,148 @@
+diff --git a/changelog/6194.bugfix.rst b/changelog/6194.bugfix.rst
+new file mode 100644
+index 000000000..d9c8cfba5
+--- /dev/null
++++ b/changelog/6194.bugfix.rst
+@@ -0,0 +1 @@
++Fix regression where pytest would import (and fail on) ``__init__.py`` files that don't match ``python_files`` during collection.
+diff --git a/changelog/6240.bugfix.rst b/changelog/6240.bugfix.rst
+new file mode 100644
+index 000000000..4a19eee10
+--- /dev/null
++++ b/changelog/6240.bugfix.rst
+@@ -0,0 +1 @@
++Fix ``pytest_report_header`` being treated as a ``firstresult`` hook, which dropped header lines from all but one implementation.
+diff --git a/changelog/6241.bugfix.rst b/changelog/6241.bugfix.rst
+new file mode 100644
+index 000000000..0d70ea066
+--- /dev/null
++++ b/changelog/6241.bugfix.rst
+@@ -0,0 +1 @@
++Fix ``Node.add_marker(..., append=False)`` inserting the marker at position 1 instead of at the front of the marker list.
+diff --git a/src/_pytest/hookspec.py b/src/_pytest/hookspec.py
+index 32a62eb14..10a9857d7 100644
+--- a/src/_pytest/hookspec.py
++++ b/src/_pytest/hookspec.py
+@@ -527,7 +527,6 @@ def pytest_assertion_pass(item, lineno, orig, expl):
+ # -------------------------------------------------------------------------
+ 
+ 
+-@hookspec(firstresult=True)
+ def pytest_report_header(config, startdir):
+     """ return a string or list of strings to be displayed as header info for terminal reporting.
+ 
+diff --git a/src/_pytest/nodes.py b/src/_pytest/nodes.py
+index 2c14c2d5f..e6dee1547 100644
+--- a/src/_pytest/nodes.py
++++ b/src/_pytest/nodes.py
+@@ -195,7 +195,7 @@ class Node:
+         if append:
+             self.own_markers.append(marker_.mark)
+         else:
+-            self.own_markers.insert(1, marker_.mark)
++            self.own_markers.insert(0, marker_.mark)
+ 
+     def iter_markers(self, name=None):
+         """
+diff --git a/src/_pytest/python.py b/src/_pytest/python.py
+index 306e5f217..001d66bd9 100644
+--- a/src/_pytest/python.py
++++ b/src/_pytest/python.py
+@@ -639,7 +639,14 @@ class Package(Module):
+         return path in self.session._initialpaths
+ 
+     def collect(self):
+-        self._mount_obj_if_needed()
++        for node in self._collect_nodes():
++            # Only import the package's ``__init__.py`` (needed to apply its
++            # marks, e.g. ``pytestmark = pytest.mark.skip``) once the package
++            # is known to contain something collectable (#5830, #6194).
++            self._mount_obj_if_needed()
++            yield node
++
++    def _collect_nodes(self):
+         this_path = self.fspath.dirpath()
+         init_module = this_path.join("__init__.py")
+         if init_module.check(file=1) and path_matches_patterns(
+diff --git a/testing/test_collection.py b/testing/test_collection.py
+index dee07d5c7..db4701883 100644
+--- a/testing/test_collection.py
++++ b/testing/test_collection.py
+@@ -1257,3 +1257,14 @@ def test_collector_respects_tbstyle(testdir):
+             "*= 1 error in *",
+         ]
+     )
++
++
++def test_does_not_import_unmatched_init_py(testdir):
++    """Package __init__.py files that don't match python_files are not imported
++    during collection (#6194)."""
++    pkg = testdir.mkpydir("foobar")
++    pkg.join("__init__.py").write("assert False, 'should not be imported'")
++    testdir.makepyfile(test_foo="def test_foo(): pass")
++
++    result = testdir.runpytest()
++    result.assert_outcomes(passed=1)
+diff --git a/testing/test_skipping.py b/testing/test_skipping.py
+index 371c3a4db..58f70597c 100644
+--- a/testing/test_skipping.py
++++ b/testing/test_skipping.py
+@@ -1185,3 +1185,29 @@ def test_skip_package(testdir):
+     result = testdir.inline_run()
+     _, skipped, _ = result.listoutcomes()
+     assert len(skipped) == 2
++
++
++def test_add_marker_skip_prepended_overrides_existing_skip(testdir):
++    """A skip marker added with append=False takes precedence over an existing one."""
++    testdir.makeconftest(
++        """
++        import pytest
++
++        def pytest_collection_modifyitems(items):
++            for item in items:
++                item.add_marker(pytest.mark.skip(reason="plugin reason"), append=False)
++        """
++    )
++    testdir.makepyfile(
++        """
++        import pytest
++
++        @pytest.mark.skip(reason="default reason")
++        def test_annotated(): pass
++
++        def test_plain(): pass
++        """
++    )
++    result = testdir.runpytest("-rs")
++    result.stdout.fnmatch_lines(["*plugin reason*", "*plugin reason*", "*2 skipped*"])
++    assert "default reason" not in result.stdout.str()
+diff --git a/testing/test_terminal.py b/testing/test_terminal.py
+index 2cdfc6ca8..98b6164ee 100644
+--- a/testing/test_terminal.py
++++ b/testing/test_terminal.py
+@@ -1035,6 +1035,24 @@ def pytest_report_header(config, startdir):
+         result = testdir.runpytest("a")
+         result.stdout.fnmatch_lines(["*hello: 42*", "line1", str(testdir.tmpdir)])
+ 
++    def test_pytest_report_header_multiple_plugins(self, testdir):
++        """All pytest_report_header implementations contribute lines, not only the first."""
++        testdir.makeconftest(
++            """
++            def pytest_report_header(config):
++                return "runtime: label"
++
++            class Plugin:
++                def pytest_report_header(self, config):
++                    return ["build: metadata"]
++
++            def pytest_configure(config):
++                config.pluginmanager.register(Plugin())
++            """
++        )
++        result = testdir.runpytest()
++        result.stdout.fnmatch_lines(["runtime: label", "build: metadata"])
++
+     def test_show_capture(self, testdir):
+         testdir.makepyfile(
+             """

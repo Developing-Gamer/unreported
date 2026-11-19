@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 125409,
+ "finalText": "This is already fixed. In pytest 3.6.0, which the reporter used, a test patched with a numpy array crashed while pytest was collecting tests, so none of the tests in that file ran. Since pytest 5.1.0 that no longer happens, and the reporter needs to upgrade to 5.1.0 or later.\n\n**Cause:** when collecting, pytest counts how many test arguments come from `mock.patch` decorators. Older versions did this by checking whether the patched value equals mock's placeholder value. Comparing a numpy array that way gives back a whole array of results instead of a plain yes or no, and turning that into true or false raises the ValueError. The current code ([compat.py](file:///testbed/src/_pytest/compat.py) line 85) checks whether the value *is* that placeholder object, which never asks the array to compare itself. The changelog records this as #5606 under \"pytest 5.1.0 (2019-08-15)\". The git history here is squashed into one snapshot, so I can't name the fixing commit or pull request.\n\n**What I ran (all in a throwaway copy):**\n- **Current code:** I copied the regression test's exact files (a numpy-like object whose comparison raises ValueError, patched with `@patch(..., new=...)`). Run directly, the test passed (`1 passed`).\n- **Old check put back:** with the equality check swapped in, the same files fail collection with `ValueError: like numpy, cannot compare against others for truth`. That confirms both the cause and the fix.\n- **Existing tests:** the regression test `test_mock_sentinel_check_against_numpy_like` and its two neighbours fail here, but not from this bug. pytest 5.2.3 can't rewrite assertions on the Python 3.11 in this environment (`TypeError: required field \"lineno\" missing from alias`), and the copy of pytest each test starts internally still does that rewriting even with `--assert=plain`. That's why I ran the regression files directly instead.\n\n```json\n{\n  \"verdict\": \"covered\",\n  \"title\": \"Collection crash when patching with a numpy array\",\n  \"cause\": \"In pytest 3.6, num_mock_patch_args checked whether p.new was in the list of mock sentinels, which compares with ==; a numpy array returns an elementwise array whose truth value raises ValueError, so collection crashed. The current code compares with identity (`is`), so the patched object's __eq__ is never called. This was fixed in pytest 5.1.0 (changelog #5606).\",\n  \"files\": [\n    {\"path\": \"src/_pytest/compat.py\", \"why\": \"num_mock_patch_args now uses identity checks against mock.DEFAULT / unittest.mock.DEFAULT\"},\n    {\"path\": \"testing/python/integration.py\", \"why\": \"Regression test test_mock_sentinel_check_against_numpy_like covers this case\"},\n    {\"path\": \"CHANGELOG.rst\", \"why\": \"Entry #5606 under pytest 5.1.0 records the fix\"}\n  ],\n  \"plan\": [\"No code change needed; the reporter should upgrade to pytest >= 5.1.0.\"],\n  \"verification\": [\n    \"Probe: the regression test's exact files (numpy-like object whose __eq__ raises ValueError, patched via @patch new=) collect and pass on current code: '1 passed'.\",\n    \"Probe: putting the old equality-based sentinel check back into compat.py makes the same files fail collection with 'ValueError: like numpy, cannot compare against others for truth'.\",\n    \"Existing tests in testing/python/integration.py could not run cleanly in this environment: pytest 5.2.3's assertion rewriting fails on Python 3.11 inside the inner test runs (TypeError: required field \\\"lineno\\\" missing from alias), which has nothing to do with this issue.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"none\",\n  \"risk\": \"none\",\n  \"confidence\": 0.95,\n  \"fixType\": \"error\",\n  \"fixedIn\": {\"commit\": \"unknown (history squashed into snapshot dd531dc27)\", \"release\": \"5.1.0\"},\n  \"intendedBehavior\": \"Collecting a test decorated with @patch(target, new=<numpy array>) succeeds and the test runs without a ValueError.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"The crash was an unhandled case in the equality-based sentinel check; changelog #5606 records it as a bug fix.\"},\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"The current code detects mock sentinels by identity, so objects that cannot be compared for truth (numpy arrays) no longer raise during collection.\",\n     \"citations\": [{\"type\": \"code\", \"ref\": \"src/_pytest/compat.py:85\", \"quote\": \"and (p.new is mock_sentinel or p.new is ut_mock_sentinel)\"}]},\n    {\"id\": \"c2\", \"role\": \"rootCause\", \"text\": \"Putting back an equality-based sentinel check reproduces the reported collection ValueError, confirming the old comparison as the cause.\",\n     \"citations\": [{\"type\": \"query\", \"ref\": \"probe\", \"quote\": \"E   ValueError: like numpy, cannot compare against others for truth\"}]},\n    {\"id\": \"c3\", \"role\": \"other\", \"text\": \"The project changelog records this exact fix in the 5.1.0 release section.\",\n     \"citations\": [{\"type\": \"code\", \"ref\": \"CHANGELOG.rst:266\", \"quote\": \"Fixed internal error when test functions were patched with objects that cannot be compared\"},\n                   {\"type\": \"code\", \"ref\": \"CHANGELOG.rst:156\", \"quote\": \"pytest 5.1.0 (2019-08-15)\"}]},\n    {\"id\": \"c4\", \"role\": \"other\", \"text\": \"A regression test covers patching with a numpy-like object whose __eq__ raises.\",\n     \"citations\": [{\"type\": \"code\", \"ref\": \"testing/python/integration.py:192\", \"quote\": \"raise ValueError(\\\"like numpy, cannot compare against others for truth\\\")\"}]},\n    {\"id\": \"c5\", \"role\": \"impact\", \"text\": \"The reporter on pytest 3.6.0 saw collection fail for a test patched with a numpy array.\",\n     \"citations\": [{\"type\": \"evidence\", \"ref\": \"ev_s6\", \"quote\": \"This works fine with pytest 3.1.3, but when using pytest 3.6.0 the following error is received upon collection\"}]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"The current code still crashes on numpy-like patch values\", \"why\": \"Run directly with --assert=plain, the regression test's files pass ('1 passed'), and num_mock_patch_args returned 0 without raising.\",\n     \"citations\": [{\"type\": \"code\", \"ref\": \"src/_pytest/compat.py:85\", \"quote\": \"and (p.new is mock_sentinel or p.new is ut_mock_sentinel)\"}]}\n  ],\n  \"plain\": {\n    \"headline\": \"Test files that swapped in a numpy array as a stand-in value crashed pytest before any test ran; pytest 5.1.0 and later no longer crash.\",\n    \"happened\": \"While reading a test file, pytest checks which test inputs come from stand-in values set up by the test's decorators. Older versions did this by asking whether each stand-in value was equal to a special marker. A numpy array can't answer that with a plain yes or no, so pytest crashed. Since version 5.1.0, pytest asks whether the value is that exact marker instead, which works for any value.\",\n    \"matters\": \"Anyone still on a pytest version older than 5.1.0 who uses numpy arrays as stand-in values can't run those test files.\",\n    \"fix\": \"No code change is needed; the person should upgrade pytest to 5.1.0 or later.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 13,
+  "inputTokens": {
+   "avg": 17611.30769230769,
+   "max": 23243
+  },
+  "mainUsage": {
+   "inputTokens": 228947,
+   "cachedInputTokens": 212698,
+   "outputTokens": 8708
+  },
+  "cacheHitPercent": 92.90272421128034,
+  "wallSeconds": 125.13699984550476,
+  "tools": {
+   "read": 5,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 9
+  },
+  "reads": 5,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.29791460000000003,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.29791460000000003
+}

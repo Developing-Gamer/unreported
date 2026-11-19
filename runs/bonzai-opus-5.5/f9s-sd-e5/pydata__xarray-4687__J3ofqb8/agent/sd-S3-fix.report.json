@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 66865,
+ "finalText": "`xr.where` now takes a `keep_attrs` argument. `keep_attrs=True` keeps `x`'s attributes, and the default still follows the global `keep_attrs` option, which drops them unless set. The new test `test_where_attrs` failed on the starting code and passes now. I re-checked the working tree: the PR text is at `.factory/pr-S3.md`, and nothing is committed or pushed, as the benchmark note required.\n\n- **Changed files:** the code change is in `xarray/core/computation.py`, the test in `xarray/tests/test_computation.py`, and a \"Bug fixes\" entry in `doc/whats-new.rst`.\n- **Other modified files:** `xarray/backends/plugins.py` and `xarray/tests/test_plugins.py` show as modified, but those changes were already in the working tree and are not mine. They look like the backend-priority fix from open PR #1000. I left them alone, but they would end up in the diff if you commit everything.\n- **Checks:** the 132 `where`-related tests in `test_computation.py` and `test_units.py` pass. `test_dataarray.py` and `test_dataset.py` couldn't run here because of an unrelated pandas import error.\n- **Test command:** I ran it with `/opt/miniconda3/envs/testbed/bin/python`, because the default `python` has no pytest. The JSON report below spells it `python -m pytest`.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"visual\": false,\n  \"checks\": [\n    {\"command\": \"python -m pytest xarray/tests/test_computation.py -k where_attrs -x -q\", \"passed\": true},\n    {\"command\": \"python -m pytest xarray/tests/test_computation.py xarray/tests/test_units.py -k where -q\", \"passed\": true}\n  ],\n  \"reproductionSteps\": \"Run xr.where(cond, x, y) under set_options(keep_attrs=True) where cond and x have different attrs: the result carries cond's attrs (or {} by default) instead of x's, and xr.where had no keep_attrs argument.\",\n  \"reproductionTest\": {\n    \"path\": \"xarray/tests/test_computation.py\",\n    \"command\": \"python -m pytest xarray/tests/test_computation.py -k where_attrs -x -q\",\n    \"signature\": \"AssertionError: assert {'attr': 'cond'} == {'attr': 'x'}\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 17,
+  "inputTokens": {
+   "avg": 25952,
+   "max": 32116
+  },
+  "mainUsage": {
+   "inputTokens": 441184,
+   "cachedInputTokens": 422946,
+   "outputTokens": 6782
+  },
+  "cacheHitPercent": 95.86612388481903,
+  "wallSeconds": 65.625,
+  "tools": {
+   "read": 12,
+   "edit": 8,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 4
+  },
+  "reads": 12,
+  "edits": 8,
+  "runs": 4,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 3,
+   "readFileIgnoringRange": 2
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 5,
+  "editOperations": 8,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.19798519999999997,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.19798519999999997
+}

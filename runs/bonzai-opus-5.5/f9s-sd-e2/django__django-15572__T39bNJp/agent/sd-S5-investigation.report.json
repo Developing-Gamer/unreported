@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 79620,
+ "finalText": "The cause is in this repository: a filter like \"active AND (email OR SMS)\" comes out as \"active AND email AND SMS\". That is why the saved search only shows customers who have both email and SMS turned on. I tested it in the throwaway copy and changed nothing in the repository.\n\n**Cause:** The shared code that joins filter conditions is `Node.add` in `django/utils/tree.py`. At line 107 it merges a group of conditions into its parent when the parent has one condition (`len(self) == 1`). It should look at the size of the group being added (`len(data) == 1`). When the search adds \"active\" and then the \"email OR SMS\" group, the parent already holds one condition. So the group's two conditions get merged in as required conditions and the OR is lost.\n\n**What I ran:**\n- **Reproduced on the current code:** `Q(is_active=True) & (Q(email_enabled=True) | Q(sms_enabled=True))` prints `(AND: ('is_active', True), (AND: ('email_enabled', True)), ('sms_enabled', True))`, so all three conditions are required.\n- **Existing tests fail now:** `queries.test_q` `test_deconstruct_or` and `test_deconstruct_xor`.\n- **With the fix:** after changing the check to `len(data) == 1`, the same filter keeps its OR group, and the tree tests plus the full `queries` suite pass (460 tests).\n\n**Was it deliberate?** No. The comment next to the check describes the correct rule (\"if the length of the other node is 1 the connector doesn't matter\"), and two existing tests expect the correct result. The repository has only one snapshot commit, so I can't say when it changed.\n\n**Fix:** Change that one check back, and add a test that \"A AND (B OR C)\" keeps its OR group.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"OR filters inside AND turn into AND\",\n  \"cause\": \"Node.add in django/utils/tree.py merges a child group into its parent when the parent has one child (len(self) == 1) instead of when the child has one (len(data) == 1). So Q(is_active=True) & (Q(email)|Q(sms)) merges the OR group's conditions into the AND node, and only customers with both email and SMS enabled match.\",\n  \"files\": [\n    {\"path\": \"django/utils/tree.py\", \"why\": \"Node.add checks len(self) == 1 at line 107 where it should check len(data) == 1, which merges OR groups into AND parents\"},\n    {\"path\": \"tests/utils_tests/test_tree.py\", \"why\": \"Add a test that mixed AND/OR combining keeps the inner OR group\"}\n  ],\n  \"plan\": [\n    \"In Node.add, change the merge condition `len(self) == 1` to `len(data) == 1`\",\n    \"Add a test asserting str(Q(a=1) & (Q(b=1) | Q(c=1))) == \\\"(AND: ('a', 1), (OR: ('b', 1), ('c', 1)))\\\"\",\n    \"Run utils_tests.test_tree and the queries suite\"\n  ],\n  \"verification\": [\n    \"On the current code, queries.test_q.test_deconstruct_or and test_deconstruct_xor fail\",\n    \"After the one-line change, utils_tests.test_tree plus the queries suite pass (460 tests, OK) in the probe copy\",\n    \"Q(is_active=True) & (Q(email_enabled=True) | Q(sms_enabled=True)) prints (AND: ('is_active', True), (OR: ('email_enabled', True), ('sms_enabled', True)))\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.95,\n  \"fixType\": \"silentFailure\",\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"Node.add merges the incoming node's children whenever the receiving node has exactly one child, ignoring the incoming node's OR connector.\", \"role\": \"rootCause\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"django/utils/tree.py:107\", \"quote\": \"and (data.connector == conn_type or len(self) == 1)\"},\n      {\"type\": \"code\", \"ref\": \"django/utils/tree.py:111\", \"quote\": \"# if the length of the other node is 1 the connector doesn't\"}\n    ]},\n    {\"id\": \"c2\", \"text\": \"Q._combine adds the left operand and then the right operand to a fresh node, so after the first add the node has one child and the OR group gets merged in.\", \"role\": \"rootCause\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"django/db/models/query_utils.py:65\", \"quote\": \"obj.add(other, conn)\"},\n      {\"type\": \"query\", \"ref\": \"probe:python\", \"quote\": \"(AND: ('is_active', True), (AND: ('email_enabled', True)), ('sms_enabled', True))\"}\n    ]},\n    {\"id\": \"c3\", \"text\": \"A saved search for active customers with email or SMS now returns only customers who have both enabled.\", \"role\": \"impact\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s5\", \"quote\": \"now only shows customers who have both enabled. Customers with just one contact option are missing.\"}\n    ]},\n    {\"id\": \"c4\", \"text\": \"Existing Q deconstruct tests fail on the current code, and the queries and tree suites pass once the check is len(data) == 1.\", \"role\": \"other\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:runtests\", \"quote\": \"FAIL: test_deconstruct_or (queries.test_q.QTests.test_deconstruct_or)\"},\n      {\"type\": \"query\", \"ref\": \"probe:runtests\", \"quote\": \"OK (skipped=9, expected failures=2)\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"Q.__or__ / Q._combine passes the wrong connector\", \"why\": \"__or__ passes self.OR, and _combine sets obj.connector = conn correctly; the merge in Node.add is what goes wrong\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"django/db/models/query_utils.py:69\", \"quote\": \"return self._combine(other, self.OR)\"}\n    ]}\n  ],\n  \"intendedBehavior\": \"Q(is_active=True) & (Q(email_enabled=True) | Q(sms_enabled=True)) matches active customers who have email or SMS enabled, including those with only one of them.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"The comment beside the check says merging is allowed when the length of the other node is 1, and existing tests test_deconstruct_or and test_deconstruct_xor expect the correct structure and fail on the current code.\"},\n  \"plain\": {\n    \"headline\": \"Saved customer searches that use 'email or SMS' only show customers with both turned on, because the filter's 'or' part is being turned into 'and'.\",\n    \"happened\": \"The search asks for active customers who have email or SMS turned on. When the product joins the 'active' rule with the 'email or SMS' rule, it flattens them into one list and treats every rule as required. So only customers with both email and SMS turned on are returned.\",\n    \"matters\": \"Any filter that mixes 'and' with an 'or' group silently drops matching customers, so lists and campaigns miss people without anyone seeing an error.\",\n    \"fix\": \"Correct the one check that decides when a group of rules can be flattened, so 'or' groups are kept intact, and add a test for this case.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 9,
+  "inputTokens": {
+   "avg": 18077.11111111111,
+   "max": 24386
+  },
+  "mainUsage": {
+   "inputTokens": 162694,
+   "cachedInputTokens": 145312,
+   "outputTokens": 7557
+  },
+  "cacheHitPercent": 89.3161395011494,
+  "wallSeconds": 79.10700011253357,
+  "tools": {
+   "read": 4,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 4
+  },
+  "reads": 4,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.2670904,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.2670904
+}

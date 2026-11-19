@@ -1,0 +1,146 @@
+diff --git a/astropy/io/ascii/core.py b/astropy/io/ascii/core.py
+index 381b5b13d..0ae6d5053 100755
+--- a/astropy/io/ascii/core.py
++++ b/astropy/io/ascii/core.py
+@@ -1231,7 +1231,8 @@ class MetaBaseReader(type):
+                 + re.sub(".", "=", header)
+                 + "\n"
+             )
+-            func.__doc__ += inspect.cleandoc(cls.__doc__).strip()
++            # cls.__doc__ is None when docstrings are stripped (python -OO)
++            func.__doc__ += inspect.cleandoc(cls.__doc__ or "").strip()
+             connect.io_registry.register_reader(io_format, Table, func)
+ 
+             if dct.get("_io_registry_can_write", True):
+@@ -1244,7 +1245,7 @@ class MetaBaseReader(type):
+                     + re.sub(".", "=", header)
+                     + "\n"
+                 )
+-                func.__doc__ += inspect.cleandoc(cls.__doc__).strip()
++                func.__doc__ += inspect.cleandoc(cls.__doc__ or "").strip()
+                 connect.io_registry.register_writer(io_format, Table, func)
+ 
+ 
+diff --git a/astropy/io/ascii/rst.py b/astropy/io/ascii/rst.py
+index abdeba8ef..a9409ee70 100755
+--- a/astropy/io/ascii/rst.py
++++ b/astropy/io/ascii/rst.py
+@@ -57,10 +57,15 @@ class RST(FixedWidth):
+     data_class = SimpleRSTData
+     header_class = SimpleRSTHeader
+ 
+-    def __init__(self):
+-        super().__init__(delimiter_pad=None, bookend=False)
++    def __init__(self, header_rows=None):
++        super().__init__(delimiter_pad=None, bookend=False, header_rows=header_rows)
+ 
+     def write(self, lines):
+         lines = super().write(lines)
+-        lines = [lines[1]] + lines + [lines[1]]
++        idx = len(self.header.header_rows)
++        lines = [lines[idx]] + lines + [lines[idx]]
+         return lines
++
++    def read(self, table):
++        self.data.start_line = 2 + len(self.header.header_rows)
++        return super().read(table)
+diff --git a/astropy/io/ascii/tests/test_connect.py b/astropy/io/ascii/tests/test_connect.py
+index 498be4141..0b41a7e73 100755
+--- a/astropy/io/ascii/tests/test_connect.py
++++ b/astropy/io/ascii/tests/test_connect.py
+@@ -144,3 +144,17 @@ def test_auto_identify_ecsv(tmp_path):
+     tbl.write(tmpfile)
+     tbl2 = Table.read(tmpfile)
+     assert np.all(tbl == tbl2)
++
++
++def test_import_with_docstrings_stripped():
++    """Regression test: importing io.ascii must work under ``python -OO``,
++    where class docstrings are None."""
++    import subprocess
++    import sys
++
++    result = subprocess.run(
++        [sys.executable, "-OO", "-c", "import astropy.io.ascii"],
++        capture_output=True,
++        text=True,
++    )
++    assert result.returncode == 0, result.stderr
+diff --git a/astropy/io/ascii/tests/test_rst.py b/astropy/io/ascii/tests/test_rst.py
+index 84d6fed40..be1ab881a 100755
+--- a/astropy/io/ascii/tests/test_rst.py
++++ b/astropy/io/ascii/tests/test_rst.py
+@@ -2,7 +2,11 @@
+ 
+ from io import StringIO
+ 
++import numpy as np
++
++from astropy import units as u
+ from astropy.io import ascii
++from astropy.table import QTable
+ 
+ from .common import assert_almost_equal, assert_equal
+ 
+@@ -185,3 +189,27 @@ Col1      Col2 Col3 Col4
+ ==== ========= ==== ====
+ """,
+     )
++
++
++def test_rst_with_header_rows():
++    """Round-trip a table with an extra unit row"""
++    lines = [
++        "======= ======== ====",
++        "   wave response ints",
++        "     nm       ct     ",
++        "float64  float32 int8",
++        "======= ======== ====",
++        "  350.0      1.0    1",
++        "  950.0      2.0    2",
++        "======= ======== ====",
++    ]
++    tbl = QTable.read(lines, format="ascii.rst", header_rows=["name", "unit", "dtype"])
++    assert tbl["wave"].unit == u.nm
++    assert tbl["response"].unit == u.ct
++    assert tbl["wave"].dtype == np.float64
++    assert tbl["response"].dtype == np.float32
++    assert tbl["ints"].dtype == np.int8
++
++    out = StringIO()
++    tbl.write(out, format="ascii.rst", header_rows=["name", "unit", "dtype"])
++    assert out.getvalue().splitlines() == lines
+diff --git a/astropy/timeseries/core.py b/astropy/timeseries/core.py
+index ff91e83e1..664578aee 100755
+--- a/astropy/timeseries/core.py
++++ b/astropy/timeseries/core.py
+@@ -80,7 +80,7 @@ class BaseTimeSeries(QTable):
+                     " series has no columns"
+                 )
+ 
+-            elif not set(required_columns).issubset(self.colnames):
++            elif self.colnames[: len(required_columns)] != required_columns:
+                 raise ValueError(
+                     f"{self.__class__.__name__} object is invalid - expected"
+                     f" {as_scalar_or_list_str(required_columns)} as the first"
+diff --git a/astropy/timeseries/tests/test_sampled.py b/astropy/timeseries/tests/test_sampled.py
+index 6179b28c2..99d1fe13e 100755
+--- a/astropy/timeseries/tests/test_sampled.py
++++ b/astropy/timeseries/tests/test_sampled.py
+@@ -452,6 +452,16 @@ def test_required_columns():
+     with pytest.raises(ValueError, match=MESSAGE):
+         ts_2cols_required.remove_column("a")
+ 
++    # Required columns must come first and in order, not merely be present.
++    MESSAGE = (
++        r"TimeSeries object is invalid - expected \['time', 'a'\] as the first columns"
++        r" but found \['time', 'b2'\]"
++    )
++    ts_2cols_required = ts.copy()
++    ts_2cols_required._required_columns = ["time", "a"]
++    with pytest.raises(ValueError, match=MESSAGE):
++        ts_2cols_required.add_column(Column([3, 4, 5], name="b2"), index=1)
++
+ 
+ @pytest.mark.parametrize("cls", [BoxLeastSquares, LombScargle])
+ def test_periodogram(cls):

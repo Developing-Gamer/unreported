@@ -1,0 +1,42 @@
+[
+  {
+    "source": "S1",
+    "decision": "skip",
+    "reason": "Self-Driving verdict unknown: "
+  },
+  {
+    "source": "S2",
+    "decision": "skip",
+    "reason": "Self-Driving verdict unknown: "
+  },
+  {
+    "source": "S3",
+    "decision": "skip",
+    "reason": "Self-Driving verdict unknown: "
+  },
+  {
+    "source": "S4",
+    "decision": "skip",
+    "reason": "Self-Driving verdict unknown: "
+  },
+  {
+    "source": "S5",
+    "decision": "skip",
+    "reason": "Self-Driving verdict unknown: "
+  },
+  {
+    "source": "S6",
+    "decision": "skip",
+    "reason": "Self-Driving verdict unknown: "
+  },
+  {
+    "source": "S7",
+    "decision": "fix",
+    "reason": "The category converter treats an empty array as 'all numbers' because all() over zero items is True, so it emits the 3.5 'numbers passed through unit converters' deprecation warning. Under warnings-as"
+  },
+  {
+    "source": "S8",
+    "decision": "skip",
+    "reason": "Self-Driving verdict unknown: "
+  }
+]

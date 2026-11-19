@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 53829,
+ "finalText": "`server_error` no longer hides a broken `500.html` behind the generic \"Server Error (500)\" page. The change is uncommitted in the working tree, and the PR text is at `.factory/pr-S2.md`.\n\nIf `500.html` exists but a template it extends or includes is missing, `server_error` now raises `TemplateDoesNotExist`. The generic page is still returned only when `500.html` itself is missing. A missing custom template name is still re-raised. The new test, `test_server_error_broken_template` in `tests/view_tests/tests/test_defaults.py`, failed before the fix with `AssertionError: TemplateDoesNotExist not raised` and passes now.\n\nI ran `runtests.py view_tests.tests.test_defaults` before and after the change. After it, `runtests.py view_tests handlers` gave 199 tests OK, 2 skipped. I did not re-run anything after the last check.\n\n`django/utils/dateformat.py` and `tests/utils_tests/test_dateformat.py` were already modified when I started. I left them alone. They match open PR #1000, which does not cover this bug.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"command\": \"cd tests && PYTHONPATH=/testbed python runtests.py view_tests.tests.test_defaults\", \"passed\": true},\n    {\"command\": \"cd tests && PYTHONPATH=/testbed python runtests.py view_tests handlers\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"reproductionSteps\": [\n    \"Configure TEMPLATES with a 500.html that does {% extends \\\"nonexistent_base.html\\\" %}\",\n    \"Call django.views.defaults.server_error(request)\",\n    \"Before the fix it returns the generic 'Server Error (500)' page; after the fix it raises TemplateDoesNotExist\"\n  ],\n  \"reproductionTest\": {\n    \"path\": \"tests/view_tests/tests/test_defaults.py\",\n    \"command\": \"cd tests && PYTHONPATH=/testbed python runtests.py view_tests.tests.test_defaults\",\n    \"signature\": \"AssertionError: TemplateDoesNotExist not raised\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 11,
+  "inputTokens": {
+   "avg": 23949.363636363636,
+   "max": 27973
+  },
+  "mainUsage": {
+   "inputTokens": 263443,
+   "cachedInputTokens": 249360,
+   "outputTokens": 4712
+  },
+  "cacheHitPercent": 94.65425158383407,
+  "wallSeconds": 52.664000034332275,
+  "tools": {
+   "read": 5,
+   "edit": 4,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 4
+  },
+  "reads": 5,
+  "edits": 4,
+  "runs": 4,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 4,
+  "editOperations": 4,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.13218649999999998,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.13218649999999998
+}

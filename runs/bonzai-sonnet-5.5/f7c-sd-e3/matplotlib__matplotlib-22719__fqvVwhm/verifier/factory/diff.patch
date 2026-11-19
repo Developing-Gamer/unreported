@@ -1,0 +1,229 @@
+diff --git a/lib/matplotlib/_text_helpers.py b/lib/matplotlib/_text_helpers.py
+index 75d84997be..c37fe5a1fb 100644
+--- a/lib/matplotlib/_text_helpers.py
++++ b/lib/matplotlib/_text_helpers.py
+@@ -66,3 +66,19 @@ def layout(string, font, *, kern_mode=KERNING_DEFAULT):
+         yield LayoutItem(char, glyph_idx, x, kern)
+         x += glyph.linearHoriAdvance / 65536
+         prev_glyph_idx = glyph_idx
++
++
++def layout_width(string, font, *, kern_mode=KERNING_DEFAULT):
++    """
++    Return the width, in pixels, of *string* when laid out by `layout`.
++
++    This is the x position at which the next glyph would be placed after the
++    last character, so it is consistent with the glyph positions used when
++    drawing the text.
++    """
++    x = 0
++    for item in layout(string, font, kern_mode=kern_mode):
++        # layout() leaves the font's current glyph set to item's glyph.
++        glyph = font.load_glyph(item.glyph_idx, flags=LOAD_NO_HINTING)
++        x = item.x + glyph.linearHoriAdvance / 65536
++    return x
+diff --git a/lib/matplotlib/backends/_backend_pdf_ps.py b/lib/matplotlib/backends/_backend_pdf_ps.py
+index 440c9ea489..6f375a86a9 100644
+--- a/lib/matplotlib/backends/_backend_pdf_ps.py
++++ b/lib/matplotlib/backends/_backend_pdf_ps.py
+@@ -8,7 +8,7 @@ import functools
+ from fontTools import subset
+ 
+ import matplotlib as mpl
+-from .. import font_manager, ft2font
++from .. import _text_helpers, font_manager, ft2font
+ from .._afm import AFM
+ from ..backend_bases import RendererBase
+ 
+@@ -69,6 +69,8 @@ class CharacterTracker:
+ 
+ 
+ class RendererPDFPSBase(RendererBase):
++    # FreeType kerning mode used by draw_text; also used to measure text.
++    _kern_mode = ft2font.KERNING_DEFAULT
+     # The following attributes must be defined by the subclasses:
+     # - _afm_font_dir
+     # - _use_afm_rc_name
+@@ -120,9 +122,12 @@ class RendererPDFPSBase(RendererBase):
+             w, h = font.get_width_height()
+             d = font.get_descent()
+             scale = 1 / 64
+-            w *= scale
+             h *= scale
+             d *= scale
++            # Measure the width with the same layout as used by draw_text, so
++            # that the measured and drawn widths agree (set_text uses
++            # grid-fitted kerning and truncated advances).
++            w = _text_helpers.layout_width(s, font, kern_mode=self._kern_mode)
+             return w, h, d
+ 
+     def _get_font_afm(self, prop):
+diff --git a/lib/matplotlib/backends/backend_pdf.py b/lib/matplotlib/backends/backend_pdf.py
+index b6ae9cf066..45e18f026c 100644
+--- a/lib/matplotlib/backends/backend_pdf.py
++++ b/lib/matplotlib/backends/backend_pdf.py
+@@ -1887,6 +1887,7 @@ end"""
+ 
+ 
+ class RendererPdf(_backend_pdf_ps.RendererPDFPSBase):
++    _kern_mode = KERNING_UNFITTED
+ 
+     _afm_font_dir = cbook._get_data_path("fonts/pdfcorefonts")
+     _use_afm_rc_name = "pdf.use14corefonts"
+@@ -2353,7 +2354,7 @@ class RendererPdf(_backend_pdf_ps.RendererPDFPSBase):
+             multibyte_glyphs = []
+             prev_was_multibyte = True
+             for item in _text_helpers.layout(
+-                    s, font, kern_mode=KERNING_UNFITTED):
++                    s, font, kern_mode=self._kern_mode):
+                 if _font_supports_glyph(fonttype, ord(item.char)):
+                     if prev_was_multibyte:
+                         singlebyte_chunks.append((item.x, []))
+diff --git a/lib/matplotlib/bezier.py b/lib/matplotlib/bezier.py
+index 60f344d39f..1c92487b9b 100644
+--- a/lib/matplotlib/bezier.py
++++ b/lib/matplotlib/bezier.py
+@@ -161,8 +161,7 @@ def find_bezier_t_intersecting_with_closedpath(
+     while True:
+ 
+         # return if the distance is smaller than the tolerance
+-        if ((start[0] - end[0]) ** 2
+-                + (start[1] - end[1]) ** 2) < tolerance:
++        if np.hypot(start[0] - end[0], start[1] - end[1]) < tolerance:
+             return t0, t1
+ 
+         # calculate the middle point
+diff --git a/lib/matplotlib/category.py b/lib/matplotlib/category.py
+index c823b68fd9..88ab161603 100644
+--- a/lib/matplotlib/category.py
++++ b/lib/matplotlib/category.py
+@@ -53,6 +53,10 @@ class StrCategoryConverter(units.ConversionInterface):
+         StrCategoryConverter._validate_unit(unit)
+         # dtype = object preserves numerical pass throughs
+         values = np.atleast_1d(np.array(value, dtype=object))
++        # empty input has no categories to map and no numbers being passed
++        # through, so there is nothing to warn about
++        if values.size == 0:
++            return np.asarray(values, dtype=float)
+         # pass through sequence of non binary numbers
+         with _api.suppress_matplotlib_deprecation_warning():
+             is_numlike = all(units.ConversionInterface.is_numlike(v)
+diff --git a/lib/matplotlib/tests/baseline_images/test_text/multiline.pdf b/lib/matplotlib/tests/baseline_images/test_text/multiline.pdf
+index 14d313a755..ceefff82de 100644
+Binary files a/lib/matplotlib/tests/baseline_images/test_text/multiline.pdf and b/lib/matplotlib/tests/baseline_images/test_text/multiline.pdf differ
+diff --git a/lib/matplotlib/tests/baseline_images/test_text/text_alignment.pdf b/lib/matplotlib/tests/baseline_images/test_text/text_alignment.pdf
+index 1c3b6a27b7..4bb2ae9e1a 100644
+Binary files a/lib/matplotlib/tests/baseline_images/test_text/text_alignment.pdf and b/lib/matplotlib/tests/baseline_images/test_text/text_alignment.pdf differ
+diff --git a/lib/matplotlib/tests/test_backend_pdf.py b/lib/matplotlib/tests/test_backend_pdf.py
+index 092fe0565c..9f0b556bf1 100644
+--- a/lib/matplotlib/tests/test_backend_pdf.py
++++ b/lib/matplotlib/tests/test_backend_pdf.py
+@@ -11,7 +11,7 @@ import pytest
+ import matplotlib as mpl
+ from matplotlib import pyplot as plt, checkdep_usetex, rcParams
+ from matplotlib.cbook import _get_data_path
+-from matplotlib.ft2font import FT2Font
++from matplotlib.ft2font import FT2Font, LOAD_NO_HINTING
+ from matplotlib.backends._backend_pdf_ps import get_glyphs_subset
+ from matplotlib.backends.backend_pdf import PdfPages
+ from matplotlib.patches import Rectangle
+@@ -351,3 +351,29 @@ def test_glyphs_subset():
+ 
+     # since both objects are assigned same characters
+     assert subfont.get_num_glyphs() == nosubfont.get_num_glyphs()
++
++
++@pytest.mark.parametrize("family", ["DejaVu Sans", "cmr10"])
++@pytest.mark.parametrize("backend", ["pdf", "ps"])
++def test_text_width_matches_layout(family, backend):
++    # The measured width of a string must match the width of the glyphs
++    # actually emitted by draw_text, so that alignment is exact.
++    from matplotlib import _text_helpers
++    from matplotlib.backends import backend_pdf, backend_ps
++    from matplotlib.ft2font import KERNING_DEFAULT, KERNING_UNFITTED
++    from matplotlib.font_manager import FontProperties
++
++    prop = FontProperties(family=family, size=10)
++    if backend == "pdf":
++        renderer = backend_pdf.RendererPdf(None, 72, 100, 100)
++        kern_mode = KERNING_UNFITTED
++    else:
++        renderer = backend_ps.RendererPS(100, 100, io.StringIO())
++        kern_mode = KERNING_DEFAULT
++    s = "AVAWA To Ty. Yo " * 20
++    w, h, d = renderer.get_text_width_height_descent(s, prop, False)
++    font = renderer._get_font_ttf(prop)
++    items = list(_text_helpers.layout(s, font, kern_mode=kern_mode))
++    expected = items[-1].x + font.load_glyph(
++        items[-1].glyph_idx, flags=LOAD_NO_HINTING).linearHoriAdvance / 65536
++    assert w == pytest.approx(expected, abs=1e-6)
+diff --git a/lib/matplotlib/tests/test_bezier.py b/lib/matplotlib/tests/test_bezier.py
+new file mode 100644
+index 0000000000..2a2cc50479
+--- /dev/null
++++ b/lib/matplotlib/tests/test_bezier.py
+@@ -0,0 +1,37 @@
++"""
++Tests specific to the bezier module.
++"""
++
++import numpy as np
++
++from matplotlib.bezier import (
++    find_bezier_t_intersecting_with_closedpath, split_path_inout)
++from matplotlib.path import Path
++
++
++def test_find_bezier_t_tolerance_is_a_distance():
++    def point_at_t(t):
++        return (10 * t, 0.)
++
++    def inside(p):
++        return np.hypot(p[0], p[1]) < 7.3
++
++    tolerance = 0.01
++    t0, t1 = find_bezier_t_intersecting_with_closedpath(
++        point_at_t, inside, tolerance=tolerance)
++    start, end = point_at_t(t0), point_at_t(t1)
++    assert np.hypot(start[0] - end[0], start[1] - end[1]) < tolerance
++    assert abs(start[0] - 7.3) < tolerance
++    assert abs(end[0] - 7.3) < tolerance
++
++
++def test_split_path_inout_reaches_border():
++    path = Path([(0, 0), (10, 0)])
++    radius = 7.3
++
++    def inside(p):
++        return np.hypot(p[0], p[1]) < radius
++
++    tolerance = 0.01
++    _, right = split_path_inout(path, inside, tolerance=tolerance)
++    assert abs(right.vertices[0, 0] - radius) < tolerance / 2 + 1e-9
+diff --git a/lib/matplotlib/tests/test_category.py b/lib/matplotlib/tests/test_category.py
+index f0e424bd8e..19dbdfd7d2 100644
+--- a/lib/matplotlib/tests/test_category.py
++++ b/lib/matplotlib/tests/test_category.py
+@@ -1,4 +1,6 @@
+ """Catch all for categorical functions"""
++import warnings
++
+ import pytest
+ import numpy as np
+ 
+@@ -312,3 +314,15 @@ def test_hist():
+     n, bins, patches = ax.hist(['a', 'b', 'a', 'c', 'ff'])
+     assert n.shape == (10,)
+     np.testing.assert_allclose(n, [2., 0., 0., 1., 0., 0., 1., 0., 0., 1.])
++
++
++def test_empty_data_no_deprecation_warning():
++    # Empty data on a category axis is not "numbers passed through".
++    fig, ax = plt.subplots()
++    ax.plot(['a', 'b'], [1, 2])
++    with warnings.catch_warnings():
++        warnings.simplefilter('error', MatplotlibDeprecationWarning)
++        ax.plot([], [])
++        res = ax.xaxis.convert_units(np.array([]))
++    assert res.shape == (0,)
++    assert res.dtype == float

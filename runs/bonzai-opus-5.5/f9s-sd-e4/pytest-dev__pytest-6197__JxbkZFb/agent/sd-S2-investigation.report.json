@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 98122,
+ "finalText": "I checked the work against the request again and it holds: the cause is in this repository and it's fixable. I made no edits, and everything I ran was in the throwaway copy.\n\n**What people see:** when a test already has a skip mark, the reason your plugin adds is ignored and the old default environment reason is shown. Tests with no skip mark show the plugin's reason correctly, which matches the support message.\n\n**Cause:** when a marker is added with `append=False`, it should go first in the list, as its docstring (\"insert at position 0\") says. The code puts it second instead: `self.own_markers.insert(1, marker_.mark)` at `src/_pytest/nodes.py:198`. The skip code (`src/_pytest/skipping.py:77`) uses the first skip mark it finds. So when a skip mark already exists, it stays in front and its reason wins. When there are no marks yet, second place is the only place, so those tests look fine.\n\n**What I ran:**\n- **Reproduction:** a conftest called `add_marker(pytest.mark.skip(reason=\"case-specific\"), append=False)` on two tests. The pre-marked test kept `[{'reason': 'default env reason'}, {'reason': 'case-specific'}]` and reported `SKIPPED [1] test_x.py:2: default env reason`. The unmarked test reported `SKIPPED [1] test_x.py: case-specific`.\n- **Existing test:** `testing/test_mark.py::test_addmarker_order` expects the inserted mark to come first, and it fails on the current code.\n- The git history is a single \"Snapshot\" commit, so I can't tell when this was introduced. There is no open pull request for it.\n\n**Fix:** change `insert(1, \u2026)` to `insert(0, \u2026)` and add a skip test that combines an existing skip mark with a plugin-added one. This is small and low-risk.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Plugin skip reason ignored when a test already has one\",\n  \"cause\": \"Node.add_marker(..., append=False) inserts the new mark at index 1 of own_markers instead of index 0, which contradicts its own docstring. When a test already has a skip mark, the plugin's mark lands after it. skipping.py uses the first skip mark it finds, so the old default reason is shown. With no existing marks, index 1 behaves like append, which is why unmarked tests look correct.\",\n  \"files\": [\n    {\"path\": \"src/_pytest/nodes.py\", \"why\": \"add_marker inserts at position 1 instead of 0 when append=False\"},\n    {\"path\": \"src/_pytest/skipping.py\", \"why\": \"uses the first skip mark returned by iter_markers, so the order decides which reason is shown\"},\n    {\"path\": \"testing/test_mark.py\", \"why\": \"test_addmarker_order already asserts the intended order and fails today\"}\n  ],\n  \"plan\": [\n    \"In Node.add_marker, change self.own_markers.insert(1, marker_.mark) to self.own_markers.insert(0, marker_.mark)\",\n    \"Add a test in testing/test_skipping.py: a test with @pytest.mark.skip(reason='a') plus a conftest adding skip(reason='b') with append=False reports reason 'b'\",\n    \"Add a changelog entry\"\n  ],\n  \"verification\": [\n    \"testing/test_mark.py::test_addmarker_order passes (it fails today)\",\n    \"New skip-reason test passes; testing/test_mark.py and testing/test_skipping.py pass in full\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.95,\n  \"fixType\": \"silentFailure\",\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"add_marker with append=False inserts at index 1 rather than index 0, contrary to its docstring.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"src/_pytest/nodes.py:198\", \"quote\": \"self.own_markers.insert(1, marker_.mark)\"},\n      {\"type\": \"code\", \"ref\": \"src/_pytest/nodes.py:184\", \"quote\": \"if ``False`` insert at position ``0``.\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"rootCause\", \"text\": \"The skip logic uses the first skip mark it finds, so a pre-existing skip mark placed before the plugin's mark wins.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"src/_pytest/skipping.py:77\", \"quote\": \"for skip_info in item.iter_markers(name=\\\"skip\\\"):\"},\n      {\"type\": \"query\", \"ref\": \"probe\", \"quote\": \"test_a [{'reason': 'default env reason'}, {'reason': 'case-specific'}]\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"impact\", \"text\": \"A test that already had a skip mark reports the old reason, while an unmarked test reports the plugin's reason, matching the support message.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe\", \"quote\": \"SKIPPED [1] test_x.py:2: default env reason\"},\n      {\"type\": \"evidence\", \"ref\": \"ev_s2\", \"quote\": \"Some skipped tests still display the default environment reason instead of the case-specific reason supplied by our plugin.\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"other\", \"text\": \"The project's own test expects the inserted mark to come first, and it fails on the current code.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"testing/test_mark.py:949\", \"quote\": \"assert extracted == [\\\"baz\\\", \\\"foo\\\", \\\"bar\\\"]\"},\n      {\"type\": \"query\", \"ref\": \"probe\", \"quote\": \"FAILED testing/test_mark.py::test_addmarker_order - AssertionError\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"Skip reason selection in skipping.py is wrong\", \"why\": \"It correctly takes the closest/first skip mark; the wrong order comes from add_marker's insert index.\", \"citations\": [{\"type\": \"code\", \"ref\": \"src/_pytest/skipping.py:79\", \"quote\": \"if \\\"reason\\\" in skip_info.kwargs:\"}]}\n  ],\n  \"intendedBehavior\": \"A marker added with add_marker(..., append=False) comes before all of the node's existing markers, so a plugin-supplied skip reason replaces an existing skip mark's reason.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"The docstring says append=False inserts at position 0, and test_addmarker_order asserts the inserted mark comes first; index 1 contradicts both.\"},\n  \"plain\": {\n    \"headline\": \"Tests that already had a skip note keep showing the old reason because the plugin's reason is filed second instead of first.\",\n    \"happened\": \"The team's plugin asks the test tool to put its own skip reason in front of any existing one. The test tool puts it in second place instead. When a test already had a skip reason, that old reason stays first and is the one shown.\",\n    \"matters\": \"Every test that already had a skip reason shows the generic one instead of the specific reason from the plugin, which misleads people reading CI results.\",\n    \"fix\": \"Make the test tool put the plugin's reason first, as its own documentation promises.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 13,
+  "inputTokens": {
+   "avg": 18058.76923076923,
+   "max": 24401
+  },
+  "mainUsage": {
+   "inputTokens": 234764,
+   "cachedInputTokens": 217359,
+   "outputTokens": 8072
+  },
+  "cacheHitPercent": 92.58617164471555,
+  "wallSeconds": 96.90699982643127,
+  "tools": {
+   "read": 5,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 7
+  },
+  "reads": 5,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.2919068,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.2919068
+}

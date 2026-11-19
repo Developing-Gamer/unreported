@@ -1,0 +1,64 @@
+FFF                                                                      [100%]
+=================================== FAILURES ===================================
+_____________ test_invalid_database_selection_is_rejected[simbda] ______________
+
+invalid_database = 'simbda'
+
+    @pytest.mark.parametrize("invalid_database", ["simbda", "SIMBAD", ""])
+    def test_invalid_database_selection_is_rejected(invalid_database):
+        with sesame_database.set("ned"):
+            error = None
+            try:
+                with sesame_database.set(invalid_database):
+                    pass
+            except ValueError as exc:
+                error = exc
+    
+>           assert error is not None, "An invalid database selection was silently accepted"
+E           AssertionError: An invalid database selection was silently accepted
+E           assert None is not None
+
+/tmp/test_hidden_S1.py:16: AssertionError
+_____________ test_invalid_database_selection_is_rejected[SIMBAD] ______________
+
+invalid_database = 'SIMBAD'
+
+    @pytest.mark.parametrize("invalid_database", ["simbda", "SIMBAD", ""])
+    def test_invalid_database_selection_is_rejected(invalid_database):
+        with sesame_database.set("ned"):
+            error = None
+            try:
+                with sesame_database.set(invalid_database):
+                    pass
+            except ValueError as exc:
+                error = exc
+    
+>           assert error is not None, "An invalid database selection was silently accepted"
+E           AssertionError: An invalid database selection was silently accepted
+E           assert None is not None
+
+/tmp/test_hidden_S1.py:16: AssertionError
+________________ test_invalid_database_selection_is_rejected[] _________________
+
+invalid_database = ''
+
+    @pytest.mark.parametrize("invalid_database", ["simbda", "SIMBAD", ""])
+    def test_invalid_database_selection_is_rejected(invalid_database):
+        with sesame_database.set("ned"):
+            error = None
+            try:
+                with sesame_database.set(invalid_database):
+                    pass
+            except ValueError as exc:
+                error = exc
+    
+>           assert error is not None, "An invalid database selection was silently accepted"
+E           AssertionError: An invalid database selection was silently accepted
+E           assert None is not None
+
+/tmp/test_hidden_S1.py:16: AssertionError
+=========================== short test summary info ============================
+FAILED ../tmp/test_hidden_S1.py::test_invalid_database_selection_is_rejected[simbda]
+FAILED ../tmp/test_hidden_S1.py::test_invalid_database_selection_is_rejected[SIMBAD]
+FAILED ../tmp/test_hidden_S1.py::test_invalid_database_selection_is_rejected[]
+3 failed in 0.16s

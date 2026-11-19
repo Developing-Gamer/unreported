@@ -1,0 +1,13 @@
+diff --git a/sphinx/util/template.py b/sphinx/util/template.py
+index a61008602..330c41404 100644
+--- a/sphinx/util/template.py
++++ b/sphinx/util/template.py
+@@ -111,7 +111,7 @@ class SphinxTemplateLoader(BaseLoader):
+ 
+         for templates_path in templates_paths:
+             loader = SphinxFileSystemLoader(path.join(confdir, templates_path))
+-            self.loaders.append(loader)
++            self.loaders.insert(0, loader)
+ 
+         for templates_path in system_templates_paths:
+             loader = SphinxFileSystemLoader(templates_path)

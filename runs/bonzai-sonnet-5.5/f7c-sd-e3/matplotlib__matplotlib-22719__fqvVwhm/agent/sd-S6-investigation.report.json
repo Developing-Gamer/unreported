@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 26782,
+ "finalText": "```json\n{\n  \"verdict\": \"notActionable\",\n  \"title\": \"Uneven date gridlines are a deliberate tradeoff\",\n  \"cause\": \"The default date tick locator locks daily ticks to fixed days of the month (for example 1, 5, 9 ... 29, then the 1st of next month). Month lengths differ, so the gap at each month boundary is shorter or longer than the others. The code comment at lines 1333-1335 says this was chosen over an alternative that gave worse locations for 31-day months. The 3.0.0 API change note says the setting became the default on purpose. Users can get evenly spaced ticks by setting `interval_multiples=False` or `rcParams['date.interval_multiples']=False`.\",\n  \"files\": [\n    {\"path\": \"lib/matplotlib/dates.py\", \"why\": \"AutoDateLocator.get_locator picks byranges as range(1,32)[::interval] when interval_multiples is True, which produces the uneven gap at month ends; the comment at 1333-1336 and the docstring at 1297-1301 describe this choice.\"},\n    {\"path\": \"doc/api/prev_api_changes/api_changes_3.0.0.rst\", \"why\": \"Records the change of the default to interval_multiples=True and shows how to get the old behaviour.\"}\n  ],\n  \"plan\": [\n    \"No code change. Tell the reporter to set the rcParam date.interval_multiples to False, or to pass AutoDateLocator(interval_multiples=False), or to use an explicit DayLocator(interval=N) for evenly spaced ticks.\",\n    \"Optionally, treat a docs note on the month-boundary effect as a separate product decision.\"\n  ],\n  \"verification\": [\n    \"Read the code path in lib/matplotlib/dates.py (lines 1332-1336 and 1431-1443) and the api_changes_3.0.0 note; I did not run probe.\",\n    \"Plot about 60 days of dates with the default and with interval_multiples=False. The default shows an uneven gap at the month boundary; False shows even spacing.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"likely\",\n  \"effort\": \"low\",\n  \"risk\": \"low\",\n  \"confidence\": 0.75,\n  \"deliberate\": true,\n  \"intent\": \"Fixed day-of-month ticks (interval_multiples=True) have been the default since 3.0 on purpose, to get nicer tick locations. The code comment at dates.py 1333-1335 states the month-end tradeoff. The rcParam date.interval_multiples, added in 3.4, lets users opt out. The docs and tests cover both modes.\",\n  \"intendedBehavior\": \"With interval_multiples=False the date ticks are evenly spaced. With the default True they sit on fixed days of the month, so the gap across a month boundary may differ.\",\n  \"fixType\": \"frustration\",\n  \"claims\": [\n    {\n      \"id\": \"c1\",\n      \"text\": \"The default day ticks are taken from the fixed days of the month, which makes the spacing uneven at month boundaries.\",\n      \"role\": \"rootCause\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"lib/matplotlib/dates.py:1431\", \"quote\": \"if self._byranges[i] and self.interval_multiples:\"},\n        {\"type\": \"code\", \"ref\": \"lib/matplotlib/dates.py:1333\", \"quote\": \"# Swap \\\"3\\\" for \\\"4\\\" in the DAILY list; If we use 3 we get bad\"}\n      ]\n    },\n    {\n      \"id\": \"c2\",\n      \"text\": \"Making interval_multiples=True the default was a documented, deliberate change.\",\n      \"role\": \"other\",\n      \"citations\": [\n        {\"type\": \"doc\", \"ref\": \"doc/api/prev_api_changes/api_changes_3.0.0.rst\", \"quote\": \"``interval_multiples=True`` is the new default.  See below to get the\"}\n      ]\n    }\n  ],\n  \"ruledOut\": [\n    {\n      \"why\": \"A fixed-interval tick pattern is available and works: with interval_multiples=False the rrule ticks every N days from the start, so users have a way to get even spacing.\",\n      \"hypothesis\": \"A bug in the tick arithmetic\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"lib/matplotlib/dates.py:1442\", \"quote\": \"byranges[i] = self._byranges[i]\"}\n      ]\n    }\n  ],\n  \"plain\": {\n    \"headline\": \"A date chart showed unevenly spaced gridlines because the default tick placement favours the 1st, 8th, 15th of each month.\",\n    \"happened\": \"Matplotlib places date ticks on fixed days of the month so labels look tidy. Months have different lengths, so the gap across a month change can differ from the others. This was chosen on purpose, and there is a setting to turn it off.\",\n    \"matters\": \"Anyone plotting a few weeks or months of daily data may see one gridline gap that looks off.\",\n    \"fix\": \"No code change is needed. The reporter can switch off the fixed-day setting for even spacing.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 5,
+  "inputTokens": {
+   "avg": 17222.8,
+   "max": 21556
+  },
+  "mainUsage": {
+   "inputTokens": 86114,
+   "cachedInputTokens": 71570,
+   "outputTokens": 2641
+  },
+  "cacheHitPercent": 83.11076015514318,
+  "wallSeconds": 26.39300012588501,
+  "tools": {
+   "read": 5,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 0
+  },
+  "reads": 5,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.07707800000000001,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.07707800000000001
+}

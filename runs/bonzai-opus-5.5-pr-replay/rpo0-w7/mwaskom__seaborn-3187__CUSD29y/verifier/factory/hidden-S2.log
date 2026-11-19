@@ -1,0 +1,88 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+___________________ test_dodge_gap_preserves_mark_centers[x] ___________________
+
+orient = 'x'
+
+    @pytest.mark.parametrize("orient", ["x", "y"])
+    def test_dodge_gap_preserves_mark_centers(orient):
+        other = {"x": "y", "y": "x"}[orient]
+        data = pd.DataFrame({
+            orient: [0.0, 0.0, 1.0, 1.0],
+            other: [2.0, 4.0, 3.0, 5.0],
+            "color": ["a", "b", "a", "b"],
+            "width": [0.8, 0.8, 0.8, 0.8],
+        })
+    
+        result = Dodge(gap=0.5)(
+            data, GroupBy([orient, "color"]), orient, {}
+        )
+    
+        np.testing.assert_allclose(result["width"], [0.2, 0.2, 0.2, 0.2])
+>       np.testing.assert_allclose(result[orient], [-0.2, 0.2, 0.8, 1.2])
+
+/tmp/test_hidden_S2.py:24: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+args = (<function assert_allclose.<locals>.compare at 0x7fcb09f80f70>, array([-0.1,  0.1,  0.9,  1.1]), array([-0.2,  0.2,  0.8,  1.2]))
+kwds = {'equal_nan': True, 'err_msg': '', 'header': 'Not equal to tolerance rtol=1e-07, atol=0', 'verbose': True}
+
+    @wraps(func)
+    def inner(*args, **kwds):
+        with self._recreate_cm():
+>           return func(*args, **kwds)
+E           AssertionError: 
+E           Not equal to tolerance rtol=1e-07, atol=0
+E           
+E           Mismatched elements: 4 / 4 (100%)
+E           Max absolute difference: 0.1
+E           Max relative difference: 0.5
+E            x: array([-0.1,  0.1,  0.9,  1.1])
+E            y: array([-0.2,  0.2,  0.8,  1.2])
+
+/opt/miniconda3/envs/testbed/lib/python3.9/contextlib.py:79: AssertionError
+___________________ test_dodge_gap_preserves_mark_centers[y] ___________________
+
+orient = 'y'
+
+    @pytest.mark.parametrize("orient", ["x", "y"])
+    def test_dodge_gap_preserves_mark_centers(orient):
+        other = {"x": "y", "y": "x"}[orient]
+        data = pd.DataFrame({
+            orient: [0.0, 0.0, 1.0, 1.0],
+            other: [2.0, 4.0, 3.0, 5.0],
+            "color": ["a", "b", "a", "b"],
+            "width": [0.8, 0.8, 0.8, 0.8],
+        })
+    
+        result = Dodge(gap=0.5)(
+            data, GroupBy([orient, "color"]), orient, {}
+        )
+    
+        np.testing.assert_allclose(result["width"], [0.2, 0.2, 0.2, 0.2])
+>       np.testing.assert_allclose(result[orient], [-0.2, 0.2, 0.8, 1.2])
+
+/tmp/test_hidden_S2.py:24: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+args = (<function assert_allclose.<locals>.compare at 0x7fcb2477dca0>, array([-0.1,  0.1,  0.9,  1.1]), array([-0.2,  0.2,  0.8,  1.2]))
+kwds = {'equal_nan': True, 'err_msg': '', 'header': 'Not equal to tolerance rtol=1e-07, atol=0', 'verbose': True}
+
+    @wraps(func)
+    def inner(*args, **kwds):
+        with self._recreate_cm():
+>           return func(*args, **kwds)
+E           AssertionError: 
+E           Not equal to tolerance rtol=1e-07, atol=0
+E           
+E           Mismatched elements: 4 / 4 (100%)
+E           Max absolute difference: 0.1
+E           Max relative difference: 0.5
+E            x: array([-0.1,  0.1,  0.9,  1.1])
+E            y: array([-0.2,  0.2,  0.8,  1.2])
+
+/opt/miniconda3/envs/testbed/lib/python3.9/contextlib.py:79: AssertionError
+=========================== short test summary info ============================
+FAILED ../tmp/test_hidden_S2.py::test_dodge_gap_preserves_mark_centers[x] - A...
+FAILED ../tmp/test_hidden_S2.py::test_dodge_gap_preserves_mark_centers[y] - A...
+2 failed in 1.73s

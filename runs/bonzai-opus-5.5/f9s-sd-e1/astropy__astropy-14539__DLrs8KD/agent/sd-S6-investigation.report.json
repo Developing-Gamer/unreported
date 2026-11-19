@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 106623,
+ "finalText": "I checked the report against the request once more. One quote was wrong: the probe-output quote in claim c4 had doubled backslashes, so it didn't match the printed output. It's corrected below; nothing else changed.\n\n**Verdict: not a bug \u2014 documented, deliberate behaviour (notActionable).**\n\n**What the user sees:** if you write a table with a True/False column using the `basic` or `fixed_width` formats and read it back with default settings, that column comes back as text (`<U5`), not booleans.\n\n**What I checked (probe, testbed Python env):**\n- With default settings, both `basic` and `fixed_width` read the column back as `<U5`. ECSV reads it back as `bool`. So the symptom is real.\n- Reading the same text with `converters={'*': [int, float, bool, str]}` gives `bool` for both formats.\n- The existing reader tests that match `bool` or `converter` pass: 5 passed.\n\n**Why it's deliberate:**\n- The reader's default conversions are int, then float, then text (`astropy/io/ascii/core.py:1178`).\n- The reading docs say so. `docs/io/ascii/read.rst:560` lists `[int, float, str]` as the defaults. Lines 594\u2013601 say True/False are read as strings by default and show the opt-in that gives `bool`.\n- A test checks both cases. `astropy/io/ascii/tests/test_read.py:2037-2053` expects `str5` under default conversion and `bool` when `bool` is in the list.\n- The docs recommend ECSV for lossless round-trip (`docs/io/ascii/index.rst:24`).\n\n**What I couldn't check:** the repository has a single snapshot commit, so I couldn't see when the default or the docs example were added. No monitoring sources were connected; the only evidence is the user's issue.\n\nMaking booleans the default would be a product decision for the maintainers: it could change the type of existing columns that hold literal \"True\"/\"False\" text. Nothing to fix in code.\n\n```json\n{\n  \"verdict\": \"notActionable\",\n  \"title\": \"Plain-text tables read True/False back as text\",\n  \"cause\": \"io.ascii's default type guessing tries int, then float, then str; bool is deliberately not in the default list, so a True/False column written with the basic or fixed_width format is read back as strings. The docs state this default and show the opt-in (converters={'*': [int, float, bool, str]}), which works today, and ECSV is the documented format for lossless round-trip.\",\n  \"files\": [\n    {\"path\": \"astropy/io/ascii/core.py\", \"why\": \"TableOutputter.default_converters is [int, float, str]; bool_converter exists and is used only when asked for\"},\n    {\"path\": \"docs/io/ascii/read.rst\", \"why\": \"Says True/False are read as strings by default and documents the bool opt-in\"},\n    {\"path\": \"astropy/io/ascii/tests/test_read.py\", \"why\": \"Test asserts str5 by default and bool with the opt-in\"}\n  ],\n  \"plan\": [],\n  \"verification\": [\n    \"probe: a basic/fixed_width round-trip of Table({'a':[True,False]}) reads back <U5; ECSV reads back bool\",\n    \"probe: the same text with converters={'*':[int,float,bool,str]} reads back bool for basic and fixed_width\",\n    \"probe: pytest astropy/io/ascii/tests/test_read.py -k 'bool or converter' -> 5 passed\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"none\",\n  \"risk\": \"low\",\n  \"confidence\": 0.8,\n  \"deliberate\": true,\n  \"intent\": \"The docs (docs/io/ascii/read.rst:560, 594-601) give the default converters as [int, float, str] and say True/False are read as strings by default, with converters={'*': [int, float, bool, str]} as the documented opt-in. test_read.py:2037-2053 asserts str5 under the default and bool with the opt-in. ECSV is documented as the format for lossless round-trip.\",\n  \"intendedBehavior\": \"Reading a basic or fixed_width table with True/False values gives a string column by default, and a bool column when converters={'*': [int, float, bool, str]} is passed.\",\n  \"fixType\": \"frustration\",\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"The default type guessing for io.ascii does not include bool, so True/False text becomes a string column.\", \"citations\": [{\"type\": \"code\", \"ref\": \"astropy/io/ascii/core.py:1178\", \"quote\": \"default_converters = [convert_numpy(int), convert_numpy(float), convert_numpy(str)]\"}]},\n    {\"id\": \"c2\", \"role\": \"other\", \"text\": \"The documentation says strings are the default for True/False and gives the opt-in for booleans.\", \"citations\": [{\"type\": \"code\", \"ref\": \"docs/io/ascii/read.rst:594\", \"quote\": \"By default the ``True`` and ``False`` values will be interpreted as strings.\"}, {\"type\": \"code\", \"ref\": \"docs/io/ascii/read.rst:598\", \"quote\": \">>> converters = {'*': [int, float, bool, str]}\"}]},\n    {\"id\": \"c3\", \"role\": \"other\", \"text\": \"A test checks the string default and the bool opt-in.\", \"citations\": [{\"type\": \"code\", \"ref\": \"astropy/io/ascii/tests/test_read.py:2039\", \"quote\": \"\\\"str1 float64  str5  str5 float32\\\",\"}, {\"type\": \"code\", \"ref\": \"astropy/io/ascii/tests/test_read.py:2049\", \"quote\": \"\\\"float64 float64  bool  str5 int64\\\",\"}]},\n    {\"id\": \"c4\", \"role\": \"impact\", \"text\": \"A person writing booleans to basic/fixed_width and reading them back with default settings gets text, as the issue reports.\", \"citations\": [{\"type\": \"evidence\", \"ref\": \"ev_s6\", \"quote\": \"io.ascii basic and fixed_width formats do not round-trip boolean data\"}, {\"type\": \"query\", \"ref\": \"probe:python round-trip\", \"quote\": \"basic 'a\\\\nTrue\\\\nFalse\\\\n' <U5\"}]},\n    {\"id\": \"c5\", \"role\": \"other\", \"text\": \"ECSV is the documented, recommended format for lossless round-trip.\", \"citations\": [{\"type\": \"code\", \"ref\": \"docs/io/ascii/index.rst:24\", \"quote\": \":ref:`ecsv_format` for lossless round-trip of data tables (**recommended**)\"}]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"The bool converter is broken, so booleans can't be read at all\", \"why\": \"probe shows converters={'*':[int,float,bool,str]} reads back bool for basic and fixed_width, and the existing tests pass\", \"citations\": [{\"type\": \"code\", \"ref\": \"astropy/io/ascii/core.py:1044\", \"quote\": \"converter = bool_converter if converter_type is BoolType else generic_converter\"}]},\n    {\"hypothesis\": \"The writer writes booleans in a form that can't be read back\", \"why\": \"The writer outputs literal True/False, which bool_converter accepts\", \"citations\": [{\"type\": \"code\", \"ref\": \"astropy/io/ascii/core.py:1034\", \"quote\": \"trues = (vals == \\\"True\\\") | (vals == \\\"1\\\")\"}]}\n  ],\n  \"plain\": {\n    \"headline\": \"Yes/no columns saved in the simple text table formats come back as words, not yes/no values, because the reader is set up to keep them as text unless asked otherwise.\",\n    \"happened\": \"Someone saved a table with a True/False column in one of the simple text table formats. When they read it back with default settings, that column held the words True and False, not yes/no values. The guides describe this default and give a one-line setting that reads them back as yes/no values.\",\n    \"matters\": \"Anyone who expects these simple formats to keep yes/no columns exactly as saved, and hasn't read that part of the guide.\",\n    \"fix\": \"No code change needed: pass the documented setting that adds yes/no to the types the reader tries, or save in the self-describing ECSV format, which keeps column types exactly.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 13,
+  "inputTokens": {
+   "avg": 18985.53846153846,
+   "max": 25937
+  },
+  "mainUsage": {
+   "inputTokens": 246812,
+   "cachedInputTokens": 227871,
+   "outputTokens": 9479
+  },
+  "cacheHitPercent": 92.32573780853443,
+  "wallSeconds": 106.11299991607666,
+  "tools": {
+   "read": 8,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 4
+  },
+  "reads": 8,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.3298292,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.3298292
+}

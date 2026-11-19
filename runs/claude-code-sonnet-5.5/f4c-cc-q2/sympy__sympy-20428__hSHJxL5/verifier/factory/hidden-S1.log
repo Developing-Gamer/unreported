@@ -1,0 +1,35 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+______________________ test_laguerre_parameter_validation ______________________
+
+    def test_laguerre_parameter_validation():
+        x = Symbol('x')
+        assert laguerre_poly(2, x) == x**2/2 - 2*x + 1
+        assert laguerre_poly(2, x, alpha=2) == x**2/2 - 4*x + 6
+    
+        rejected = False
+        try:
+            laguerre_poly(2, x, alpha=object())
+        except (TypeError, ValueError):
+            rejected = True
+    
+>       assert rejected, 'An invalid parameter must not silently select the default basis'
+E       AssertionError: An invalid parameter must not silently select the default basis
+E       assert False
+
+/tmp/test_hidden_S1.py:16: AssertionError
+=============================== warnings summary ===============================
+test_hidden_S1.py::test_laguerre_parameter_validation
+  /testbed/sympy/core/sympify.py:457: SymPyDeprecationWarning: 
+  
+  String fallback in sympify has been deprecated since SymPy 1.6. Use
+  sympify(str(obj)) or sympy.core.sympify.converter or obj._sympy_
+  instead. See https://github.com/sympy/sympy/issues/18066 for more
+  info.
+  
+    SymPyDeprecationWarning(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED ../tmp/test_hidden_S1.py::test_laguerre_parameter_validation - Asserti...
+1 failed, 1 warning in 0.79s

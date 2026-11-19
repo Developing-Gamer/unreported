@@ -1,0 +1,8 @@
+[
+  {"source": "S1", "decision": "skip", "reason": "OOMKill in an external export-job service (export/worker.py, export/csv_writer.py) that is not part of this repository."},
+  {"source": "S2", "decision": "skip", "reason": "Vague report with no app names, migrations, or reproduction; not enough to identify a defect in Django's migration planner."},
+  {"source": "S3", "decision": "skip", "reason": "Customer-application template/branding report with no Django-specific details, loaders, or settings to act on."},
+  {"source": "S4", "decision": "fix", "reason": "Columns/IndexColumns in ddl_references.py still render '\"name\"DESC' and '\"name\" text_pattern_ops ' because empty col_suffixes are concatenated without proper spacing."},
+  {"source": "S5", "decision": "skip", "reason": "Already fixed: backends now convert from connection.timezone_name and skip CONVERT_TZ when it equals the target tzname (e.g. mysql/operations.py _convert_field_to_tz)."},
+  {"source": "S6", "decision": "skip", "reason": "Already fixed: get_choices() only calls order_by() when ordering is non-empty (keeping Meta.ordering) and RelatedOnlyFieldListFilter passes the admin ordering, with existing tests covering both."}
+]

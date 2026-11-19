@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 38011,
+ "finalText": "Nothing changed since my last report. I checked the request again: this is a read-only investigation with no files to produce, and I edited nothing.\n\nThe garbling does not come from a defect in this repository. A `text/*` response with no charset in its Content-Type is decoded as `ISO-8859-1`. That is deliberate and documented. The `Response.text` fallback that guesses the encoding only runs when no encoding is set. The garbled notices are most likely served without a charset.\n\nI could not run the real response path because the probe's Python is too new for this old `requests` copy. I did run the bundled charade detector on its own. It identified Big5 and UTF-8 correctly on notices of about 30\u201350 characters. It guessed `windows-1252` for a 2-character Big5 string, so very short notices could still decode wrongly even after the fix below.\n\nThe fix belongs in the preview service: set `r.encoding = r.apparent_encoding` when the Content-Type has no charset, or serve the archived notices with a charset. The code for `document-preview-support` is not in this repository.\n\n```json\n{\n  \"verdict\": \"notActionable\",\n  \"title\": \"Garbled Chinese notices come from a documented default\",\n  \"cause\": \"When a text/* response has no charset in its Content-Type, get_encoding_from_headers returns ISO-8859-1, so Response.text never runs encoding detection and decodes Big5/UTF-8 bytes as Latin-1. This follows RFC 2616 and is documented in docs/user/advanced.rst and HISTORY.rst. The calling preview service should set r.encoding = r.apparent_encoding, or the notices should be served with a charset.\",\n  \"files\": [\n    {\"path\": \"requests/utils.py\", \"why\": \"get_encoding_from_headers falls back to ISO-8859-1 for text/* without a charset (line 305-306)\"},\n    {\"path\": \"requests/models.py\", \"why\": \"Response.text only uses apparent_encoding when encoding is None (lines 657-664)\"},\n    {\"path\": \"docs/user/advanced.rst\", \"why\": \"Documents the RFC 2616 ISO-8859-1 default and tells callers to set Response.encoding\"}\n  ],\n  \"plan\": [\"No change to this repository.\", \"In the preview service, set r.encoding = r.apparent_encoding when the Content-Type has no charset, or decode r.content explicitly.\", \"Alternatively serve archived notices with an explicit charset.\"],\n  \"verification\": [\"Fetch an affected notice, check r.encoding is ISO-8859-1 and the Content-Type has no charset, then set r.encoding = r.apparent_encoding and confirm r.text is correct.\"],\n  \"userFacing\": true,\n  \"certainty\": \"likely\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.6,\n  \"intent\": {\"deliberate\": true, \"evidence\": \"docs/user/advanced.rst: 'RFC 2616 specifies that the default charset must be ISO-8859-1. Requests follows the specification in this case.' HISTORY.rst: 'Default to ISO-8859-1 (Western) encoding for \\\"text\\\" subtypes.'\"},\n  \"intendedBehavior\": \"Responses with a text/* type and no charset decode as ISO-8859-1 unless the caller sets Response.encoding, e.g. to apparent_encoding.\",\n  \"fixType\": \"frustration\",\n  \"ruledOut\": [\n    {\"hypothesis\": \"Charade misdetects Big5 for normal-length notices\", \"why\": \"Probe detected Big5 and UTF-8 correctly with 0.99 confidence on 33 and 52 character samples; it only misdetected a 2-character string.\"}\n  ],\n  \"plain\": {\n    \"headline\": \"A few archived Chinese notices look garbled because they are read as Western text when the server doesn't say which character set they use.\",\n    \"happened\": \"The notices that fail are most likely served without a stated character set. The web library then follows an old internet standard and assumes Western European text. Chinese bytes read that way turn into nonsense, while notices that state their character set display fine.\",\n    \"matters\": \"It affects only notices served without a character set, and the preview tool that fetches them has to handle that.\",\n    \"fix\": \"Have the preview tool detect the character set itself when the server gives none, or serve the notices with a character set stated.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 7,
+  "inputTokens": {
+   "avg": 16615.714285714286,
+   "max": 21410
+  },
+  "mainUsage": {
+   "inputTokens": 116310,
+   "cachedInputTokens": 101908,
+   "outputTokens": 5186
+  },
+  "cacheHitPercent": 87.61757372538905,
+  "wallSeconds": 37.50599980354309,
+  "tools": {
+   "read": 5,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 2
+  },
+  "reads": 5,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1082376,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1082376
+}

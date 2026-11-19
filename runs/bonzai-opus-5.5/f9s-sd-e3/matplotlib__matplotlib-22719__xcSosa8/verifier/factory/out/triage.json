@@ -1,0 +1,42 @@
+[
+  {
+    "source": "S1",
+    "decision": "fix",
+    "reason": "The Type 1 metrics reader parses each glyph width (WX) with _to_int, which truncates fractional widths (611.9 -> 611), whereas upstream matplotlib parses it with _to_float. The PDF/PS backends add the"
+  },
+  {
+    "source": "S2",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: In matplotlib 3.4, date tick labels were wrapped in TeX math mode ($\\mathdefault{...}$), where TeX drops plain spaces and spaces ':' as a relation, so '01 00:05' rendered as '0100 : 05' and neighbouri"
+  },
+  {
+    "source": "S3",
+    "decision": "fix",
+    "reason": "find_bezier_t_intersecting_with_closedpath stops bisecting when the SQUARED distance between its bracketing points drops below `tolerance`, although its docstring treats tolerance as a distance. With "
+  },
+  {
+    "source": "S4",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The billing-worker could not open a connection to api.stripe.com (Connection refused), and the stack shows only requests/urllib3 frames. The repository at /testbed is matplotlib, a plotting library wi"
+  },
+  {
+    "source": "S5",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: In older Matplotlib, Legend.__init__ only accepted an Axes or a Figure as its parent, so subfig.legend() raised a TypeError for a SubFigure. The current code accepts any FigureBase (which includes Sub"
+  },
+  {
+    "source": "S6",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: With the default interval_multiples=True, AutoDateLocator aligns daily ticks to calendar days: a ~3-month range picks a 14-day interval, which is replaced by ticks on the 1st and 15th of each month (a"
+  },
+  {
+    "source": "S7",
+    "decision": "fix",
+    "reason": "Matplotlib only asks the category converter to convert data it does not treat as plain numbers, and an empty array is not treated as plain numbers. The converter's check that every item is a number (a"
+  },
+  {
+    "source": "S8",
+    "decision": "fix",
+    "reason": "StrCategoryConverter.convert treats input as numbers if all(...) of its elements are number-like, and all() of an empty array is True. Empty data on a text-label axis therefore takes the deprecated nu"
+  }
+]

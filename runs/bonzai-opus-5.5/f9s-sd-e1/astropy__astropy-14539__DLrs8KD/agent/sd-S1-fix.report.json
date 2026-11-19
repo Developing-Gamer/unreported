@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 38150,
+ "finalText": "The work checks out against the request, and I have nothing further to fix. The fix and its tests are in the working tree, uncommitted, and the PR text is at `.factory/pr-S1.md`. The name-resolve tests pass: 9 passed, 4 skipped because they need network access.\n\nOne thing in the working tree is not mine: `astropy/io/fits/diff.py` has a small modification (`\"P\" in col.format or \"Q\" in col.format`). I didn't make it, it is unrelated to this fix, and I left it as it was. It should not be part of this pull request.\n\nMy changes are:\n- **Validator:** `astropy/coordinates/name_resolve.py` now normalises the Sesame database name and raises `ValueError` for invalid values.\n- **Tests:** new offline tests in `astropy/coordinates/tests/test_name_resolve.py`.\n- **Changelog:** `docs/changes/coordinates/14600.api.rst`, whose number is a placeholder to rename to the real PR number.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest astropy/coordinates/tests/test_name_resolve.py\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"reproductionSteps\": [\n    \"Run: python -c \\\"from astropy.coordinates.name_resolve import sesame_database; print(sesame_database.set('SIMBAD')); print(sesame_database.get())\\\" on the base commit: the value becomes 'all' with no error or warning.\",\n    \"sesame_database.set('sinbad') also silently becomes 'all' instead of raising ValueError.\"\n  ],\n  \"reproductionTest\": {\n    \"path\": \"astropy/coordinates/tests/test_name_resolve.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest astropy/coordinates/tests/test_name_resolve.py -k sesame_database\",\n    \"signature\": \"Failed: DID NOT RAISE <class 'ValueError'> / AssertionError: assert 'all' == 'simbad'\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 11,
+  "inputTokens": {
+   "avg": 23007.727272727272,
+   "max": 26909
+  },
+  "mainUsage": {
+   "inputTokens": 253085,
+   "cachedInputTokens": 240066,
+   "outputTokens": 4172
+  },
+  "cacheHitPercent": 94.855878459806,
+  "wallSeconds": 36.52300000190735,
+  "tools": {
+   "read": 9,
+   "edit": 3,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 1
+  },
+  "reads": 9,
+  "edits": 3,
+  "runs": 1,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 1,
+  "editOperations": 1,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.12226769999999999,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.12226769999999999
+}

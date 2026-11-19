@@ -1,0 +1,92 @@
+diff --git a/django/db/models/query.py b/django/db/models/query.py
+index b48d0df9c0..85cd8311a7 100644
+--- a/django/db/models/query.py
++++ b/django/db/models/query.py
+@@ -210,6 +210,8 @@ class QuerySet:
+ 
+     @query.setter
+     def query(self, value):
++        if value.values_select:
++            self._iterable_class = ValuesIterable
+         self._query = value
+ 
+     def as_manager(cls):
+diff --git a/django/utils/dateformat.py b/django/utils/dateformat.py
+index 72b3aca7f2..afd36d79e0 100644
+--- a/django/utils/dateformat.py
++++ b/django/utils/dateformat.py
+@@ -277,7 +277,7 @@ class DateFormat(TimeFormat):
+ 
+     def o(self):
+         "ISO 8601 year number matching the ISO week number (W)"
+-        return self.data.year
++        return self.data.isocalendar()[0]
+ 
+     def r(self):
+         "RFC 5322 formatted date; e.g. 'Thu, 21 Dec 2000 16:01:07 +0200'"
+diff --git a/tests/queryset_pickle/tests.py b/tests/queryset_pickle/tests.py
+index a58e45caed..679dc18a1f 100644
+--- a/tests/queryset_pickle/tests.py
++++ b/tests/queryset_pickle/tests.py
+@@ -11,7 +11,7 @@ from .models import Container, Event, Group, Happening, M2MModel, MyEvent
+ class PickleabilityTestCase(TestCase):
+     @classmethod
+     def setUpTestData(cls):
+-        Happening.objects.create()  # make sure the defaults are working (#20158)
++        cls.happening = Happening.objects.create()  # make sure the defaults are working (#20158)
+ 
+     def assert_pickles(self, qs):
+         self.assertEqual(list(pickle.loads(pickle.dumps(qs))), list(qs))
+@@ -253,6 +253,28 @@ class PickleabilityTestCase(TestCase):
+         with self.assertRaisesMessage(RuntimeWarning, msg):
+             pickle.loads(pickle.dumps(qs))
+ 
++    def test_annotation_values(self):
++        qs = Happening.objects.values('name').annotate(latest_time=models.Max('when'))
++        reloaded = Happening.objects.all()
++        reloaded.query = pickle.loads(pickle.dumps(qs.query))
++        self.assertEqual(
++            reloaded.get(),
++            {'name': 'test', 'latest_time': self.happening.when},
++        )
++
++    def test_annotation_values_list(self):
++        # values_list() is reloaded to values() when using a pickled query.
++        tests = [
++            Happening.objects.values_list('name'),
++            Happening.objects.values_list('name', flat=True),
++            Happening.objects.values_list('name', named=True),
++        ]
++        for qs in tests:
++            with self.subTest(qs._iterable_class.__name__):
++                reloaded = Happening.objects.all()
++                reloaded.query = pickle.loads(pickle.dumps(qs.query))
++                self.assertEqual(reloaded.get(), {'name': 'test'})
++
+     def test_order_by_model_with_abstract_inheritance_and_meta_ordering(self):
+         group = Group.objects.create(name='test')
+         event = MyEvent.objects.create(title='test event', group=group)
+diff --git a/tests/utils_tests/test_dateformat.py b/tests/utils_tests/test_dateformat.py
+index d050ac4352..ba930d02b5 100644
+--- a/tests/utils_tests/test_dateformat.py
++++ b/tests/utils_tests/test_dateformat.py
+@@ -92,6 +92,19 @@ class DateFormatTests(SimpleTestCase):
+         self.assertEqual(dateformat.format(my_birthday, 'n'), '7')
+         self.assertEqual(dateformat.format(my_birthday, 'N'), 'July')
+ 
++    def test_iso_year_format(self):
++        tests = [
++            (datetime(2020, 12, 31), '2020-53'),
++            (datetime(2021, 1, 1), '2020-53'),
++            (datetime(2021, 1, 3), '2020-53'),
++            (datetime(2021, 1, 4), '2021-1'),
++            (datetime(2018, 12, 31), '2019-1'),
++            (datetime(2019, 6, 15), '2019-24'),
++        ]
++        for dt, expected in tests:
++            with self.subTest(dt=dt):
++                self.assertEqual(dateformat.format(dt, 'o-W'), expected)
++
+     def test_time_formats(self):
+         my_birthday = datetime(1979, 7, 8, 22, 00)
+ 

@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 87177,
+ "finalText": "I checked my answer against your request again and it holds: the warning is deliberate and fired correctly, so I recommend no code change. I didn't edit any files.\n\n**What happens:** When matplotlib saves a figure with Python's pickle, it records the version that saved it. When it loads one back, it compares that version with the running version and warns if they differ. That check is at `lib/matplotlib/figure.py:3171` (save) and `3183\u20133186` (load). The warning in the evidence names a development build: `3.8.0.dev442+g970355a1e5.d19700101`. The version file in this checkout is `3.8.0.dev441+g430fb1db8.d20260815`, and at runtime a git checkout like this one takes its version from git (`_get_version`, `lib/matplotlib/__init__.py:183\u2013198`). Either way, the figures were saved with one build and loaded with another, which is exactly the case the warning exists for.\n\n**Why it's deliberate:** The release notes that introduced figure pickling say restoring a pickle saved in another matplotlib version is unsupported (`doc/users/prev_whats_new/whats_new_1.2.rst:106\u2013108`). The warning just enforces that documented limit.\n\n**Who is affected:** The 88 users (613 events in 7 days) load old figure files after changing matplotlib builds, and are told those files may not work. The fix is on their side: save figures with the same version they load them with, or redraw them from their data. Removing or hiding the warning would hide real incompatibilities.\n\n**What I checked and ruled out:**\n- The version string is the same everywhere in the repo: the same `mpl.__version__` is written on save and compared on load. Nothing in this code produces a false mismatch for figures saved and loaded by one build.\n- The specific build in the warning appears nowhere in the repository, so no bundled test file or example triggers it.\n\n**Limits:** I couldn't run anything. The probe copy has no numpy, so matplotlib won't import, and I couldn't run the existing pickle tests or check the runtime version. No Sentry, PostHog or GitHub data was available here, so this rests on the code, the docs and the evidence text alone.\n\n```json\n{\n  \"verdict\": \"notActionable\",\n  \"title\": \"Expected warning when loading figures from another build\",\n  \"cause\": \"Figure.__getstate__ stores mpl.__version__ in the pickle and Figure.__setstate__ warns when it differs from the running version. The events show figures pickled with dev build 3.8.0.dev442+g970355a1e5 being loaded under a different build. Loading pickles across versions is documented as unsupported, so the warning is the intended behaviour, correctly triggered.\",\n  \"files\": [\n    {\"path\": \"lib/matplotlib/figure.py\", \"why\": \"__getstate__ writes __mpl_version__; __setstate__ (line 3184) warns on a version mismatch\"},\n    {\"path\": \"lib/matplotlib/__init__.py\", \"why\": \"_get_version computes __version__ (setuptools_scm in a git checkout, otherwise _version.py), the value that is compared\"},\n    {\"path\": \"doc/users/prev_whats_new/whats_new_1.2.rst\", \"why\": \"Documents that pickles restored under another matplotlib version are unsupported\"}\n  ],\n  \"plan\": [],\n  \"verification\": [\n    \"Pickle a figure under one matplotlib build and unpickle it under the same build: no UserWarning is emitted.\",\n    \"Unpickle it under a different build: the 'unlikely to function correctly' warning is emitted, as designed.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"none\",\n  \"risk\": \"none\",\n  \"confidence\": 0.85,\n  \"fixType\": \"error\",\n  \"intent\": {\n    \"deliberate\": true,\n    \"evidence\": \"figure.py stores the saving version ('add version information to the state') and warns on mismatch in __setstate__. The feature's release notes state pickles 'are unsupported when restoring a pickle saved in another matplotlib version'.\"\n  },\n  \"intendedBehavior\": \"Unpickling a Figure saved with the same matplotlib version emits no warning, and unpickling one saved with a different version emits the 'unlikely to function correctly' UserWarning.\",\n  \"claims\": [\n    {\n      \"id\": \"c1\",\n      \"text\": \"Pickled figures carry the matplotlib version that saved them.\",\n      \"role\": \"other\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"lib/matplotlib/figure.py:3171\", \"quote\": \"state['__mpl_version__'] = mpl.__version__\"}\n      ]\n    },\n    {\n      \"id\": \"c2\",\n      \"text\": \"On load, any difference between the stored version and the running version triggers the reported UserWarning.\",\n      \"role\": \"trigger\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"lib/matplotlib/figure.py:3183\", \"quote\": \"if version != mpl.__version__:\"},\n        {\"type\": \"code\", \"ref\": \"lib/matplotlib/figure.py:3185\", \"quote\": \"f\\\"This figure was saved with matplotlib version {version} and \\\"\"}\n      ]\n    },\n    {\n      \"id\": \"c3\",\n      \"text\": \"The events come from figures saved with dev build 3.8.0.dev442+g970355a1e5 and loaded under a different build, which is the case the warning is meant for.\",\n      \"role\": \"other\",\n      \"citations\": [\n        {\"type\": \"evidence\", \"ref\": \"ev_s7\", \"quote\": \"This figure was saved with matplotlib version 3.8.0.dev442+g970355a1e5.d19700101 and is unlikely to function correctly\"},\n        {\"type\": \"code\", \"ref\": \"lib/matplotlib/_version.py:21\", \"quote\": \"__version__ = version = '3.8.0.dev441+g430fb1db8.d20260815'\"}\n      ]\n    },\n    {\n      \"id\": \"c4\",\n      \"text\": \"Matplotlib documents that restoring a pickle saved in another version is unsupported, so the warning reflects a deliberate design.\",\n      \"role\": \"other\",\n      \"citations\": [\n        {\"type\": \"doc\", \"ref\": \"doc/users/prev_whats_new/whats_new_1.2.rst\", \"quote\": \"are unsupported when restoring a pickle saved in another matplotlib version\"}\n      ]\n    },\n    {\n      \"id\": \"c5\",\n      \"text\": \"About 88 users in a week are loading old figure files after changing matplotlib builds, and are warned that those files may not work.\",\n      \"role\": \"impact\",\n      \"citations\": [\n        {\"type\": \"evidence\", \"ref\": \"ev_s7\", \"quote\": \"events: 613 in the last 7 days, users affected: 88\"}\n      ]\n    }\n  ],\n  \"ruledOut\": [\n    {\n      \"hypothesis\": \"The same build reports different versions on save and load, so the warning fires falsely.\",\n      \"why\": \"Both sides use the same mpl.__version__. The saved version (dev442, g970355a1e5) is a different commit from this checkout's build (dev441, g430fb1db8), so the mismatch is real, not a false one.\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"lib/matplotlib/__init__.py:205\", \"quote\": \"__version__ = property(lambda self: _get_version())\"}\n      ]\n    },\n    {\n      \"hypothesis\": \"A pickle bundled in this repository (test data or examples) triggers the warning.\",\n      \"why\": \"A search of the repository finds no file containing that version or commit hash.\",\n      \"citations\": []\n    }\n  ],\n  \"plain\": {\n    \"headline\": \"People see a warning when they open saved figure files because those files were made with a different version of matplotlib.\",\n    \"happened\": \"Figures were saved to a file with one development build of matplotlib. They were later opened with a different build. Matplotlib noticed the versions don't match and warned that the figure may not work correctly.\",\n    \"matters\": \"Anyone who keeps saved figure files and then upgrades or switches matplotlib builds sees this warning, which is the intended reminder that these files aren't meant to carry across versions.\",\n    \"fix\": \"No code change is needed: people should save and open figure files with the same matplotlib version, or redraw the figures from their data after upgrading.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 12,
+  "inputTokens": {
+   "avg": 16910.333333333332,
+   "max": 23144
+  },
+  "mainUsage": {
+   "inputTokens": 202924,
+   "cachedInputTokens": 186778,
+   "outputTokens": 8513
+  },
+  "cacheHitPercent": 92.04332656561077,
+  "wallSeconds": 86.60400009155273,
+  "tools": {
+   "read": 11,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 2
+  },
+  "reads": 11,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.2883176,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.2883176
+}

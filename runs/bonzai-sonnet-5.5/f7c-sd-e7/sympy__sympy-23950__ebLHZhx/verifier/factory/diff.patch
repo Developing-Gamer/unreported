@@ -1,0 +1,88 @@
+diff --git a/sympy/sets/contains.py b/sympy/sets/contains.py
+index b2d4268d12..a06a6d9291 100644
+--- a/sympy/sets/contains.py
++++ b/sympy/sets/contains.py
+@@ -45,4 +45,20 @@ def binary_symbols(self):
+             isinstance(i, (Eq, Ne))])
+ 
+     def as_set(self):
+-        raise NotImplementedError()
++        """
++        Return the set of values of ``x`` for which ``Contains(x, S)``
++        holds, which is ``S`` itself.
++
++        Examples
++        ========
++
++        >>> from sympy import Contains, Interval, Symbol
++        >>> x = Symbol('x')
++        >>> Contains(x, Interval(0, 1)).as_set()
++        Interval(0, 1)
++        """
++        x, s = self.args
++        if not x.is_Symbol:
++            raise NotImplementedError(
++                'as_set is only implemented when the element is a Symbol')
++        return s
+diff --git a/sympy/sets/tests/test_contains.py b/sympy/sets/tests/test_contains.py
+index 1973fed19c..2209373cd9 100644
+--- a/sympy/sets/tests/test_contains.py
++++ b/sympy/sets/tests/test_contains.py
+@@ -41,10 +41,11 @@ def test_binary_symbols():
+ def test_as_set():
+     x = Symbol('x')
+     y = Symbol('y')
+-    # Contains is a BooleanFunction whose value depends on an arg's
+-    # containment in a Set -- rewriting as a Set is not yet implemented
++    assert Contains(x, Interval(0, 1)).as_set() == Interval(0, 1)
++    assert Contains(x, FiniteSet(y)).as_set() == FiniteSet(y)
++    # only a bare symbol can be solved for
+     raises(NotImplementedError, lambda:
+-           Contains(x, FiniteSet(y)).as_set())
++           Contains(x + 1, Interval(0, 1), evaluate=False).as_set())
+ 
+ def test_type_error():
+     # Pass in a parameter not of type "set"
+diff --git a/sympy/stats/compound_rv.py b/sympy/stats/compound_rv.py
+index 3a834ccb10..bf5d77972f 100644
+--- a/sympy/stats/compound_rv.py
++++ b/sympy/stats/compound_rv.py
+@@ -202,7 +202,7 @@ def _marginalise(self, expr, rv, evaluate):
+         rv_dom = rv.pspace.domain.set
+         if rv.pspace.is_Discrete or rv.pspace.is_Finite:
+             expr = Sum(expr*rv_dens, (rv, rv_dom._inf,
+-                    rv_dom._sup - 1))
++                    rv_dom._sup))
+         else:
+             expr = Integral(expr*rv_dens, (rv, rv_dom._inf,
+                     rv_dom._sup))
+diff --git a/sympy/stats/tests/test_compound_rv.py b/sympy/stats/tests/test_compound_rv.py
+index 573ba364b6..ce902c9683 100644
+--- a/sympy/stats/tests/test_compound_rv.py
++++ b/sympy/stats/tests/test_compound_rv.py
+@@ -11,6 +11,7 @@
+ from sympy.functions.special.error_functions import erf
+ from sympy.functions.special.gamma_functions import gamma
+ from sympy.integrals.integrals import Integral
++from sympy.simplify.simplify import simplify
+ from sympy.sets.sets import Interval
+ from sympy.stats import (Normal, P, E, density, Gamma, Poisson, Rayleigh,
+                         variance, Bernoulli, Beta, Uniform, cdf)
+@@ -73,6 +74,17 @@ def test_bernoulli_CompoundDist():
+     assert P(Eq(Y, 1)) == E(Y)
+ 
+ 
++def test_finite_parameter_CompoundDist_normalised():
++    # every value of a finite random parameter must be marginalised over,
++    # including the last one, so that the density integrates to 1
++    p = Bernoulli('p', S(3)/4)
++    N = Normal('N', p, 1)
++    d = density(N)(x)
++    expected = (S(3)/4*exp(-(x - 1)**2/2) + S(1)/4*exp(-x**2/2))/sqrt(2*pi)
++    assert simplify(d - expected) == 0
++    assert abs(Integral(d, (x, -oo, oo)).evalf() - 1) < 1e-10
++
++
+ def test_unevaluated_CompoundDist():
+     # these tests need to be removed once they work with evaluation as they are currently not
+     # evaluated completely in sympy.

@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 52852,
+ "finalText": "The fix is done and uncommitted in the working tree, and `.factory/pr-S3.md` is written. I re-ran the reproduction command as I report it, `PYTHONPATH=/testbed python tests/runtests.py queryset_pickle`, and it passes.\n\nA `values()` or `values().annotate()` query that is pickled and assigned to a fresh queryset now returns dicts instead of broken model instances. The `QuerySet.query` setter in `django/db/models/query.py` sets `_iterable_class = ValuesIterable` when the assigned query has `values_select`.\n\nThe two new tests in `tests/queryset_pickle/tests.py` failed before the fix with `AttributeError: 'NoneType' object has no attribute 'attname'`. The `queryset_pickle`, `queries`, `aggregation` and `aggregation_regress` suites pass (569 tests).\n\n- **`values_list()`:** a reloaded `values_list()` query yields dicts, not tuples or flat values, because a `Query` doesn't record that shape. I left out a test for it.\n- **`values()` with no fields:** it is not covered, because `values_select` stays empty then.\n- **Parallel runs:** if the parallel runner crashes on unpicklable tracebacks (`tblib` isn't installed), add `--parallel 1`.\n- **Unrelated changes in the tree:** `dateformat.py`, `views/defaults.py` and their tests were already modified before I started; I did not touch them.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"command\": \"python tests/runtests.py queryset_pickle queries aggregation aggregation_regress --parallel 1\", \"passed\": true},\n    {\"command\": \"python tests/runtests.py queryset_pickle\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"reproductionSteps\": [\n    \"Pickle Model.objects.values('name').annotate(count=Count('id')).query\",\n    \"Assign the unpickled query to Model.objects.all().query\",\n    \"Evaluate the queryset: before the fix it returns broken model instances and raises AttributeError ('NoneType' object has no attribute 'attname'); after the fix it returns dicts\"\n  ],\n  \"reproductionTest\": {\n    \"path\": \"tests/queryset_pickle/tests.py\",\n    \"command\": \"python tests/runtests.py queryset_pickle\",\n    \"signature\": \"AttributeError(\\\"'NoneType' object has no attribute 'attname'\\\")\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 12,
+  "inputTokens": {
+   "avg": 24524.25,
+   "max": 29130
+  },
+  "mainUsage": {
+   "inputTokens": 294291,
+   "cachedInputTokens": 279049,
+   "outputTokens": 5591
+  },
+  "cacheHitPercent": 94.82077263660798,
+  "wallSeconds": 50.9469997882843,
+  "tools": {
+   "read": 7,
+   "edit": 5,
+   "test": 0,
+   "verify": 0,
+   "git": 1,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 3
+  },
+  "reads": 7,
+  "edits": 5,
+  "runs": 4,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 4,
+  "editOperations": 5,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.14981080000000002,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.14981080000000002
+}

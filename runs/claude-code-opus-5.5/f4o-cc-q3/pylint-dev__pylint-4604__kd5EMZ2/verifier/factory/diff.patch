@@ -1,0 +1,29 @@
+diff --git a/pylint/checkers/variables.py b/pylint/checkers/variables.py
+index 3ddafd59..8a463750 100644
+--- a/pylint/checkers/variables.py
++++ b/pylint/checkers/variables.py
+@@ -1826,6 +1826,10 @@ class VariablesChecker(BaseChecker):
+             self._type_annotation_names.append(type_annotation.name)
+             return
+ 
++        if isinstance(type_annotation, astroid.Attribute):
++            self._store_type_annotation_node(type_annotation.expr)
++            return
++
+         if not isinstance(type_annotation, astroid.Subscript):
+             return
+ 
+diff --git a/tests/functional/u/unused/unused_import.py b/tests/functional/u/unused/unused_import.py
+index c6c2f20b..0018c6fd 100644
+--- a/tests/functional/u/unused/unused_import.py
++++ b/tests/functional/u/unused/unused_import.py
+@@ -61,3 +61,9 @@ class NonRegr(object):
+     def blop(self):
+         """yo"""
+         print(self, 'blip')
++
++# Modules used only in type comments (attribute access) should not be unused
++import abc
++from abc import ABC
++X = ...  # type: abc.ABC
++Y = ...  # type: ABC

@@ -1,0 +1,198 @@
+diff --git a/ChangeLog b/ChangeLog
+index a0f12a7a..41df0a3f 100644
+--- a/ChangeLog
++++ b/ChangeLog
+@@ -9,6 +9,17 @@ Release date: TBA
+ ..
+   Put new features and bugfixes here and also in 'doc/whatsnew/2.9.rst'
+ 
++* Fix ``unused-import`` false positive for imported modules referenced in attribute
++  lookups in type comments.
++
++  Closes #4603
++
++* Fix ``unneeded-not`` suggesting a non-equivalent negation-free comparison when the
++  right operand of the comparison is a set or frozenset.
++
++* Fix pyreverse silently ignoring an explicit empty ``--ignore=`` list and still
++  skipping ``CVS`` packages.
++
+ * Add type annotations to pyreverse dot files
+ 
+   Closes #1548
+diff --git a/pylint/checkers/refactoring/not_checker.py b/pylint/checkers/refactoring/not_checker.py
+index bbae00e1..ea3bae30 100644
+--- a/pylint/checkers/refactoring/not_checker.py
++++ b/pylint/checkers/refactoring/not_checker.py
+@@ -67,7 +67,7 @@ class NotChecker(checkers.BaseChecker):
+             frame = node.frame()
+             if frame.name == "__ne__" and operator == "==":
+                 return
+-            for _type in (utils.node_type(left),):
++            for _type in (utils.node_type(left), utils.node_type(right)):
+                 if not _type:
+                     return
+                 if isinstance(_type, self.skipped_nodes):
+diff --git a/pylint/checkers/variables.py b/pylint/checkers/variables.py
+index 3ddafd59..8a463750 100644
+--- a/pylint/checkers/variables.py
++++ b/pylint/checkers/variables.py
+@@ -1826,6 +1826,10 @@ class VariablesChecker(BaseChecker):
+             self._type_annotation_names.append(type_annotation.name)
+             return
+ 
++        if isinstance(type_annotation, astroid.Attribute):
++            self._store_type_annotation_node(type_annotation.expr)
++            return
++
+         if not isinstance(type_annotation, astroid.Subscript):
+             return
+ 
+diff --git a/pylint/constants.py b/pylint/constants.py
+index b95d701c..69179a08 100644
+--- a/pylint/constants.py
++++ b/pylint/constants.py
+@@ -1,6 +1,7 @@
+ # Licensed under the GPL: https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
+ # For details: https://github.com/PyCQA/pylint/blob/master/LICENSE
+ 
++import platform
+ import sys
+ 
+ import astroid
+@@ -11,6 +12,8 @@ PY38_PLUS = sys.version_info[:2] >= (3, 8)
+ PY39_PLUS = sys.version_info[:2] >= (3, 9)
+ PY310_PLUS = sys.version_info[:2] >= (3, 10)
+ 
++IS_PYPY = platform.python_implementation() == "PyPy"
++
+ 
+ PY_EXTS = (".py", ".pyc", ".pyo", ".pyw", ".so", ".dll")
+ 
+diff --git a/pylint/pyreverse/main.py b/pylint/pyreverse/main.py
+index f0208f29..a62a1c2e 100644
+--- a/pylint/pyreverse/main.py
++++ b/pylint/pyreverse/main.py
+@@ -212,7 +212,7 @@ class Run(ConfigurationMixIn):
+             project = project_from_files(
+                 args,
+                 project_name=self.config.project,
+-                black_list=self.config.ignore_list or ("CVS",),
++                black_list=self.config.ignore_list,
+             )
+             linker = Linker(project, tag=True)
+             handler = DiadefsHandler(self.config)
+diff --git a/tests/checkers/unittest_variables.py b/tests/checkers/unittest_variables.py
+index 90daa8d5..fdc749c0 100644
+--- a/tests/checkers/unittest_variables.py
++++ b/tests/checkers/unittest_variables.py
+@@ -21,11 +21,13 @@
+ import os
+ import re
+ import sys
++import unittest
+ from pathlib import Path
+ 
+ import astroid
+ 
+ from pylint.checkers import variables
++from pylint.constants import IS_PYPY
+ from pylint.interfaces import UNDEFINED
+ from pylint.testutils import CheckerTestCase, Message, linter, set_config
+ 
+@@ -191,6 +193,24 @@ class TestVariablesChecker(CheckerTestCase):
+         with self.assertNoMessages():
+             self.walk(module)
+ 
++    @unittest.skipIf(IS_PYPY, "Type comment parsing is not exercised on PyPy")
++    def test_attribute_in_type_comment(self):
++        """Ensure attribute lookups in type comments are accounted for.
++
++        https://github.com/PyCQA/pylint/issues/4603
++        """
++        module = astroid.parse(
++            """
++        import foo
++        from foo import Bar, Boo
++        a = ...  # type: foo.Bar
++        b = ...  # type: foo.Bar[Boo]
++        c = ...  # type: Bar.Boo
++        """
++        )
++        with self.assertNoMessages():
++            self.walk(module)
++
+ 
+ class TestVariablesCheckerWithTearDown(CheckerTestCase):
+ 
+diff --git a/tests/functional/u/unnecessary/unnecessary_not.py b/tests/functional/u/unnecessary/unnecessary_not.py
+index 97acecd7..c96716b4 100644
+--- a/tests/functional/u/unnecessary/unnecessary_not.py
++++ b/tests/functional/u/unnecessary/unnecessary_not.py
+@@ -1,7 +1,7 @@
+ """Check exceeding negations in boolean expressions trigger warnings"""
+ 
+ # pylint: disable=singleton-comparison,too-many-branches,too-few-public-methods,undefined-variable
+-# pylint: disable=literal-comparison, comparison-with-itself, useless-object-inheritance
++# pylint: disable=literal-comparison, comparison-with-itself, useless-object-inheritance, misplaced-comparison-constant
+ def unneeded_not():
+     """This is not ok
+     """
+@@ -55,6 +55,14 @@ def tolerated_statements():
+         pass
+     if not frozenset(something) <= 3:
+         pass
++    if not {}.keys() <= set(something):
++        pass
++    if not 3 <= set(something):
++        pass
++    if not {}.keys() <= frozenset(something):
++        pass
++    if not {}.keys() <= {'green'}:
++        pass
+ 
+ 
+ class Klass(object):
+diff --git a/tests/unittest_pyreverse_inspector.py b/tests/unittest_pyreverse_inspector.py
+index e1ff6378..a788577e 100644
+--- a/tests/unittest_pyreverse_inspector.py
++++ b/tests/unittest_pyreverse_inspector.py
+@@ -14,12 +14,14 @@
+ # pylint: disable=redefined-outer-name
+ 
+ import os
++import sys
+ 
+ import astroid
+ import pytest
+ from unittest_pyreverse_writer import get_project
+ 
+ from pylint.pyreverse import inspector
++from pylint.pyreverse.main import Run as PyreverseRun
+ 
+ 
+ @pytest.fixture
+@@ -128,3 +130,23 @@ def test_from_directory(project):
+ def test_project_node(project):
+     expected = ["data", "data.clientmodule_test", "data.suppliermodule_test"]
+     assert sorted(project.keys()) == expected
++
++
++def test_empty_ignore_list_keeps_cvs_subpackage(tmp_path, monkeypatch):
++    """An explicit empty --ignore= must not fall back to skipping CVS"""
++    package = tmp_path / "proj"
++    (package / "CVS").mkdir(parents=True)
++    (package / "__init__.py").write_text("")
++    (package / "mod.py").write_text("class Modern:\n    pass\n")
++    (package / "CVS" / "__init__.py").write_text("")
++    (package / "CVS" / "legacy.py").write_text("class Legacy:\n    pass\n")
++    monkeypatch.chdir(tmp_path)
++    monkeypatch.setattr(
++        sys, "argv", ["pyreverse", "--ignore=", "-o", "dot", "-p", "proj", "proj"]
++    )
++    with pytest.raises(SystemExit) as exc:
++        PyreverseRun(sys.argv[1:])
++    assert exc.value.code == 0
++    classes = (tmp_path / "classes_proj.dot").read_text()
++    assert "Modern" in classes
++    assert "Legacy" in classes

@@ -1,0 +1,46 @@
+FF.                                                                      [100%]
+=================================== FAILURES ===================================
+_______________ test_timeout_preserves_fractional_seconds[0.25] ________________
+
+pytestconfig = <_pytest.config.Config object at 0x7efcdef53790>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7efcdedb3b20>
+configured_timeout = '0.25'
+
+    @pytest.mark.parametrize("configured_timeout", ["0.25", "1.75", "2"])
+    def test_timeout_preserves_fractional_seconds(
+        pytestconfig, monkeypatch, configured_timeout
+    ):
+        monkeypatch.setitem(
+            pytestconfig._inicache, "faulthandler_timeout", configured_timeout
+        )
+    
+>       assert get_timeout_config_value(pytestconfig) == float(configured_timeout)
+E       AssertionError: assert 0 == 0.25
+E        +  where 0 = get_timeout_config_value(<_pytest.config.Config object at 0x7efcdef53790>)
+E        +  and   0.25 = float('0.25')
+
+/tmp/test_hidden_S5.py:14: AssertionError
+_______________ test_timeout_preserves_fractional_seconds[1.75] ________________
+
+pytestconfig = <_pytest.config.Config object at 0x7efcdef53790>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7efcdee34dc0>
+configured_timeout = '1.75'
+
+    @pytest.mark.parametrize("configured_timeout", ["0.25", "1.75", "2"])
+    def test_timeout_preserves_fractional_seconds(
+        pytestconfig, monkeypatch, configured_timeout
+    ):
+        monkeypatch.setitem(
+            pytestconfig._inicache, "faulthandler_timeout", configured_timeout
+        )
+    
+>       assert get_timeout_config_value(pytestconfig) == float(configured_timeout)
+E       AssertionError: assert 1 == 1.75
+E        +  where 1 = get_timeout_config_value(<_pytest.config.Config object at 0x7efcdef53790>)
+E        +  and   1.75 = float('1.75')
+
+/tmp/test_hidden_S5.py:14: AssertionError
+=========================== short test summary info ============================
+FAILED ../tmp/test_hidden_S5.py::test_timeout_preserves_fractional_seconds[0.25]
+FAILED ../tmp/test_hidden_S5.py::test_timeout_preserves_fractional_seconds[1.75]
+2 failed, 1 passed in 0.02s

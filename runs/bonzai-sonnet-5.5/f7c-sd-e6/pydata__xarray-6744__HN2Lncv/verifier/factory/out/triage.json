@@ -1,0 +1,37 @@
+[
+  {
+    "source": "S1",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The only code path that turns float measurements into whole numbers is the dtype encoding step in maybe_encode_nonstring_dtype. When a variable's encoding has an integer dtype and no scale_factor, the"
+  },
+  {
+    "source": "S2",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: Dataset.merge passed a DataArray straight to the merge helper, which expects a mapping, so ds.merge(da) failed while xr.merge([ds, da]) worked. The current code converts a DataArray with to_dataset() "
+  },
+  {
+    "source": "S3",
+    "decision": "fix",
+    "reason": "The assert_allclose helper compares dimension names as unordered sets (set(a.dims) == set(b.dims)) and then compares raw values by position. A square array exported with its axes swapped has the same "
+  },
+  {
+    "source": "S4",
+    "decision": "fix",
+    "reason": "Looping directly over a DataArray rolling object builds each window as the trailing slice that ends at the current label. It never reads the `center` setting, so with `center=True` the windows come ou"
+  },
+  {
+    "source": "S5",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The NaN-aware sum replaces NaNs with 0 before adding, so an all-NaN slice sums to 0. This is documented, and the min_count argument is the supported way to get NaN back (for example ds.sum(skipna=True"
+  },
+  {
+    "source": "S6",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: The sum of weights was a dot product of a boolean mask with boolean weights, which returns True (1) instead of the count, so the mean was 2/1 = 2. The current code casts boolean weights to int before "
+  },
+  {
+    "source": "S7",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The error is a refused connection from the billing-worker service to api.stripe.com, raised inside the requests and urllib3 libraries. This repository is xarray, a scientific array library. It contain"
+  }
+]

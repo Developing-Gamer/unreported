@@ -1,0 +1,82 @@
+FFF                                                                      [100%]
+=================================== FAILURES ===================================
+____________ test_split_endpoint_respects_boundary_tolerance[0.01] _____________
+
+tolerance = 0.01
+
+    @pytest.mark.parametrize('tolerance', [1e-2, 1e-3, 1e-4])
+    def test_split_endpoint_respects_boundary_tolerance(tolerance):
+        radius = 1.3
+        control_points = np.array([[0.0, 0.0], [4.0, 0.0]])
+        left, right = split_bezier_intersecting_with_closedpath(
+            control_points, inside_circle(0.0, 0.0, radius),
+            tolerance=tolerance,
+        )
+    
+        np.testing.assert_allclose(left[-1], right[0], rtol=0, atol=1e-14)
+        boundary_error = abs(np.linalg.norm(left[-1]) - radius)
+>       assert boundary_error <= tolerance, (
+            f'Split endpoint misses the circle by {boundary_error}, '
+            f'exceeding tolerance {tolerance}'
+        )
+E       AssertionError: Split endpoint misses the circle by 0.018750000000000044, exceeding tolerance 0.01
+E       assert 0.018750000000000044 <= 0.01
+
+/tmp/test_hidden_S3.py:21: AssertionError
+____________ test_split_endpoint_respects_boundary_tolerance[0.001] ____________
+
+tolerance = 0.001
+
+    @pytest.mark.parametrize('tolerance', [1e-2, 1e-3, 1e-4])
+    def test_split_endpoint_respects_boundary_tolerance(tolerance):
+        radius = 1.3
+        control_points = np.array([[0.0, 0.0], [4.0, 0.0]])
+        left, right = split_bezier_intersecting_with_closedpath(
+            control_points, inside_circle(0.0, 0.0, radius),
+            tolerance=tolerance,
+        )
+    
+        np.testing.assert_allclose(left[-1], right[0], rtol=0, atol=1e-14)
+        boundary_error = abs(np.linalg.norm(left[-1]) - radius)
+>       assert boundary_error <= tolerance, (
+            f'Split endpoint misses the circle by {boundary_error}, '
+            f'exceeding tolerance {tolerance}'
+        )
+E       AssertionError: Split endpoint misses the circle by 0.0031250000000000444, exceeding tolerance 0.001
+E       assert 0.0031250000000000444 <= 0.001
+
+/tmp/test_hidden_S3.py:21: AssertionError
+___________ test_split_endpoint_respects_boundary_tolerance[0.0001] ____________
+
+tolerance = 0.0001
+
+    @pytest.mark.parametrize('tolerance', [1e-2, 1e-3, 1e-4])
+    def test_split_endpoint_respects_boundary_tolerance(tolerance):
+        radius = 1.3
+        control_points = np.array([[0.0, 0.0], [4.0, 0.0]])
+        left, right = split_bezier_intersecting_with_closedpath(
+            control_points, inside_circle(0.0, 0.0, radius),
+            tolerance=tolerance,
+        )
+    
+        np.testing.assert_allclose(left[-1], right[0], rtol=0, atol=1e-14)
+        boundary_error = abs(np.linalg.norm(left[-1]) - radius)
+>       assert boundary_error <= tolerance, (
+            f'Split endpoint misses the circle by {boundary_error}, '
+            f'exceeding tolerance {tolerance}'
+        )
+E       AssertionError: Split endpoint misses the circle by 0.0007812499999999556, exceeding tolerance 0.0001
+E       assert 0.0007812499999999556 <= 0.0001
+
+/tmp/test_hidden_S3.py:21: AssertionError
+=============================== warnings summary ===============================
+../opt/miniconda3/envs/testbed/lib/python3.11/site-packages/pyparsing.py:108
+  /opt/miniconda3/envs/testbed/lib/python3.11/site-packages/pyparsing.py:108: DeprecationWarning: module 'sre_constants' is deprecated
+    import sre_constants
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED ../tmp/test_hidden_S3.py::test_split_endpoint_respects_boundary_tolerance[0.01]
+FAILED ../tmp/test_hidden_S3.py::test_split_endpoint_respects_boundary_tolerance[0.001]
+FAILED ../tmp/test_hidden_S3.py::test_split_endpoint_respects_boundary_tolerance[0.0001]
+3 failed, 1 warning in 0.18s

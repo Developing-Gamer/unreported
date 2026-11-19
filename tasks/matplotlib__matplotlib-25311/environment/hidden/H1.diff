@@ -1,0 +1,13 @@
+diff --git a/lib/matplotlib/_fontconfig_pattern.py b/lib/matplotlib/_fontconfig_pattern.py
+index d3933b9f39..b94a1760d3 100755
+--- a/lib/matplotlib/_fontconfig_pattern.py
++++ b/lib/matplotlib/_fontconfig_pattern.py
+@@ -87,6 +87,8 @@ def parse_fontconfig_pattern(pattern):
+     try:
+         parse = parser.parseString(pattern)
+     except ParseException as err:
++        if ":" not in pattern:
++            return {"family": [pattern]}
+         # explain becomes a plain method on pyparsing 3 (err.explain(0)).
+         raise ValueError("\n" + ParseException.explain(err, 0)) from None
+     parser.resetCache()

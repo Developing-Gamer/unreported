@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 60528,
+ "finalText": "The cause is in this repository, and a fix is small. `apart` in `sympy/polys/partfrac.py` now hands back non-rational formulas unchanged instead of raising the validation error. I read the code and reproduced the symptom with the probe tool. I did not run the existing test file, because the probe environment has no `pytest`. The report below also states this assumption: the repository has only one snapshot commit, so I couldn't read history. My belief that upstream sympy 1.6 re-raises `PolynomialError` at this spot comes from memory, and I did not fetch it.\n\n- **Cause:** when converting a formula to polynomials fails, the handler checks whether the formula is commutative. If it is, it runs `return f` at lines 83\u201384. That is why you see \"exactly as entered with a success status\". Ordinary rational formulas never reach that branch, so they still work.\n- **What I saw:** with `x` given, `apart(1/(sin(x)+1), x)`, `apart(sin(x)/x, x)` and `apart(exp(x)/(x+1), x)` each came back unchanged with no error. Without `x`, the first of those raised \"multivariate partial fraction decomposition\", so that path still works.\n- **Who feels it:** anyone sending formulas with functions like sine or exponentials inside a fraction gets a silent no-op instead of a clear error.\n- **Intent:** I found nothing in the code, comments or tests that shows returning the input here was chosen.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"apart() returns non-rational input unchanged\",\n  \"cause\": \"In apart() in sympy/polys/partfrac.py, when conversion to polynomials fails with PolynomialError for a commutative expression, the handler does `return f`, so the input comes back as entered with no error. Upstream sympy 1.6 re-raises PolynomialError there (from memory, not fetched). Ordinary rational formulas never reach this branch, so they still work. Formulas with things like sin(x) or exp(x) in a fraction take it.\",\n  \"files\": [\n    {\"path\": \"sympy/polys/partfrac.py\", \"why\": \"The `except PolynomialError` handler (lines 82-84) returns f for commutative input instead of raising.\"}\n  ],\n  \"plan\": [\n    \"In apart(), replace `return f` under `if f.is_commutative:` with `raise PolynomialError(msg)`.\",\n    \"Add a regression test in sympy/polys/tests/test_partfrac.py: raises(PolynomialError, lambda: apart(1/(sin(x)+1), x)).\",\n    \"Run the partfrac tests and tests of callers that use apart (for example integrals and series).\"\n  ],\n  \"verification\": [\n    \"Before the change, apart(1/(sin(x)+1), x) returns 1/(sin(x) + 1) with no error. After it, the call raises PolynomialError.\",\n    \"The new regression test fails before the change and passes after it.\",\n    \"The existing test_partfrac.py passes, including the multivariate NotImplementedError check.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low. Any caller that relied on apart() silently passing non-rational input through will now see PolynomialError.\",\n  \"confidence\": 0.85,\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"The commutative PolynomialError handler returns the input instead of raising.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"sympy/polys/partfrac.py:82\", \"quote\": \"except PolynomialError as msg:\\n        if f.is_commutative:\\n            return f\"}]},\n    {\"id\": \"c2\", \"text\": \"Non-rational commutative input to apart() comes back unchanged with no error, matching the reported symptom.\", \"role\": \"impact\", \"citations\": [{\"type\": \"evidence\", \"ref\": \"ev_s6\", \"quote\": \"A few formulas now come back exactly as entered with a success status\"}]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"Multivariate handling is broken\", \"why\": \"The multivariate path still raises NotImplementedError as intended.\", \"citations\": [{\"type\": \"code\", \"ref\": \"sympy/polys/partfrac.py:123\", \"quote\": \"\\\"multivariate partial fraction decomposition\\\")\"}]}\n  ],\n  \"intendedBehavior\": \"apart() raises PolynomialError for a commutative expression that is not a rational function in the given variable, instead of returning it unchanged.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"The repository has a single snapshot commit, so no history. Nothing in the code, comments or tests shows that silently returning a commutative input was chosen. Upstream sympy 1.6 raises PolynomialError here, from memory and not fetched.\"},\n  \"fixType\": \"silentFailure\",\n  \"plain\": {\n    \"headline\": \"Some formulas that should have been rejected were returned unchanged and reported as successful.\",\n    \"happened\": \"The partial-fraction step is meant to reject formulas that are not plain fractions of polynomials. For a commutative formula it now hands the input straight back instead of raising its usual validation error. The caller sees a success, and the formula looks untouched.\",\n    \"matters\": \"Anyone sending formulas with functions like sine or exponentials inside a fraction gets a silent no-op instead of a clear error.\",\n    \"fix\": \"Make the partial-fraction step raise its validation error again for these formulas, and add a test.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 8,
+  "inputTokens": {
+   "avg": 14452.875,
+   "max": 17755
+  },
+  "mainUsage": {
+   "inputTokens": 115623,
+   "cachedInputTokens": 104874,
+   "outputTokens": 4925
+  },
+  "cacheHitPercent": 90.70340676163048,
+  "wallSeconds": 58.21399998664856,
+  "tools": {
+   "read": 6,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 2
+  },
+  "reads": 6,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 2,
+   "readFileIgnoringRange": 2
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.09708730000000002,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.09708730000000002
+}

@@ -1,0 +1,42 @@
+[
+  {
+    "source": "S1",
+    "decision": "fix",
+    "reason": "CompoundDistribution._marginalise sums a discrete/finite random parameter from its lower bound to its upper bound minus 1. The final value (the second cohort) is dropped, so the density integrates to "
+  },
+  {
+    "source": "S2",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: The report came from a version where PythonCodePrinter had no _print_Indexed, so pycode(p[0]) fell through to the 'Not supported in Python' comment. The current code defines PythonCodePrinter._print_I"
+  },
+  {
+    "source": "S3",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: Evaluating sinh/cosh/tanh of a Piecewise divided by a symbol, with real symbols, made the real-ness check compute (im % pi). That called Mod, which called gcd on a Piecewise, and gcd raises Polynomial"
+  },
+  {
+    "source": "S4",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: When light goes from a denser to a thinner medium past the critical angle, refraction_angle returns 0 on purpose, to signal total internal reflection. The ray-vector path is marked as total internal r"
+  },
+  {
+    "source": "S5",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The error comes from a service called export-job: a worker pod killed for running out of memory (512Mi limit) while building a nightly CSV export. The code it points at, export/worker.py and export/cs"
+  },
+  {
+    "source": "S6",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: The report came from an older release where Contains.as_set returned the Contains object itself. It has no as_relational, so Piecewise((6, Contains(x, Reals)), (7, True)) crashed. In the current code "
+  },
+  {
+    "source": "S7",
+    "decision": "fix",
+    "reason": "Contains.as_set in sympy/sets/contains.py is a stub that raises NotImplementedError(). Contains(x, S) is exactly the statement 'x is in S', so its set of solutions in x is simply S. Any code that call"
+  },
+  {
+    "source": "S8",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: frac(oo) and frac(-oo) deliberately return AccumBounds(0, 1), and the tests assert it. AccumBounds.__pow__ deliberately returns [0, oo) for any interval containing 1 raised to oo, because 1**oo is ind"
+  }
+]

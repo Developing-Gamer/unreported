@@ -1,0 +1,84 @@
+diff --git a/astropy/io/ascii/rst.py b/astropy/io/ascii/rst.py
+index abdeba8ef..6f9948870 100755
+--- a/astropy/io/ascii/rst.py
++++ b/astropy/io/ascii/rst.py
+@@ -50,6 +50,12 @@ class RST(FixedWidth):
+     or for ones which define column spans through the use of an additional
+     line of dashes in the header.
+ 
++    Parameters
++    ----------
++    header_rows : list, optional
++        Header attributes to read or write, one table row each (default
++        ``["name"]``), e.g. ``["name", "unit"]``.
++
+     """
+ 
+     _format_name = "rst"
+@@ -57,10 +63,13 @@ class RST(FixedWidth):
+     data_class = SimpleRSTData
+     header_class = SimpleRSTHeader
+ 
+-    def __init__(self):
+-        super().__init__(delimiter_pad=None, bookend=False)
++    def __init__(self, header_rows=None):
++        super().__init__(delimiter_pad=None, bookend=False, header_rows=header_rows)
++        # Data follow the opening border, the header rows and the position line.
++        self.data.start_line = len(self.header.header_rows) + 2
+ 
+     def write(self, lines):
+         lines = super().write(lines)
+-        lines = [lines[1]] + lines + [lines[1]]
++        idx = len(self.header.header_rows)
++        lines = [lines[idx]] + lines + [lines[idx]]
+         return lines
+diff --git a/astropy/io/ascii/tests/test_rst.py b/astropy/io/ascii/tests/test_rst.py
+index 84d6fed40..7651e7ee6 100755
+--- a/astropy/io/ascii/tests/test_rst.py
++++ b/astropy/io/ascii/tests/test_rst.py
+@@ -2,7 +2,9 @@
+ 
+ from io import StringIO
+ 
++import astropy.units as u
+ from astropy.io import ascii
++from astropy.table import QTable
+ 
+ from .common import assert_almost_equal, assert_equal
+ 
+@@ -185,3 +187,27 @@ Col1      Col2 Col3 Col4
+ ==== ========= ==== ====
+ """,
+     )
++
++
++def test_rst_with_header_rows():
++    """Write and read RST tables with extra header rows"""
++    lines = [
++        "===== ========",
++        " wave response",
++        "   nm       ct",
++        "===== ========",
++        "350.0      0.7",
++        "950.0      1.2",
++        "===== ========",
++    ]
++    tbl = QTable([[350, 950] * u.nm, [0.7, 1.2] * u.count], names=["wave", "response"])
++    out = StringIO()
++    tbl.write(out, format="ascii.rst", header_rows=["name", "unit"])
++    assert_equal_splitlines(out.getvalue(), "\n".join(lines) + "\n")
++
++    tbl2 = QTable.read(out.getvalue(), format="ascii.rst", header_rows=["name", "unit"])
++    assert tbl2.colnames == ["wave", "response"]
++    assert tbl2["wave"].unit == u.nm
++    assert tbl2["response"].unit == u.count
++    assert_almost_equal(tbl2["wave"].value, [350, 950])
++    assert_almost_equal(tbl2["response"].value, [0.7, 1.2])
+diff --git a/docs/changes/io.ascii/14182.feature.rst b/docs/changes/io.ascii/14182.feature.rst
+new file mode 100644
+index 000000000..cc14c812a
+--- /dev/null
++++ b/docs/changes/io.ascii/14182.feature.rst
+@@ -0,0 +1,2 @@
++Add support for the ``header_rows`` keyword in the ``ascii.rst`` (reStructuredText
++simple table) reader and writer, so that e.g. unit rows can be written and read.

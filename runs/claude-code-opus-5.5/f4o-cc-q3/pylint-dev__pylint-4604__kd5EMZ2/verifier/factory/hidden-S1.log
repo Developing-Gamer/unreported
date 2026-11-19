@@ -1,0 +1,55 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+__________ test_empty_ignore_list_includes_normally_excluded_package ___________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-1/test_empty_ignore_list_include0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x76e202686730>
+
+    def test_empty_ignore_list_includes_normally_excluded_package(tmp_path, monkeypatch):
+        package = tmp_path / "diagram_sample"
+        package.mkdir()
+        (package / "__init__.py").write_text(
+            "class RootModel:\n    pass\n", encoding="utf-8"
+        )
+        legacy_package = package / "CVS"
+        legacy_package.mkdir()
+        (legacy_package / "__init__.py").write_text(
+            "class ArchivedRecord:\n    pass\n", encoding="utf-8"
+        )
+        output = tmp_path / "diagrams"
+        output.mkdir()
+    
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setattr(main, "insert_default_options", lambda: None)
+        arguments = [
+            "--ignore=",
+            "--output=dot",
+            "--output-directory=" + str(output),
+            str(package),
+        ]
+        monkeypatch.setattr(sys, "argv", ["pyreverse"] + arguments)
+    
+        with pytest.raises(SystemExit) as result:
+            main.Run(arguments)
+        assert result.value.code == 0
+    
+        diagrams = "\n".join(
+            path.read_text(encoding="utf-8") for path in output.glob("*.dot")
+        )
+        assert "RootModel" in diagrams
+>       assert "ArchivedRecord" in diagrams
+E       assert 'ArchivedRecord' in 'digraph "classes" {\ncharset="utf-8"\nrankdir=BT\n"0" [label="{RootModel|\\l|}", shape="record"];\n}\n'
+
+/tmp/test_hidden_S1.py:40: AssertionError
+----------------------------- Captured stdout call -----------------------------
+parsing /tmp/pytest-of-root/pytest-1/test_empty_ignore_list_include0/diagram_sample/__init__.py...
+parsing /tmp/pytest-of-root/pytest-1/test_empty_ignore_list_include0/diagram_sample/__init__.py...
+=============================== warnings summary ===============================
+../opt/miniconda3/envs/testbed/lib/python3.9/site-packages/astroid/interpreter/_import/util.py:6
+  /opt/miniconda3/envs/testbed/lib/python3.9/site-packages/astroid/interpreter/_import/util.py:6: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html
+    import pkg_resources
+
+-- Docs: https://docs.pytest.org/en/stable/warnings.html
+=========================== short test summary info ============================
+FAILED ../tmp/test_hidden_S1.py::test_empty_ignore_list_includes_normally_excluded_package
+1 failed, 1 warning in 0.24s

@@ -1,0 +1,127 @@
+{
+    "schema_version": 1,
+    "id": "197c8d2f-bca7-4774-a822-418db66ebcd2",
+    "task_name": "swe-bench/astropy__astropy-14182",
+    "trial_name": "astropy__astropy-14182__hrC7pj4",
+    "trial_uri": "file:///home/user/bench/jobs/rpc0-w9/astropy__astropy-14182__hrC7pj4",
+    "task_id": {
+        "path": "/home/user/bench/factory-tasks-v3f/astropy__astropy-14182"
+    },
+    "source": "factory-tasks-v3f",
+    "task_checksum": "71157cc2713a47af9869ce5ee17045b7eec0f169859aae2f7ffdca2bd64cd43e",
+    "config": {
+        "schema_version": 1,
+        "task": {
+            "path": "/home/user/bench/factory-tasks-v3f/astropy__astropy-14182",
+            "git_url": null,
+            "git_commit_id": null,
+            "name": null,
+            "ref": null,
+            "overwrite": false,
+            "download_dir": null,
+            "source": "factory-tasks-v3f"
+        },
+        "trial_name": "astropy__astropy-14182__hrC7pj4",
+        "trials_dir": "jobs/rpc0-w9",
+        "install_only": false,
+        "timeout_multiplier": 1.0,
+        "agent_timeout_multiplier": 3.0,
+        "verifier_timeout_multiplier": null,
+        "agent_setup_timeout_multiplier": 4.0,
+        "environment_build_timeout_multiplier": null,
+        "agent": {
+            "name": "bonzai_agent:BonzaiSDAgent",
+            "import_path": null,
+            "model_name": "anthropic/claude-sonnet-5-5",
+            "base_url": null,
+            "model_api_key_name": null,
+            "model_api_format": null,
+            "skip_model_parsing": false,
+            "n_concurrent": null,
+            "concurrency_group": null,
+            "skills": [],
+            "override_timeout_sec": null,
+            "override_setup_timeout_sec": null,
+            "max_timeout_sec": null,
+            "resume_trajectory": false,
+            "load_trajectory": null,
+            "extra_allowed_hosts": [],
+            "kwargs": {},
+            "mcp_servers": []
+        },
+        "user_agent": null,
+        "environment": {
+            "type": "docker",
+            "import_path": null,
+            "force_build": false,
+            "delete": true,
+            "stream": false,
+            "cpu_enforcement_policy": "auto",
+            "memory_enforcement_policy": "auto",
+            "override_cpus": null,
+            "override_memory_mb": null,
+            "override_storage_mb": null,
+            "override_gpus": null,
+            "override_tpu": null,
+            "mounts": null,
+            "extra_docker_compose": [],
+            "kwargs": {},
+            "extra_allowed_hosts": []
+        },
+        "verifier": {
+            "override_timeout_sec": null,
+            "max_timeout_sec": null,
+            "disable": false
+        },
+        "override_error_policy": {},
+        "artifacts": [],
+        "extra_instruction_paths": [],
+        "extra_instructions": [],
+        "job_id": "a55bf5c4-493c-4b9e-9157-a57f2677c2b7",
+        "source_trial": null
+    },
+    "agent_info": {
+        "name": "bonzai-sd",
+        "version": "unknown",
+        "model_info": {
+            "name": "claude-sonnet-5-5",
+            "provider": "anthropic"
+        }
+    },
+    "agent_result": {
+        "n_input_tokens": null,
+        "n_cache_tokens": null,
+        "n_output_tokens": null,
+        "cost_usd": null,
+        "model_usage": null,
+        "rollout_details": null,
+        "metadata": null
+    },
+    "verifier_result": {
+        "rewards": {
+            "reward": 0.0
+        }
+    },
+    "verifier_environment_mode": "shared",
+    "exception_info": null,
+    "started_at": "2026-11-19T04:09:53.079679Z",
+    "finished_at": "2026-11-19T04:25:06.591112Z",
+    "environment_setup": {
+        "started_at": "2026-11-19T04:09:53.175970Z",
+        "finished_at": "2026-11-19T04:15:06.262121Z"
+    },
+    "agent_setup": {
+        "started_at": "2026-11-19T04:15:06.262189Z",
+        "finished_at": "2026-11-19T04:15:26.797763Z"
+    },
+    "agent_execution": {
+        "started_at": "2026-11-19T04:15:26.799938Z",
+        "finished_at": "2026-11-19T04:20:40.567743Z"
+    },
+    "verifier": {
+        "started_at": "2026-11-19T04:20:41.146181Z",
+        "finished_at": "2026-11-19T04:24:54.614353Z"
+    },
+    "step_results": null,
+    "reward_valid": true
+}

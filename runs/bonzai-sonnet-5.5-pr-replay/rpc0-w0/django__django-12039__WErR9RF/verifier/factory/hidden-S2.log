@@ -1,0 +1,62 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_______________ test_filtered_plan_keeps_cross_app_prerequisites _______________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-0/test_filtered_plan_keeps_cross0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f14e8202d68>
+
+    def test_filtered_plan_keeps_cross_app_prerequisites(tmp_path, monkeypatch):
+        if not settings.configured:
+            settings.configure(
+                SECRET_KEY='migration-plan-test',
+                INSTALLED_APPS=[],
+                DATABASES={},
+                USE_I18N=False,
+            )
+        django.setup()
+    
+        accounts = 'plan_test_accounts'
+        orders = 'plan_test_orders'
+        for app_label, dependencies in (
+            (accounts, []),
+            (orders, [(accounts, '0001_initial')]),
+        ):
+            package = tmp_path / app_label
+            migrations = package / 'migrations'
+            migrations.mkdir(parents=True)
+            (package / '__init__.py').write_text('', encoding='utf-8')
+            (migrations / '__init__.py').write_text('', encoding='utf-8')
+            (migrations / '0001_initial.py').write_text(
+                'from django.db import migrations\n\n'
+                'class Migration(migrations.Migration):\n'
+                '    dependencies = %r\n'
+                '    operations = []\n' % dependencies,
+                encoding='utf-8',
+            )
+    
+        monkeypatch.syspath_prepend(str(tmp_path))
+        with override_settings(
+            INSTALLED_APPS=[accounts, orders],
+            MIGRATION_MODULES={},
+        ):
+            output = StringIO()
+            command = Command(stdout=output, no_color=True)
+            command.verbosity = 1
+            # A connection of None loads the real migration graph without a database.
+            command.show_plan(None, [orders])
+    
+>       assert output.getvalue().splitlines() == [
+            '[ ]  plan_test_accounts.0001_initial',
+            '[ ]  plan_test_orders.0001_initial',
+        ]
+E       AssertionError: assert ['[ ]  plan_t...0001_initial'] == ['[ ]  plan_t...0001_initial']
+E         At index 0 diff: '[ ]  plan_test_orders.0001_initial' != '[ ]  plan_test_accounts.0001_initial'
+E         Right contains one more item: '[ ]  plan_test_orders.0001_initial'
+E         Full diff:
+E         - ['[ ]  plan_test_accounts.0001_initial', '[ ]  plan_test_orders.0001_initial']
+E         + ['[ ]  plan_test_orders.0001_initial']
+
+/tmp/test_hidden_S2.py:49: AssertionError
+=========================== short test summary info ============================
+FAILED ../tmp/test_hidden_S2.py::test_filtered_plan_keeps_cross_app_prerequisites
+1 failed in 20.90s

@@ -1,0 +1,9 @@
+[
+{"source":"S1","decision":"skip","reason":"Already fixed: CountVectorizer.get_feature_names_out calls _check_vocabulary, which validates a provided vocabulary and does not raise NotFittedError."},
+{"source":"S2","decision":"skip","reason":"Too vague to act on: l1_min_c gives identical bounds for imbalanced binary and three-class data here, and no code or reproduction shows what produces the C grid."},
+{"source":"S3","decision":"skip","reason":"Already fixed: clone has `or isinstance(estimator, type)` and clone(StandardScaler(with_mean=StandardScaler)) works."},
+{"source":"S4","decision":"skip","reason":"Upstream api.github.com timeout in an external webhook relay service, not a defect in this repository."},
+{"source":"S5","decision":"fix","reason":"roc_curve prepended max(threshold)+1, which exceeds 1 for probability scores; it now prepends np.inf."},
+{"source":"S6","decision":"fix","reason":"VarianceThreshold used ddof=1 for dense input but population variance for sparse input, so dense selected an extra feature; both now use population variance."},
+{"source":"S7","decision":"skip","reason":"min_samples_split is documented as a count of samples and is deliberately unweighted (min_weight_fraction_leaf is the weighted control); this is a feature request, not a defect."}
+]

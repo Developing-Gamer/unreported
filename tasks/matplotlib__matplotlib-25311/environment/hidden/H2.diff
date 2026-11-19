@@ -1,0 +1,22 @@
+diff --git a/lib/mpl_toolkits/axes_grid1/axes_rgb.py b/lib/mpl_toolkits/axes_grid1/axes_rgb.py
+index f0672b7a8b..2a20cd3205 100755
+--- a/lib/mpl_toolkits/axes_grid1/axes_rgb.py
++++ b/lib/mpl_toolkits/axes_grid1/axes_rgb.py
+@@ -139,8 +139,12 @@ class RGBAxes:
+         G[:, :, 1] = g
+         B = np.zeros_like(RGB)
+         B[:, :, 2] = b
+-        im_rgb = self.RGB.imshow(RGB, **kwargs)
+-        im_r = self.R.imshow(R, **kwargs)
+-        im_g = self.G.imshow(G, **kwargs)
+-        im_b = self.B.imshow(B, **kwargs)
+-        return im_rgb, im_r, im_g, im_b
++        images = []
++        for ax, data in zip(
++                [self.RGB, self.R, self.G, self.B], [RGB, R, G, B]):
++            try:
++                image = ax.imshow(data, **kwargs)
++            except ValueError:
++                image = ax.imshow(data)
++            images.append(image)
++        return tuple(images)

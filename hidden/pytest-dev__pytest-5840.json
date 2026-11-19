@@ -1,0 +1,30 @@
+{
+ "task": "pytest-dev__pytest-5840",
+ "kept": [
+  {
+   "path": "src/_pytest/_argcomplete.py",
+   "category": "silent wrong result (a value or output that is subtly wrong, no exception)",
+   "defect_patch": "diff --git a/src/_pytest/_argcomplete.py b/src/_pytest/_argcomplete.py\nindex 688c9077d..f93b6899a 100644\n--- a/src/_pytest/_argcomplete.py\n+++ b/src/_pytest/_argcomplete.py\n@@ -73,7 +73,7 @@ class FastFilesCompleter:\n             prefix_dir = 0\n         completion = []\n         globbed = []\n-        if \"*\" not in prefix and \"?\" not in prefix:\n+        if \"*\" not in prefix or \"?\" not in prefix:\n             # we are on unix, otherwise no bash\n             if not prefix or prefix[-1] == os.path.sep:\n                 globbed.extend(glob(prefix + \".*\"))\n",
+   "test_code": "import pytest\n\nfrom _pytest._argcomplete import FastFilesCompleter\n\n\n@pytest.mark.parametrize(\"pattern\", [\"test_?.py\", \"test_*.py\"])\ndef test_wildcard_completion_preserves_extension_boundary(tmp_path, monkeypatch, pattern):\n    monkeypatch.chdir(tmp_path)\n    (tmp_path / \"test_a.py\").write_text(\"\")\n    (tmp_path / \"test_a.py.bak\").write_text(\"\")\n\n    assert FastFilesCompleter()(pattern) == [\"test_a.py\"]\n",
+   "signal": {
+    "kind": "user",
+    "source": "CLI support channel",
+    "text": "Tab completion sometimes offers .py.bak files when my test filename pattern ends in .py. Completing ordinary filenames still looks normal."
+   },
+   "summary": "Changing the wildcard check from AND to OR appends an extra star to patterns containing only one wildcard type, incorrectly including files with additional suffixes."
+  },
+  {
+   "path": "src/_pytest/pastebin.py",
+   "category": "silent wrong result (a value or output that is subtly wrong, no exception)",
+   "defect_patch": "diff --git a/src/_pytest/pastebin.py b/src/_pytest/pastebin.py\nindex 91aa5f1fd..41d612f02 100644\n--- a/src/_pytest/pastebin.py\n+++ b/src/_pytest/pastebin.py\n@@ -85,7 +85,7 @@ def pytest_terminal_summary(terminalreporter):\n         terminalreporter.write_sep(\"=\", \"Sending information to Paste Service\")\n         for rep in terminalreporter.stats.get(\"failed\"):\n             try:\n-                msg = rep.longrepr.reprtraceback.reprentries[-1].reprfileloc\n+                msg = rep.longrepr.reprtraceback.reprentries[0].reprfileloc\n             except AttributeError:\n                 msg = tr._getfailureheadline(rep)\n             tw = _pytest.config.create_terminal_writer(\n",
+   "test_code": "from io import StringIO\nfrom types import SimpleNamespace\n\nimport _pytest.config\nimport _pytest.pastebin as pastebin\n\n\ndef test_failure_paste_link_identifies_innermost_frame(monkeypatch):\n    outer_location = \"tests/test_job.py:12: in test_job\"\n    inner_location = \"pkg/job.py:34: AssertionError\"\n    traceback_text = \"tests/test_job.py:12: in test_job\\npkg/job.py:34: AssertionError\\n\"\n    report = SimpleNamespace(\n        longrepr=SimpleNamespace(\n            reprtraceback=SimpleNamespace(\n                reprentries=[\n                    SimpleNamespace(reprfileloc=outer_location),\n                    SimpleNamespace(reprfileloc=inner_location),\n                ]\n            )\n        ),\n        toterminal=lambda tw: tw.write(traceback_text),\n    )\n\n    buffer = StringIO()\n    writer = SimpleNamespace(stringio=buffer, write=buffer.write)\n    monkeypatch.setattr(\n        _pytest.config,\n        \"create_terminal_writer\",\n        lambda config, stringio: writer,\n    )\n\n    uploaded = []\n    paste_url = \"https://bpaste.net/show/abc123\"\n\n    def create_paste(contents):\n        uploaded.append(contents)\n        return paste_url\n\n    monkeypatch.setattr(pastebin, \"create_new_paste\", create_paste)\n    lines = []\n    reporter = SimpleNamespace(\n        config=SimpleNamespace(option=SimpleNamespace(pastebin=\"failed\")),\n        stats={\"failed\": [report]},\n        write_sep=lambda *args: None,\n        write_line=lines.append,\n    )\n\n    pastebin.pytest_terminal_summary(reporter)\n\n    assert uploaded == [traceback_text]\n    assert lines == [\"{} --> {}\".format(inner_location, paste_url)]\n",
+   "signal": {
+    "kind": "user",
+    "source": "CI triage chat",
+    "text": "For failures that go through a helper, the paste link is labeled with the outer test call's location rather than the assertion location shown in the pasted traceback."
+   },
+   "summary": "Failure-only paste links label multi-frame tracebacks with the first frame's location instead of the innermost frame's location."
+  }
+ ],
+ "rejected": []
+}

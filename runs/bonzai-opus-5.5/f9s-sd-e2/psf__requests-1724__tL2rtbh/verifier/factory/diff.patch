@@ -1,0 +1,131 @@
+diff --git a/requests/models.py b/requests/models.py
+index f82f56a..2d49061 100644
+--- a/requests/models.py
++++ b/requests/models.py
+@@ -307,7 +307,7 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):
+         """Prepares the given HTTP method."""
+         self.method = method
+         if self.method is not None:
+-            self.method = self.method.upper()
++            self.method = to_native_string(self.method.upper())
+ 
+     def prepare_url(self, url, params):
+         """Prepares the given HTTP URL."""
+diff --git a/requests/packages/charade/euctwfreq.py b/requests/packages/charade/euctwfreq.py
+index 1ba12cf..576e750 100644
+--- a/requests/packages/charade/euctwfreq.py
++++ b/requests/packages/charade/euctwfreq.py
+@@ -52,7 +52,7 @@ EUCTWCharToFreqOrder = (
+ 1198,3869,3313,4060, 410,2211, 302, 590, 361,1963,   8, 204,  58,4296,7311,1931, # 2774
+   63,7312,7313, 317,1614,  75, 222, 159,4061,2412,1480,7314,3500,3068, 224,2809, # 2790
+ 3616,   3,  10,3870,1471,  29,2774,1135,2852,1939, 873, 130,3242,1123, 312,7315, # 2806
+-4297,2051, 705, 252, 682,7316, 142,1914, 124, 206,2932,  34,3501,3173,  64, 604, # 2822
++4297,2051, 507, 252, 682,7316, 142,1914, 124, 206,2932,  34,3501,3173,  64, 604, # 2822
+ 7317,2494,1976,1977, 155,1990, 645, 641,1606,7318,3405, 337,  72, 406,7319,  80, # 2838
+  630, 238,3174,1509, 263, 939,1092,2644, 756,1440,1094,3406, 449,  69,2969, 591, # 2854
+  179,2095, 471, 115,2034,1843,  60,  50,2970, 134, 806,1868, 734,2035,3407, 180, # 2870
+diff --git a/requests/sessions.py b/requests/sessions.py
+index cc72f65..bc4c8e0 100644
+--- a/requests/sessions.py
++++ b/requests/sessions.py
+@@ -147,6 +147,10 @@ class SessionRedirectMixin(object):
+ 
+             extract_cookies_to_jar(self.cookies, prepared_request, resp.raw)
+ 
++            # The next hop must build on this one, not on the original
++            # request, so method changes and a cleared body carry forward.
++            req = prepared_request
++
+             i += 1
+             yield resp
+ 
+diff --git a/test_requests.py b/test_requests.py
+index a593db3..fb5a117 100755
+--- a/test_requests.py
++++ b/test_requests.py
+@@ -77,6 +77,14 @@ class RequestsTestCase(unittest.TestCase):
+         head_req = requests.Request('HEAD', httpbin('head')).prepare()
+         assert 'Content-Length' not in head_req.headers
+ 
++    def test_prepared_method_is_native_string(self):
++        # A non-native method (unicode on Python 2, bytes on Python 3) must be
++        # converted, otherwise httplib mixes unicode into a binary body.
++        for method in (u'post', b'post'):
++            pr = requests.Request(method, 'http://example.invalid/').prepare()
++            assert pr.method == 'POST'
++            assert type(pr.method) is type('')
++
+     def test_path_is_not_double_encoded(self):
+         request = requests.Request('GET', "http://0.0.0.0/get/test case").prepare()
+ 
+@@ -115,6 +123,46 @@ class RequestsTestCase(unittest.TestCase):
+         r = requests.get(httpbin('redirect', '1'))
+         assert r.status_code == 200
+ 
++    @staticmethod
++    def _redirect_session(statuses):
++        """Session whose adapter answers with the given statuses in order,
++        redirecting each non-200 one; returns (session, sent requests)."""
++        import io
++        sent = []
++
++        class FakeAdapter(HTTPAdapter):
++            def send(self, request, **kwargs):
++                sent.append(request)
++                status = statuses[len(sent) - 1]
++                r = requests.Response()
++                r.status_code = status
++                r.url = request.url
++                r.raw = io.BytesIO(b'')
++                r.raw.release_conn = lambda: None
++                if status != 200:
++                    r.headers['location'] = '/next%d' % len(sent)
++                return r
++
++        s = requests.Session()
++        s.mount('http://', FakeAdapter())
++        return s, sent
++
++    def test_redirect_303_then_307_stays_get(self):
++        s, sent = self._redirect_session([303, 307, 200])
++        r = s.post('http://example.test/complete', data={'result': 'x'})
++        assert r.status_code == 200
++        assert [q.method for q in sent] == ['POST', 'GET', 'GET']
++        assert sent[1].body is None
++        assert sent[2].body is None
++        assert 'Content-Length' not in sent[2].headers
++
++    def test_redirect_307_resends_post(self):
++        s, sent = self._redirect_session([307, 200])
++        s.post('http://example.test/complete', data={'result': 'x'})
++        assert [q.method for q in sent] == ['POST', 'POST']
++        assert sent[1].body == 'result=x'
++        assert sent[1].url == 'http://example.test/next1'
++
+     # def test_HTTP_302_ALLOW_REDIRECT_POST(self):
+     #     r = requests.post(httpbin('status', '302'), data={'some': 'data'})
+     #     self.assertEqual(r.status_code, 200)
+@@ -722,6 +770,23 @@ class TestContentEncodingDetection(unittest.TestCase):
+         assert encodings == ['HTML5', 'HTML4', 'XML']
+ 
+ 
++class TestCharadeEUCTW(unittest.TestCase):
++    """Short EUC-TW notices containing the common character U+4ED2."""
++
++    def test_detects_short_euctw_with_common_char(self):
++        from requests.packages import charade
++        # '本仍有效' and '公司仍營' encoded as EUC-TW (iconv -t euc-tw)
++        samples = [b'\xc6\xdb\xc4\xf3\xc8\xb4\xd5\xe6',
++                   b'\xc4\xfc\xc6\xb3\xc4\xf3\xf4\xb2']
++        for data in samples:
++            assert charade.detect(data)['encoding'] == 'EUC-TW'
++
++    def test_euctw_freq_table_ranks_unique(self):
++        from requests.packages.charade.euctwfreq import EUCTWCharToFreqOrder
++        ranks = list(EUCTWCharToFreqOrder)
++        assert len(ranks) == len(set(ranks))
++
++
+ class TestCaseInsensitiveDict(unittest.TestCase):
+ 
+     def test_mapping_init(self):

@@ -1,0 +1,32 @@
+[
+  {
+    "source": "S1",
+    "decision": "fix",
+    "reason": "In the vendored urllib3, HTTPResponse.read() adds len(data) to _fp_bytes_read only after the data has been decompressed. As a result, tell(), which its docstring says returns bytes pulled over the wir"
+  },
+  {
+    "source": "S2",
+    "decision": "fix",
+    "reason": "Requests v2.0.1 verifies HTTPS servers against its own bundled CA file (requests/cacert.pem, returned by certs.where() and used by HTTPAdapter.cert_verify whenever verify=True). That bundle is an old "
+  },
+  {
+    "source": "S3",
+    "decision": "fix",
+    "reason": "When the server's Digest challenge offers qop, HTTPDigestAuth.build_digest_header appends the literal ', qop=auth, ...' to the Authorization header, so qop is the only value left unquoted. Servers tha"
+  },
+  {
+    "source": "S4",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: Older requests releases added 'Content-Length: 0' to every request with no body, GET included, and some servers (e.g. amazon.com) answer such GETs with 503. Since 1.2.0, prepare_content_length only ad"
+  },
+  {
+    "source": "S5",
+    "decision": "fix",
+    "reason": "requests.head() in requests/api.py assigns kwargs['allow_redirects'] = False unconditionally, overwriting a caller's explicit allow_redirects=True. Any HEAD check against a URL that redirects therefor"
+  },
+  {
+    "source": "S6",
+    "decision": "skip",
+    "reason": "Self-Driving verdict outsideCode: The billing-worker's TCP connection to api.stripe.com:443 was actively refused ([Errno 111] Connection refused) before any HTTP exchange. requests only wraps the operating system's socket error from u"
+  }
+]

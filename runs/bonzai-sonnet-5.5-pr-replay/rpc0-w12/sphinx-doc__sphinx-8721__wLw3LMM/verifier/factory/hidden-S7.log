@@ -1,0 +1,42 @@
+.FF                                                                      [100%]
+=================================== FAILURES ===================================
+_______________ test_dutch_stemming_is_case_insensitive[BOEKEN] ________________
+
+word = 'BOEKEN'
+
+    @pytest.mark.parametrize('word', ['boeken', 'BOEKEN', 'boeKEN'])
+    def test_dutch_stemming_is_case_insensitive(word):
+        language = SearchDutch({})
+>       assert language.stem(word) == 'boek'
+E       AssertionError: assert 'boeken' == 'boek'
+E         
+E         - boek
+E         + boeken
+E         ?     ++
+
+/tmp/test_hidden_S7.py:9: AssertionError
+_______________ test_dutch_stemming_is_case_insensitive[boeKEN] ________________
+
+word = 'boeKEN'
+
+    @pytest.mark.parametrize('word', ['boeken', 'BOEKEN', 'boeKEN'])
+    def test_dutch_stemming_is_case_insensitive(word):
+        language = SearchDutch({})
+>       assert language.stem(word) == 'boek'
+E       AssertionError: assert 'boeken' == 'boek'
+E         
+E         - boek
+E         + boeken
+E         ?     ++
+
+/tmp/test_hidden_S7.py:9: AssertionError
+=============================== warnings summary ===============================
+sphinx/util/docutils.py:45
+  /testbed/sphinx/util/docutils.py:45: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    __version_info__ = tuple(LooseVersion(docutils.__version__).version)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED ../tmp/test_hidden_S7.py::test_dutch_stemming_is_case_insensitive[BOEKEN]
+FAILED ../tmp/test_hidden_S7.py::test_dutch_stemming_is_case_insensitive[boeKEN]
+2 failed, 1 passed, 1 warning in 0.21s

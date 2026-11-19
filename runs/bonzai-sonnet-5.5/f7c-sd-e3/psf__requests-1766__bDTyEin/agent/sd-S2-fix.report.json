@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 88999,
+ "finalText": "The fix is done. The change is left uncommitted in the working tree, as the benchmark note required.\n\nI replaced the vendored CA bundle `requests/cacert.pem` with the current Mozilla root store (146 roots). The old file was from 2013, had no ISRG Root X1 and still held the expired DST Root CA X3. On the starting commit, `requests.get('https://letsencrypt.org')` raised the same `SSLError: CERTIFICATE_VERIFY_FAILED ... unable to get local issuer certificate` as in the Sentry event. After the change it returns 200.\n\nI added `CABundleTestCase` to `test_requests.py`. It checks the bundle contains ISRG Root X1 and not DST Root CA X3. Both tests failed before the change and pass now.\n\nIn the full `python -m pytest test_requests.py` run, 94 pass and `test_conflicting_post_params` fails. That test also failed in the pre-fix run; I did not re-run it on a clean base commit.\n\n`test_mixed_case_scheme_acceptable` failed in the pre-fix run and passed after; I did not investigate why.\n\nI did not make `certs.py` prefer certifi or the system store, because that adds a dependency and changes behaviour. The vendored bundle will go stale again and need periodic refreshes.\n\nThe working tree also holds uncommitted changes to `requests/packages/urllib3/response.py` and `test_requests.py` from open PR #1000. That PR covers `HTTPResponse.tell()`, not certificates, and I left those changes alone.\n\nThe pull request text is in `.factory/pr-S2.md`.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest test_requests.py -k CABundle\", \"passed\": true},\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest test_requests.py\", \"passed\": false, \"alsoOnBase\": true, \"note\": \"only test_conflicting_post_params fails; it also failed in the pre-fix run (not re-run on a clean base)\"}\n  ],\n  \"visual\": false,\n  \"missingEnv\": [],\n  \"reproductionSteps\": \"In the testbed env run python -c \\\"import requests; requests.get('https://letsencrypt.org')\\\" on the base commit: raises SSLError CERTIFICATE_VERIFY_FAILED unable to get local issuer certificate. After the fix it returns 200.\",\n  \"reproductionTest\": {\n    \"path\": \"test_requests.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest test_requests.py -k CABundle\",\n    \"signature\": \"AssertionError: bundle lacks 'Label: \\\"ISRG Root X1\\\"' / contains 'DST Root CA X3'; live: SSLError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1147)\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 12,
+  "inputTokens": {
+   "avg": 23684.666666666668,
+   "max": 28001
+  },
+  "mainUsage": {
+   "inputTokens": 284216,
+   "cachedInputTokens": 270103,
+   "outputTokens": 6013
+  },
+  "cacheHitPercent": 95.03441044839137,
+  "wallSeconds": 88.64599990844727,
+  "tools": {
+   "read": 5,
+   "edit": 3,
+   "test": 0,
+   "verify": 1,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 3
+  },
+  "reads": 5,
+  "edits": 3,
+  "runs": 4,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 3,
+  "editOperations": 3,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.14941910000000003,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.14941910000000003
+}

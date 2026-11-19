@@ -1,0 +1,37 @@
+[
+  {
+    "source": "S1",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: Before 0.20, CountVectorizer only set up a vocabulary passed to the constructor inside fit/transform, so get_feature_names on an unfitted vectorizer raised NotFittedError. The current _check_vocabular"
+  },
+  {
+    "source": "S2",
+    "decision": "fix",
+    "reason": "l1_min_c computes the intercept term as abs(np.dot(Y, bias).max()), taking the signed maximum before the absolute value. For imbalanced multiclass labels, minority classes have large negative sums tha"
+  },
+  {
+    "source": "S3",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: Older versions of clone treated any parameter with a get_params attribute as an estimator instance, so an estimator class passed as a parameter was cloned recursively and estimator.get_params(deep=Fal"
+  },
+  {
+    "source": "S4",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The error comes from the `webhook-relay` service's relay/deliver.py (post_webhook): an aiohttp request to api.github.com hit a 30-second asyncio.wait_for timeout. This repository is scikit-learn. It h"
+  },
+  {
+    "source": "S5",
+    "decision": "fix",
+    "reason": "roc_curve prepends an extra threshold so the curve starts at (0, 0), and sets it to thresholds[0] + 1 (max(y_score) + 1). When y_score are probability estimates in [0, 1], that first threshold lands i"
+  },
+  {
+    "source": "S6",
+    "decision": "fix",
+    "reason": "VarianceThreshold.fit computes variance with np.nanvar(X, axis=0, ddof=1), which divides by n-1, for dense input, but with mean_variance_axis, which divides by n, for sparse input. On small batches th"
+  },
+  {
+    "source": "S7",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: When deciding whether a node may split, the tree builders compare the raw row count (end - start) with min_samples_split, while only min_weight_leaf uses the weighted count. The user guide says outrig"
+  }
+]

@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 70544,
+ "finalText": "The cause is in this repository: the filter that drops low-variance columns (`VarianceThreshold`) computes spread differently for dense and sparse input. On small batches, a yes/no column just under the threshold is kept for a dense table and dropped for a sparse matrix. Nothing was edited.\n\n**Cause:** For dense input, `fit` uses `np.nanvar(X, axis=0, ddof=1)`, which divides by n\u22121, at line 111 of `sklearn/feature_selection/_variance_threshold.py`. For sparse input it uses `mean_variance_axis`, which divides by n. Columns are then kept with `variances_ > threshold`, so the higher dense numbers let extra columns through.\n\n**Not deliberate:** The user guide gives a yes/no column's variance as `p(1 - p)`, which divides by n. No comment, test or changelog entry chooses n\u22121 for dense input only.\n\n**Who feels it:** Anyone fitting this filter on dense data gets more columns than the documented rule allows, and different columns than the same data in sparse form. The gap is largest on small batches (4/3 times higher at 4 rows).\n\n**Confirmed with probe:** I fitted a 4-row 0/1 batch with `threshold=0.2`:\n- **Sparse:** variances `[0.1875 0.1875 0.25]`, kept columns `[False False True]`.\n- **Dense:** variances `[0.25 0.25 0.333]`, kept columns `[True True True]`.\n\nThe existing tests pass (4 passed). None of them uses a threshold that lands between the two results. I didn't check when the n\u22121 version came in, because the repository is a single snapshot commit.\n\n**Fix:** Drop `ddof=1` on line 111. Add a test that fits the same small 0/1 data in dense and sparse form at a threshold between the two results, and checks that the kept columns and variances match.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Variance filter keeps extra columns for dense input\",\n  \"cause\": \"VarianceThreshold.fit computes variance with np.nanvar(X, axis=0, ddof=1), which divides by n-1, for dense input, but with mean_variance_axis, which divides by n, for sparse input. On small batches the dense variances are inflated by n/(n-1). A binary indicator column whose real variance p(1-p) is just under the threshold is kept for dense input and dropped for sparse input.\",\n  \"files\": [\n    {\"path\": \"sklearn/feature_selection/_variance_threshold.py\", \"why\": \"Line 111 uses ddof=1 on the dense path, which does not match the sparse path or the documented p(1-p) variance.\"},\n    {\"path\": \"sklearn/feature_selection/tests/test_variance_threshold.py\", \"why\": \"No test compares dense and sparse support at a threshold between the two variance formulas.\"}\n  ],\n  \"plan\": [\n    \"In VarianceThreshold.fit, change np.nanvar(X, axis=0, ddof=1) to np.nanvar(X, axis=0) so dense and sparse both compute population variance.\",\n    \"Add a regression test: a small binary X fitted as a dense array and as CSR/CSC with threshold=0.2 must give identical get_support() and variances_.\"\n  ],\n  \"verification\": [\n    \"With X=[[1,0,1],[1,0,0],[1,1,0],[0,0,1]] and threshold=0.2, dense and sparse fits both give variances [0.1875 0.1875 0.25] and support [False False True].\",\n    \"Run pytest sklearn/feature_selection/tests/test_variance_threshold.py and the common estimator checks.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.95,\n  \"fixType\": \"silentFailure\",\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"The dense path computes sample variance (ddof=1) while the sparse path computes population variance.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"sklearn/feature_selection/_variance_threshold.py:111\", \"quote\": \"self.variances_ = np.nanvar(X, axis=0, ddof=1)\"},\n      {\"type\": \"code\", \"ref\": \"sklearn/feature_selection/_variance_threshold.py:106\", \"quote\": \"_, self.variances_ = mean_variance_axis(X, axis=0)\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"rootCause\", \"text\": \"Selection compares those variances directly against the threshold, so the inflated dense variances keep extra columns.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"sklearn/feature_selection/_variance_threshold.py:132\", \"quote\": \"return self.variances_ > self.threshold\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"impact\", \"text\": \"The user guide defines a binary feature's variance as p(1-p), which is population variance, so the dense output is outside the documented contract.\", \"citations\": [\n      {\"type\": \"doc\", \"ref\": \"doc/modules/feature_selection.rst\", \"quote\": \".. math:: \\\\mathrm{Var}[X] = p(1 - p)\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"trigger\", \"text\": \"A support message reports one extra indicator column selected for dense input versus sparse input with identical values and settings.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s6\", \"quote\": \"The same small training batch produces one extra selected indicator column when supplied as a dense table instead of a sparse matrix.\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"The peak-to-peak correction for constant columns causes the mismatch\", \"why\": \"It applies only when threshold == 0. The reported mismatch happens at a non-zero threshold, and the reproduction used 0.2.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"sklearn/feature_selection/_variance_threshold.py:118\", \"quote\": \"compare_arr = np.array([self.variances_, peak_to_peaks])\"}\n    ]},\n    {\"hypothesis\": \"Existing tests already catch dense/sparse divergence\", \"why\": \"test_variance_threshold uses threshold 0.4 on data where both formulas land on the same side, so it passes (4 passed in probe).\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"sklearn/feature_selection/tests/test_variance_threshold.py:31\", \"quote\": \"X = VarianceThreshold(threshold=0.4).fit_transform(X)\"}\n    ]}\n  ],\n  \"intendedBehavior\": \"VarianceThreshold fitted on the same data as a dense array or as a sparse matrix yields identical variances_ (population variance) and identical get_support() for any threshold.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"The user guide documents population variance p(1-p), the sparse path uses population variance, and no comment, test or changelog entry chooses ddof=1 for dense input only.\"},\n  \"plain\": {\n    \"headline\": \"The tool that drops near-constant columns keeps an extra yes/no column when given a regular table instead of a compressed one, because it measures spread two different ways.\",\n    \"happened\": \"A team trained on the same small batch in two formats and got a different set of kept columns. For a regular table the tool measures each column's spread with a formula that comes out slightly higher, especially on small batches. A yes/no column just under the cut-off therefore passes for the regular table but not for the compressed one.\",\n    \"matters\": \"Anyone who feeds regular tables to this filter keeps more columns than the documented rule says, so the same data trains different models depending only on its format.\",\n    \"fix\": \"Make the regular-table path measure spread the same way as the compressed path and the documentation, and add a test that both formats keep the same columns.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 8,
+  "inputTokens": {
+   "avg": 15029.75,
+   "max": 19750
+  },
+  "mainUsage": {
+   "inputTokens": 120238,
+   "cachedInputTokens": 107494,
+   "outputTokens": 7264
+  },
+  "cacheHitPercent": 89.40102130773965,
+  "wallSeconds": 69.81300020217896,
+  "tools": {
+   "read": 5,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 3
+  },
+  "reads": 5,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.23047879999999998,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.23047879999999998
+}

@@ -1,0 +1,32 @@
+[
+  {
+    "source": "S1",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: This repository is the Requests 2.0.1 HTTP client library and contains no job or completion logic. It returns 404/410 replies unchanged, and raise_for_status raises on every 4xx/5xx. The one way a rep"
+  },
+  {
+    "source": "S2",
+    "decision": "skip",
+    "reason": "Self-Driving verdict outsideCode: The connection to api.stripe.com:443 was refused at the network level (Errno 111). The bundled requests library correctly wraps the retry-exhausted urllib3 error as ConnectionError in HTTPAdapter.send"
+  },
+  {
+    "source": "S3",
+    "decision": "fix",
+    "reason": "The HTTP method is never converted to a native string. Session.request calls method.upper() on a unicode method, and PreparedRequest.prepare_method does the same. On Python 2 the method therefore stay"
+  },
+  {
+    "source": "S4",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: Older requests (before 1.2.0) always set Content-Length, even to 0, on bodyless GETs. Servers such as amazon.com rejected those with 503. The current code in prepare_content_length adds Content-Length"
+  },
+  {
+    "source": "S5",
+    "decision": "fix",
+    "reason": "On Python 2, Session.request and PreparedRequest.prepare_method only call method.upper(), so a unicode method (u'POST') stays unicode. httplib then builds a unicode header block and appends the non-AS"
+  },
+  {
+    "source": "S6",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: When a text/* response has no charset in its Content-Type, get_encoding_from_headers returns ISO-8859-1, so Response.text never runs encoding detection and decodes Big5/UTF-8 bytes as Latin-1. This fo"
+  }
+]

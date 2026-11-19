@@ -1,0 +1,27 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+____________ test_added_column_cannot_precede_required_time_column _____________
+
+    def test_added_column_cannot_precede_required_time_column():
+        series = TimeSeries(
+            time=Time([59000.0, 59000.001], format="mjd", scale="utc"),
+            data={"flux": [12.5, 12.7]},
+        )
+    
+        rejected = False
+        try:
+            series.add_column([0, 1], name="quality", index=0)
+        except ValueError:
+            rejected = True
+    
+>       assert rejected, (
+            "A column was silently accepted ahead of the required time column: "
+            f"{series.colnames}"
+        )
+E       AssertionError: A column was silently accepted ahead of the required time column: ['quality', 'time', 'flux']
+E       assert False
+
+/tmp/test_hidden_S3.py:17: AssertionError
+=========================== short test summary info ============================
+FAILED ../tmp/test_hidden_S3.py::test_added_column_cannot_precede_required_time_column
+1 failed in 0.32s

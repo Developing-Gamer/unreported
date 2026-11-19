@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 127358,
+ "finalText": "The cause is in this repository and the fix is one line. With large data split into chunks (handled by the dask library), a centered rolling window of 4 samples gives values one sample early compared with the same calculation on in-memory data. Timestamps and row counts still match, which is exactly what the reporter described. I made no edits to the repository; I only ran checks in a throwaway copy.\n\n**Cause:** `xarray/core/dask_array_ops.py` line 69 sets `drop_size = depth[axis] - pad_size + 1`. For centered windows of even width, the code adds a few blank values to the front, then cuts them off before returning. The `+ 1` cuts off one value too many, so every window starts one sample late and each result lands one position earlier.\n\n**What I ran:**\n- **Reproduction:** with 20 values in chunks of 5, a centered window of 4 gave `[nan 1.5 \u2026 17.5 nan nan]`. The same data in memory gave `[nan nan 1.5 \u2026 17.5 nan]`. Window 3, and window 4 without centering, give the same result both ways.\n- **Existing tests:** the rolling tests already catch it. 6 of 448 fail, all with centered even windows (`test_rolling_wrapped_dask[8-*-True-*]`, `test_dask_rolling[True-8-*]`).\n- **Fix:** with the `+ 1` removed, chunked and in-memory results match and all 448 tests pass.\n\nMonitoring tools weren't connected in this run, so I couldn't check which release introduced the bug. Nothing in the code, comments or tests suggests the shift is intended.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Centered even rolling windows shift by one on dask data\",\n  \"cause\": \"In the dask path of rolling (xarray/core/dask_array_ops.py rolling_window), when a centered even-sized window needs extra front padding smaller than the overlap depth, the code pads to `depth` and then crops `drop_size = depth[axis] - pad_size + 1`. The `+ 1` crops one element too many, so every window starts one sample late and each result lands one position earlier than the numpy/bottleneck result. For window=4, center=True: depth=2, pad_size=1, drop_size=2 instead of 1.\",\n  \"files\": [\n    {\"path\": \"xarray/core/dask_array_ops.py\", \"why\": \"rolling_window computes drop_size with an extra +1 (line 69), shifting centered even-window results on chunked arrays by one sample.\"},\n    {\"path\": \"xarray/tests/test_duck_array_ops.py\", \"why\": \"test_dask_rolling[True-8-*] already compares dask vs numpy rolling_window and fails today.\"},\n    {\"path\": \"xarray/tests/test_dataarray.py\", \"why\": \"test_rolling_wrapped_dask[8-*-True-*] already compares dask vs in-memory rolling reductions and fails today.\"}\n  ],\n  \"plan\": [\n    \"Change line 69 of xarray/core/dask_array_ops.py to `drop_size = depth[axis] - pad_size`.\",\n    \"Add a regression case for window=4, center=True comparing chunked vs in-memory rolling mean (e.g. in test_rolling_wrapped_dask parametrization).\",\n    \"Run the rolling tests in test_dask.py, test_dataarray.py and test_duck_array_ops.py.\"\n  ],\n  \"verification\": [\n    \"xr.DataArray(np.arange(20.), dims='t').chunk(5).rolling(t=4, center=True).mean() equals the unchunked result ([nan nan 1.5 ... 17.5 nan]).\",\n    \"pytest xarray/tests/test_dask.py xarray/tests/test_dataarray.py xarray/tests/test_duck_array_ops.py -k rolling: currently 6 failed/442 passed; with the fix 448 passed (checked in a probe copy).\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"trivial (one-line change plus a test case)\",\n  \"risk\": \"low\",\n  \"confidence\": 0.95,\n  \"fixType\": \"silentFailure\",\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"When the front padding is smaller than the overlap depth, rolling_window pads to depth and then crops one element more than it added, shifting the windows by one.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"xarray/core/dask_array_ops.py:69\", \"quote\": \"drop_size = depth[axis] - pad_size + 1\"},\n      {\"type\": \"code\", \"ref\": \"xarray/core/dask_array_ops.py:96\", \"quote\": \"index = (slice(None),) * axis + (slice(drop_size, drop_size + orig_shape[axis]),)\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"trigger\", \"text\": \"Only centered even windows reach this branch: offset=1 for even windows makes pad_size = start + 1 - depth = 1, which is below depth for window 4.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"xarray/core/dask_array_ops.py:41\", \"quote\": \"offset = 1 if window % 2 == 0 else 0\"},\n      {\"type\": \"code\", \"ref\": \"xarray/core/dask_array_ops.py:60\", \"quote\": \"pad_size = max(start, end) + offset - depth[axis]\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"impact\", \"text\": \"A chunked centered 4-sample mean comes out one sample earlier than the in-memory one, with the same length and coordinates, matching the support report.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s7\", \"quote\": \"looks one sample out of alignment with the same calculation on a small extract. The timestamps and row counts still match.\"},\n      {\"type\": \"query\", \"ref\": \"probe:python\", \"quote\": \"[ nan  1.5  2.5  3.5  4.5  5.5  6.5  7.5  8.5  9.5 10.5 11.5 12.5 13.5\\n 14.5 15.5 16.5 17.5  nan  nan]\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"other\", \"text\": \"Existing tests comparing dask and numpy rolling fail for centered even windows on the current code.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:pytest\", \"quote\": \"FAILED xarray/tests/test_duck_array_ops.py::test_dask_rolling[True-8-0] - Ass...\"},\n      {\"type\": \"query\", \"ref\": \"probe:pytest\", \"quote\": \"6 failed, 442 passed, 1164 deselected, 17 warnings in 20.46s\"}\n    ]},\n    {\"id\": \"c5\", \"role\": \"other\", \"text\": \"Removing the +1 makes all rolling tests pass and the dask result match numpy.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:pytest\", \"quote\": \"448 passed, 1164 deselected, 17 warnings in 8.62s\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"The bottleneck centered-padding path in DataArrayRolling._bottleneck_reduce causes the shift.\", \"why\": \"Dask arrays never use bottleneck here; _numpy_or_bottleneck_reduce sends them to reduce/construct, which uses dask_array_ops.rolling_window.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"xarray/core/rolling.py:363\", \"quote\": \"if bottleneck_move_func is not None and not isinstance(\\n            self.obj.data, dask_array_type\"}\n    ]},\n    {\"hypothesis\": \"All dask rolling windows are misaligned.\", \"why\": \"Window 3 centered and window 4 non-centered give identical dask and numpy results in the probe; only centered even windows shift.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:python\", \"quote\": \"[nan  1.  2.  3.  4.  5.  6.  7.  8.  9. 10. 11. 12. 13. 14. 15. 16. 17.\\n 18. nan]\"}\n    ]}\n  ],\n  \"intendedBehavior\": \"DataArray.chunk(...).rolling(t=4, center=True).mean() returns exactly the same values at the same positions as the unchunked DataArray.rolling(t=4, center=True).mean().\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"Comments describe the extra padding as temporary ('we enlarge this and truncate it later'), meaning only the added pad should be dropped. Existing tests assert dask results equal numpy results and fail on the current code.\"},\n  \"plain\": {\n    \"headline\": \"Centered 4-sample trends on large, chunked data come out one sample early because one extra value is trimmed off the front.\",\n    \"happened\": \"For large data, the software pads the start with blank values before computing a centered window of even width. It then cuts the padding back off, but cuts one value too many. Every average ends up one position earlier than it should, while dates and row counts look normal.\",\n    \"matters\": \"Anyone using a centered even-width trend on large datasets gets results quietly misaligned with their timestamps, unlike the same calculation on small data.\",\n    \"fix\": \"Trim exactly the padding that was added, and add a check that large and small data give the same centered trend.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 9,
+  "inputTokens": {
+   "avg": 17089.11111111111,
+   "max": 22989
+  },
+  "mainUsage": {
+   "inputTokens": 153802,
+   "cachedInputTokens": 137817,
+   "outputTokens": 9074
+  },
+  "cacheHitPercent": 89.6067671421698,
+  "wallSeconds": 126.64800000190735,
+  "tools": {
+   "read": 3,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 1,
+   "subagent": 0,
+   "other": 4
+  },
+  "reads": 3,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.2889464,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.2889464
+}

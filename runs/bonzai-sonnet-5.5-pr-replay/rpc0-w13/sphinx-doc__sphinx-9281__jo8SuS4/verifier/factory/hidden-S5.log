@@ -1,0 +1,57 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+__________ test_first_configured_template_directory_takes_precedence ___________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-1/test_first_configured_template0')
+
+    def test_first_configured_template_directory_takes_precedence(tmp_path):
+        preferred = tmp_path / 'preferred'
+        legacy = tmp_path / 'legacy'
+        system = tmp_path / 'system'
+        for directory in (preferred, legacy, system):
+            directory.mkdir()
+    
+        (preferred / 'page.html').write_text('Current branding', encoding='utf-8')
+        (legacy / 'page.html').write_text('Legacy branding', encoding='utf-8')
+        (system / 'page.html').write_text('Default branding', encoding='utf-8')
+    
+        loader = SphinxTemplateLoader(
+            confdir=str(tmp_path),
+            templates_paths=['preferred', 'legacy'],
+            system_templates_paths=[str(system)],
+        )
+        environment = Environment(loader=loader)
+    
+        assert environment.get_template('!page.html').render() == 'Default branding'
+>       assert environment.get_template('page.html').render() == 'Current branding'
+E       AssertionError: assert 'Legacy branding' == 'Current branding'
+E         
+E         - Current branding
+E         + Legacy branding
+
+/tmp/test_hidden_S5.py:25: AssertionError
+=============================== warnings summary ===============================
+sphinx/util/docutils.py:44
+  /testbed/sphinx/util/docutils.py:44: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    __version_info__ = tuple(LooseVersion(docutils.__version__).version)
+
+sphinx/highlighting.py:67
+  /testbed/sphinx/highlighting.py:67: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if tuple(LooseVersion(pygmentsversion).version) <= (2, 7, 4):
+
+sphinx/registry.py:24
+  /testbed/sphinx/registry.py:24: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html
+    from pkg_resources import iter_entry_points
+
+../opt/miniconda3/envs/testbed/lib/python3.9/site-packages/pkg_resources/__init__.py:3154
+../opt/miniconda3/envs/testbed/lib/python3.9/site-packages/pkg_resources/__init__.py:3154
+../opt/miniconda3/envs/testbed/lib/python3.9/site-packages/pkg_resources/__init__.py:3154
+../opt/miniconda3/envs/testbed/lib/python3.9/site-packages/pkg_resources/__init__.py:3154
+  /opt/miniconda3/envs/testbed/lib/python3.9/site-packages/pkg_resources/__init__.py:3154: DeprecationWarning: Deprecated call to `pkg_resources.declare_namespace('sphinxcontrib')`.
+  Implementing implicit namespace packages (as specified in PEP 420) is preferred to `pkg_resources.declare_namespace`. See https://setuptools.pypa.io/en/latest/references/keywords.html#keyword-namespace-packages
+    declare_namespace(pkg)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED ../tmp/test_hidden_S5.py::test_first_configured_template_directory_takes_precedence
+1 failed, 7 warnings in 0.32s

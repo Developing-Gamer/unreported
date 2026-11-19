@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 86121,
+ "finalText": "I'd call this **not actionable**: keeping the old PDF after a failed build is how the PDF build is designed, not a defect in this code. I re-checked the report against the request: every quote matches the code, docs and evidence line for line, and no files were changed.\n\n**What the user sees:** when `make latexpdf` fails, the PDF from their last build is still in the build folder. In this reporter's case the failure was the index tool `xindy`, which can't run on their Windows/WSL setup. If the folder starts empty, the same failure still leaves a partial PDF. That's confusing, but nothing in this code changes or deletes their work.\n\n**Why it happens:**\n- `make latexpdf` runs `make all-pdf` in the existing LaTeX build folder (`sphinx/cmd/make_mode.py:104-105`). The Makefile then hands off to `latexmk` (`Makefile_t:56`).\n- `latexmk` reuses files from earlier passes so large manuals don't rebuild from scratch. The docs describe this (`doc/usage/builders/index.rst:212-213`).\n- Old output is removed only by the separate `clean` target (`Makefile_t:88-89`).\n\n**Why it's deliberate:** this is the same request as upstream Sphinx issue #6898 from 2019. A maintainer closed it as wontfix: wiping the folder first would slow large manuals and remove the clues about what went wrong, and users can run `make clean` themselves. This checkout (Sphinx 3.5.0 in development) has no changelog entry changing that.\n\n**Checks:** I only read the code, the docs and the upstream issue. I didn't run a LaTeX build, because that needs TeX, `latexmk` and `xindy`, and there was no monitoring data to look at.\n\n**What's left:** no code change is needed. Optionally, the docs could say: \"if `latexmk` reports an error, the PDF in the build folder may be from an earlier build; run `make clean` and rebuild.\"\n\n```json\n{\n  \"verdict\": \"notActionable\",\n  \"title\": \"Old PDF kept after a failed LaTeX build\",\n  \"cause\": \"`make latexpdf` runs latexmk in the existing LaTeX build folder and reuses the files from the last build on purpose. When a step such as xindy fails, latexmk stops and the PDF left over from the last successful build stays in the folder. Nothing removes old output at the start; that is left to `make clean`. Upstream closed this exact request (sphinx-doc/sphinx#6898) as wontfix.\",\n  \"files\": [\n    {\"path\": \"sphinx/texinputs/Makefile_t\", \"why\": \"The %.pdf rule calls latexmk in the existing folder. Old output is only removed by the separate clean target.\"},\n    {\"path\": \"sphinx/cmd/make_mode.py\", \"why\": \"build_latexpdf runs 'make all-pdf' in the existing latex folder and never cleans it first.\"},\n    {\"path\": \"doc/usage/builders/index.rst\", \"why\": \"Documents that latexmk runs as many passes as needed, which relies on files kept from earlier builds.\"}\n  ],\n  \"plan\": [\n    \"No code change. Optionally add a docs note: if latexmk reports an error, the PDF may be from an earlier build; run `make clean` and rebuild.\"\n  ],\n  \"verification\": [\n    \"Code reading: build_latexpdf calls 'make all-pdf' in the existing folder and nothing deletes old output before it.\",\n    \"The upstream issue #6898 thread shows a maintainer closing it as wontfix, with the reasons.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"low\",\n  \"risk\": \"low\",\n  \"confidence\": 0.85,\n  \"fixType\": \"frustration\",\n  \"intendedBehavior\": \"Running `make latexpdf` again keeps the existing LaTeX files in the build folder so latexmk can reuse them; only `make clean` removes the PDF and the other build files.\",\n  \"intent\": {\n    \"deliberate\": true,\n    \"evidence\": \"Upstream issue #6898, the same report, was closed wontfix by maintainer jfbu: 'we can not make default the asked-for behavior and each Sphinx user can very easily force the desired behavior either manually or via a script'. The design keeps files from earlier LaTeX passes so large documents don't rebuild from scratch, and old output is removed only by the Makefile's clean target.\"\n  },\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"The latexpdf command runs the PDF build in the existing LaTeX build folder and never cleans it first.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"sphinx/cmd/make_mode.py:105\", \"quote\": \"return subprocess.call([makecmd, 'all-pdf'])\"},\n      {\"type\": \"code\", \"ref\": \"sphinx/texinputs/Makefile_t:56\", \"quote\": \"%.pdf: %.tex FORCE_MAKE\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"other\", \"text\": \"Old PDFs and other build files are removed only by the separate clean target, which the user runs themselves.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"sphinx/texinputs/Makefile_t:89\", \"quote\": \"rm -f *.log *.ind *.aux *.toc *.syn *.idx *.out *.ilg *.pla *.ps *.tar *.tar.gz *.tar.bz2 *.tar.xz $(ALLPDF) $(ALLDVI) $(ALLXDV) *.fls *.fdb_latexmk\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"other\", \"text\": \"The docs describe latexmk running as many passes as needed, which relies on files kept from earlier builds.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"doc/usage/builders/index.rst:213\", \"quote\": \"makes sure the needed number of runs is automatically executed to get\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"trigger\", \"text\": \"The reporter's builds fail because xindy cannot run on their Windows/WSL setup, so the PDF they see comes from an earlier build.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s5\", \"quote\": \"In my case, I'm running on Windows/WSL, which AFAIK always fails when it tries to run `xindy` because of WSL limitations\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"A recent regression stopped Sphinx from cleaning old output before a build\", \"why\": \"Nothing in the LaTeX build path removes old output, and the changelog has no entry saying it ever did. Upstream discussed the same report in 2019 and kept the behaviour.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"sphinx/cmd/make_mode.py:104\", \"quote\": \"with cd(self.builddir_join('latex')):\"}\n    ]}\n  ],\n  \"plain\": {\n    \"headline\": \"After a failed PDF build, people can still see the PDF from their last build, because the build reuses old files on purpose so long manuals rebuild faster.\",\n    \"happened\": \"The person's PDF build failed every time because the tool that makes the index can't run on their Windows setup. The build reuses files from earlier runs, so the PDF from the last successful build stayed in the folder. When the folder started empty, they got a new partial PDF instead.\",\n    \"matters\": \"Anyone whose PDF build fails can mistake an older PDF for a new one, but cleaning the folder before every build would make large manuals rebuild from scratch each time.\",\n    \"fix\": \"No code change is needed. Run the build's clean command before rebuilding when a build fails; optionally, say this in the docs.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 10,
+  "inputTokens": {
+   "avg": 21221.7,
+   "max": 28786
+  },
+  "mainUsage": {
+   "inputTokens": 212217,
+   "cachedInputTokens": 190433,
+   "outputTokens": 8755
+  },
+  "cacheHitPercent": 89.73503536474458,
+  "wallSeconds": 84.99799990653992,
+  "tools": {
+   "read": 5,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 3
+  },
+  "reads": 5,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.3220826,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.3220826
+}

@@ -1,0 +1,30 @@
+{
+ "task": "mwaskom__seaborn-3069",
+ "kept": [
+  {
+   "path": "seaborn/utils.py",
+   "category": "silent wrong result (a value or output that is subtly wrong, no exception)",
+   "defect_patch": "diff --git a/seaborn/utils.py b/seaborn/utils.py\nindex a4887b2c..e7e0d872 100644\n--- a/seaborn/utils.py\n+++ b/seaborn/utils.py\n@@ -685,7 +685,7 @@ def locator_to_legend_entries(locator, limits, dtype):\n     raw_levels = locator.tick_values(*limits).astype(dtype)\n \n     # The locator can return ticks outside the limits, clip them here\n-    raw_levels = [l for l in raw_levels if l >= limits[0] and l <= limits[1]]\n+    raw_levels = [l for l in raw_levels if l >= limits[0] and l < limits[1]]\n \n     class dummy_axis:\n         def get_view_interval(self):\n",
+   "test_code": "import matplotlib\nmatplotlib.use(\"Agg\")\n\nimport matplotlib.pyplot as plt\nimport seaborn as sns\n\n\ndef test_brief_numeric_legend_includes_maximum_tick():\n    fig, ax = plt.subplots()\n    try:\n        sns.scatterplot(\n            x=[0, 1, 2, 3, 4, 5],\n            y=[0, 1, 4, 9, 16, 25],\n            hue=[0, 20, 40, 60, 80, 100],\n            legend=\"brief\",\n            ax=ax,\n        )\n        labels = [text.get_text() for text in ax.get_legend().get_texts()]\n        assert \"100\" in labels, labels\n    finally:\n        plt.close(fig)\n",
+   "signal": {
+    "kind": "user",
+    "source": "reporting-support",
+    "text": "On a few scatter reports, the dot-color legend stops at 80 even though the data go up to 100 and those points are visible."
+   },
+   "summary": "Numeric legend clipping treats the upper limit as exclusive, silently dropping a legend entry when its tick equals the maximum data value."
+  },
+  {
+   "path": "seaborn/widgets.py",
+   "category": "silent wrong result (a value or output that is subtly wrong, no exception)",
+   "defect_patch": "diff --git a/seaborn/widgets.py b/seaborn/widgets.py\nindex 502812af..604e08bc 100644\n--- a/seaborn/widgets.py\n+++ b/seaborn/widgets.py\n@@ -31,7 +31,6 @@ def _init_mutable_colormap():\n def _update_lut(cmap, colors):\n     \"\"\"Change the LUT values in a matplotlib colormap in-place.\"\"\"\n     cmap._lut[:256] = colors\n-    cmap._set_extremes()\n \n \n def _show_cmap(cmap):\n",
+   "test_code": "import numpy as np\n\nfrom seaborn import widgets\nfrom seaborn.palettes import color_palette\n\n\ndef test_updated_colormap_uses_current_endpoints_for_out_of_range_values():\n    cmap = widgets._init_mutable_colormap()\n    colors = np.column_stack([color_palette(\"Reds\", 256), np.ones(256)])\n\n    widgets._update_lut(cmap, colors)\n\n    expected_endpoints = colors[[0, -1]]\n    np.testing.assert_allclose(cmap([0.0, 1.0]), expected_endpoints)\n    np.testing.assert_allclose(cmap([-0.1, 1.1]), expected_endpoints)\n",
+   "signal": {
+    "kind": "user",
+    "source": "notebook-support",
+    "text": "After selecting a red gradient in the palette widget, the heatmap looks right except that values above my fixed color scale still show up almost black instead of red."
+   },
+   "summary": "Colormap updates no longer refresh the under/over colors, leaving out-of-range values mapped to the initial grayscale endpoints."
+  }
+ ],
+ "rejected": []
+}

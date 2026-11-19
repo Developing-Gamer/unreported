@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 82250,
+ "finalText": "The fix is in the working tree and nothing is committed. `requests.get`, `head`, `post` and the other top-level helpers now close their session on return, so no pooled connection stays open until garbage collection.\n\nI re-checked the final state. The `requests/api.py` diff is as intended, `.factory/pr-S5.md` exists, and the new regression test passes.\n\n- **Fix:** `request()` in `requests/api.py` now runs inside `with sessions.Session() as session:`, which closes the pooled connections when it returns. I did not run a `stream=True` request. From reading `urllib3`, a streamed response's connection is checked out of the pool and gets closed when it is released.\n- **Test:** `SimpleApiConnectionTestCase` in `test_requests.py` serves one keep-alive response from a local socket server and keeps the response alive. It asserts the server sees the client close the connection. On the base code it fails with `AssertionError: Lists differ: [False] != [True]`.\n- **Full suite:** `test_requests.py` gives 36 passed and 3 failed. The failures are `test_DIGESTAUTH_WRONG_HTTP_401_GET`, `test_DIGEST_HTTP_200_OK_GET` and `test_links`. The same three fail with only my `api.py` change reverted, so they are not caused by it, but I did not look into why they fail.\n- **Other changes:** the working tree already held changes from other tasks (`.travis.yml`, `exceptions.py`, `models.py`, `connectionpool.py`, `utils.py`, other tests). I left them alone.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest test_requests.py -k simple_api_closes -q\", \"passed\": true},\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest test_requests.py -q\", \"passed\": false, \"alsoOnBase\": true, \"note\": \"3 failures (test_DIGESTAUTH_WRONG_HTTP_401_GET, test_DIGEST_HTTP_200_OK_GET, test_links) are identical with requests/api.py reverted\"}\n  ],\n  \"visual\": false,\n  \"missingEnv\": [],\n  \"reproductionSteps\": \"Start a local keep-alive HTTP server, call requests.get against it while keeping the response alive, and check whether the server sees the client close the connection. On the base code it does not: the connection stays open in the session's pool.\",\n  \"reproductionTest\": {\n    \"path\": \"test_requests.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest test_requests.py -k simple_api_closes -q\",\n    \"signature\": \"AssertionError: Lists differ: [False] != [True]\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 17,
+  "inputTokens": {
+   "avg": 28627.352941176472,
+   "max": 35365
+  },
+  "mainUsage": {
+   "inputTokens": 486665,
+   "cachedInputTokens": 465178,
+   "outputTokens": 6538
+  },
+  "cacheHitPercent": 95.5848478933147,
+  "wallSeconds": 81.69600009918213,
+  "tools": {
+   "read": 10,
+   "edit": 4,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 8
+  },
+  "reads": 10,
+  "edits": 4,
+  "runs": 8,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 4,
+  "editOperations": 4,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.2121141,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.2121141
+}

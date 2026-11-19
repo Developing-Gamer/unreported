@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 51129,
+ "finalText": "The stacked KDE curve is deliberate, so this is not a bug. In the current code the KDE curves are stacked on purpose when `multiple=\"stack\"` is used, to match the stacked bars. I only read the code and did not run it.\n\n**What the code does.** In `seaborn/distributions.py`, `plot_univariate_histogram` builds one KDE curve per hue level and scales each to its group's histogram area. It then passes the curves to the same function that stacks the bars:\n\n```\ndensities, _ = self._resolve_multiple(\n    densities, None if multiple == \"dodge\" else multiple\n)\n```\n\nThat function takes a running total across hue levels for `stack` and `fill`. So the top curve traces the combined density of all groups, and the other curves ride on it. The code leaves `dodge` out of this step deliberately, which shows the author thought about how each `multiple` mode should treat the curves.\n\n**What the reporter sees.** In the issue's two calls, the blue curve in the stacked plot is the sum of the two groups. The reporter expects it to match the unstacked blue curve.\n\n**Maintainer's view.** The maintainer replied to the issue (GitHub #2882): \"If you are stacking the histograms, why would you not expect the densities to stack too?\" He closed it as not planned, saying it is working as expected.\n\n**What the tests cover.** `test_kde_with_hue` in `tests/test_distributions.py` only covers `layer` and `dodge`. No test asserts or contradicts the stacked behaviour. A release-notes search for stacked KDE turned up no entry.\n\n**What it means for users.** Someone who wants per-group curves can use `multiple=\"layer\"`. The alternative design, drawing unstacked per-group curves over stacked bars, would be a product decision for the maintainers.\n\n```json\n{\n  \"verdict\": \"notActionable\",\n  \"title\": \"Stacked histogram KDE lines are stacked on purpose\",\n  \"cause\": \"With multiple='stack', histplot passes the KDE curves through the same stacking step as the bars (_resolve_multiple, with dodge explicitly excluded), so each curve is a running total over hue levels and the top one traces the combined density. The maintainer closed the issue as not planned and said the densities are expected to stack with the histograms.\",\n  \"files\": [\n    {\"path\": \"seaborn/distributions.py\", \"why\": \"plot_univariate_histogram calls _resolve_multiple on the densities with the same `multiple` value (except dodge), which makes the stacked KDE.\"}\n  ],\n  \"plan\": [\"No change. If the team wants per-group KDE lines over stacked bars, treat it as a new option or design change.\"],\n  \"verification\": [\"Compare histplot(..., kde=True, multiple='stack') with multiple='layer'. The stacked top curve equals the sum of the per-group curves.\"],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"n/a\",\n  \"risk\": \"low\",\n  \"confidence\": 0.85,\n  \"deliberate\": true,\n  \"intent\": \"The code resolves densities with the same multiple mode as the bars and excludes only dodge. The maintainer's reply in GitHub issue #2882 says the densities are expected to stack, and he closed it as not planned. No changelog entry exists, and no test asserts it either way.\",\n  \"fixType\": \"frustration\",\n  \"intendedBehavior\": \"With multiple='stack', the KDE curves are stacked cumulatively to match the stacked bars; per-group curves are available with multiple='layer'.\",\n  \"ruledOut\": [\n    {\"hypothesis\": \"KDE is computed on the stacked bar heights\", \"why\": \"Densities are computed per hue group from raw data and then stacked by the same function that stacks the bars; the stacking is a deliberate presentation step.\", \"citations\": [{\"type\": \"code\", \"ref\": \"seaborn/distributions.py:513\", \"quote\": \"densities, _ = self._resolve_multiple(\"}]}\n  ],\n  \"headline\": \"A stacked histogram's KDE line is stacked too, and that is how the library is designed to work.\",\n  \"happened\": \"With stacked bars, each group's smoothed curve is added on top of the previous groups' curves. The reporter expected it to match the unstacked plot. The library's maintainer said the curves should stack with the bars and closed the report as expected behaviour.\",\n  \"matters\": \"Anyone who stacks a histogram and adds a smoothed curve sees a running total instead of separate per-group curves.\",\n  \"fix\": \"No fix is needed. Use the layered option for per-group curves, or ask the maintainers for a new option if separate curves over stacked bars are wanted.\"\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 10,
+  "inputTokens": {
+   "avg": 19678.7,
+   "max": 29444
+  },
+  "mainUsage": {
+   "inputTokens": 196787,
+   "cachedInputTokens": 174345,
+   "outputTokens": 4203
+  },
+  "cacheHitPercent": 88.59579138865881,
+  "wallSeconds": 41.99900007247925,
+  "tools": {
+   "read": 14,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 0
+  },
+  "reads": 14,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 2,
+   "readFileIgnoringRange": 2
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.132993,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.132993
+}

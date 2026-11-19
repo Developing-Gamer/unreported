@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 161365,
+ "finalText": "I re-checked the report against the request. Each quote matches the file or probe output I read, and every required field is there, so I changed nothing.\n\n**Verdict: not actionable. Pylint dropped the `fstr` value on purpose in 2.5.0 and wrote that down, and the current code still rejects it by design.**\n\n**What the user hits:** with `logging-format-style=fstr` in `.pylintrc`, pylint stops before linting and prints a Python traceback. I ran it on the current code and got the same thing. The last line is `optparse.OptionValueError: option logging-format-style: invalid value: 'fstr', should be in ['old', 'new']`.\n\n**Why:**\n- The option only accepts two values. `pylint/checkers/logging.py:155` sets `\"choices\": [\"old\", \"new\"]`.\n- The config loader (`pylint/config/option_manager_mixin.py:316`) skips unknown options but does not catch an invalid value, so the error escapes as a traceback. This happens for any option given a bad value, not just this one.\n\n**Why it's on purpose:**\n- `doc/whatsnew/2.5.rst` says f-string handling is now chosen by enabling and disabling messages, and that \"The fstr value of the logging-format-style option is not valid.\"\n- The ChangeLog's 2.5 entry says the same, closing issue #3361.\n\n**What's changed since the report (2.5.0):**\n- The report says even asking for the version crashed. That no longer happens: `--version` with the same config prints the version normally.\n- The error names the valid values. It doesn't say how to allow f-strings, though: remove the line and disable `logging-fstring-interpolation`.\n\n**Separate small bug, not this report:** `pylint/checkers/logging.py:280` checks a message named `logging-fstring-formatting`, which doesn't exist. As a result, the hint in pylint's logging-format warnings (W1201, W1202) never lists f-strings as allowed, even after you disable `logging-fstring-interpolation`. I confirmed this: the warning text was the same with and without that check disabled. Fixing it means using the right name, `logging-fstring-interpolation`.\n\n**How I checked:** I installed astroid 2.6.x and a newer `wrapt` in the probe sandbox, ran pylint with `fstr` (traceback), with `new` (normal run) and with `--version` (works). I couldn't run the test suite there because pytest isn't installed.\n\n```json\n{\n  \"verdict\": \"notActionable\",\n  \"title\": \"Old 'fstr' logging style setting is rejected\",\n  \"cause\": \"Pylint 2.5 removed the 'fstr' value of the logging-format-style option on purpose. Whether f-strings are allowed in logging calls is now set by turning the logging-fstring-interpolation message on or off. The option now accepts only 'old' and 'new', and the config loader does not catch an invalid value, so an old 'fstr' setting ends in a traceback whose last line names the allowed values.\",\n  \"files\": [\n    {\"path\": \"pylint/checkers/logging.py\", \"why\": \"logging-format-style accepts only 'old' and 'new'\"},\n    {\"path\": \"pylint/config/option_manager_mixin.py\", \"why\": \"load_config_file catches KeyError/OptionError but not OptionValueError, so an invalid value ends in a traceback\"},\n    {\"path\": \"doc/whatsnew/2.5.rst\", \"why\": \"says the fstr value was removed on purpose\"}\n  ],\n  \"plan\": [\n    \"No code change for the reported behaviour: the removal is documented. Reply on the issue: remove logging-format-style=fstr and disable logging-fstring-interpolation to allow f-strings in logging calls.\"\n  ],\n  \"verification\": [\n    \"Ran pylint with an rcfile containing logging-format-style=fstr on the current code: traceback ending in OptionValueError ... should be in ['old', 'new'].\",\n    \"With logging-format-style=new it lints normally; with fstr, --version prints the version, so the report's version crash is gone.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"none\",\n  \"risk\": \"none\",\n  \"confidence\": 0.85,\n  \"fixType\": \"error\",\n  \"intendedBehavior\": \"Running pylint with logging-format-style=fstr is refused with an error that names the valid values 'old' and 'new'; f-strings in logging calls are allowed by disabling logging-fstring-interpolation.\",\n  \"intent\": {\n    \"deliberate\": true,\n    \"evidence\": \"doc/whatsnew/2.5.rst: 'The type of formatting to use is chosen through enabling and disabling messages rather than through the logging-format-style option. The fstr value of the logging-format-style option is not valid.' The ChangeLog 2.5 entry (Close #3361) says the same.\"\n  },\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"The logging-format-style option accepts only 'old' and 'new', so 'fstr' is rejected.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"pylint/checkers/logging.py:155\", \"quote\": \"\\\"choices\\\": [\\\"old\\\", \\\"new\\\"],\"},\n      {\"type\": \"query\", \"ref\": \"probe:pylint --rcfile with logging-format-style=fstr\", \"quote\": \"optparse.OptionValueError: option logging-format-style: invalid value: 'fstr', should be in ['old', 'new']\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"other\", \"text\": \"Removing the fstr value was a documented decision in pylint 2.5.\", \"citations\": [\n      {\"type\": \"doc\", \"ref\": \"doc/whatsnew/2.5.rst\", \"quote\": \"The fstr value of the logging-format-style option is not valid.\"},\n      {\"type\": \"code\", \"ref\": \"doc/whatsnew/2.5.rst:100\", \"quote\": \"The type of formatting to use is chosen through enabling and disabling messages\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"trigger\", \"text\": \"The config loader catches unknown options but not invalid values, so the bad value ends in a traceback instead of a short message.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"pylint/config/option_manager_mixin.py:316\", \"quote\": \"except (KeyError, optparse.OptionError):\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"impact\", \"text\": \"A user who kept logging-format-style=fstr from pylint 2.4 cannot run pylint until they change their config.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s5\", \"quote\": \"set fstr as the logging-format-style in .pylintrc 3. execute pylint on any file, or even just ask for the version ### Current behavior Throws an exception\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"--version still crashes with fstr in the config\", \"why\": \"In the current code --version prints the version and exits before the bad value is checked.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:pylint --rcfile with fstr --version\", \"quote\": \"pylint 2.9.0-dev1\\nastroid 2.6.6\"}\n    ]},\n    {\"hypothesis\": \"The removal happened without any record (an accidental regression)\", \"why\": \"The 2.5 release notes and ChangeLog both describe the change.\", \"citations\": [\n      {\"type\": \"doc\", \"ref\": \"ChangeLog\", \"quote\": \"The ``logging-fstring-interpolation`` message has been brought back to allow\\n  multiple types of string formatting to be used.\"}\n    ]}\n  ],\n  \"notes\": \"Separate small defect, not this report: pylint/checkers/logging.py:280 checks the nonexistent message 'logging-fstring-formatting' instead of 'logging-fstring-interpolation', so the hint in W1201/W1202 never lists f-strings as allowed even when that check is disabled. Confirmed by probe: 'Use lazy % or % formatting' appears with and without logging-fstring-interpolation disabled.\",\n  \"plain\": {\n    \"headline\": \"Pylint stops with an error for people whose settings still use the old 'fstr' logging style, because that setting was removed on purpose in version 2.5.\",\n    \"happened\": \"Version 2.5 changed how you allow f-strings in logging calls: instead of a style setting, you turn one warning off. The old 'fstr' value was removed and the release notes say so. Pylint now refuses it and prints a long error that ends by listing the values it accepts.\",\n    \"matters\": \"Anyone upgrading from 2.4 with the old setting has to change their config before pylint will run.\",\n    \"fix\": \"No code change needed: tell people to remove the 'fstr' line and turn off the f-string logging warning instead.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 12,
+  "inputTokens": {
+   "avg": 18557.916666666668,
+   "max": 27040
+  },
+  "mainUsage": {
+   "inputTokens": 222695,
+   "cachedInputTokens": 202653,
+   "outputTokens": 11116
+  },
+  "cacheHitPercent": 91.00024697456162,
+  "wallSeconds": 161.00300002098083,
+  "tools": {
+   "read": 7,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 7
+  },
+  "reads": 7,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.36303260000000004,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.36303260000000004
+}

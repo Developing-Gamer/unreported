@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 65763,
+ "finalText": "The work matches the request: the fix is in `requests/utils.py` and `requests/exceptions.py`, the new tests are in `test_requests.py`, and the PR text is in `.factory/pr-S1.md`. Nothing is committed or pushed.\n\nOn the original code, 5 of the 7 new tests fail (the corrupt-body tests fail only because `ContentDecodingError` doesn't exist there yet). A single zlib-wrapped deflate chunk returns `b''`, which is the empty 200 from the report. With the fix all 7 pass.\n\nI ran only the new tests, with `/opt/miniconda3/envs/testbed/bin/python -m pytest test_requests.py -k StreamDecompress`. The rest of `test_requests.py` calls httpbin over the network, so I did not run it. Python 3.11 can't import the vendored urllib3 here, which is why I used the repo's own environment.\n\nThe cause was as the investigation said. A decode failure was swallowed and the failing chunk dropped, and `deflate` accepted only raw deflate, not the zlib-wrapped format servers should send. `deflate` now accepts both, and a body that can't be decoded raises `ContentDecodingError` instead of coming back empty or partial. A gzip or deflate body that is cut off partway is still not detected, and I left that out of scope.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest test_requests.py -k StreamDecompress\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"reproductionSteps\": \"Call requests.utils.stream_decompress with a zlib-wrapped deflate JSON body (zlib.compressobj with MAX_WBITS) as one chunk: it returns b'' with no error. Split into several chunks: it returns undecoded garbage. Corrupt gzip data also returns silently instead of raising.\",\n  \"reproductionTest\": {\n    \"path\": \"test_requests.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest test_requests.py -k StreamDecompress\",\n    \"signature\": \"AssertionError: b'' != b'{\\\"items\\\": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, ...99]}'\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 16,
+  "inputTokens": {
+   "avg": 27382.125,
+   "max": 35429
+  },
+  "mainUsage": {
+   "inputTokens": 438114,
+   "cachedInputTokens": 416567,
+   "outputTokens": 8435
+  },
+  "cacheHitPercent": 95.08187366758423,
+  "wallSeconds": 64.82500004768372,
+  "tools": {
+   "read": 12,
+   "edit": 7,
+   "test": 0,
+   "verify": 0,
+   "git": 1,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 2
+  },
+  "reads": 12,
+  "edits": 7,
+  "runs": 3,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 2,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 5,
+  "editOperations": 7,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.22151289999999998,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.22151289999999998
+}

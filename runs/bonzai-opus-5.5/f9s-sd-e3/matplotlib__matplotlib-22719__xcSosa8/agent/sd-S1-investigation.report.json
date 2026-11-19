@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 546782,
+ "finalText": "The overshoot comes from this repository and is fixable with a one-line change: the font-metrics reader now rounds each letter's width down to a whole number. I didn't change any files; all commands ran only in the throwaway copy.\n\n**Cause.** In [_afm.py](file:///testbed/lib/matplotlib/_afm.py) at line 222, the reader parses each character's width (`WX`) with `_to_int`, which does `int(float(x))`. A width of 611.9 becomes 611. The PDF and PostScript backends add these widths up to get a label's width (`_backend_pdf_ps.py:111`). A right-aligned label is placed using that width, so it starts too far right. The viewer or printer then draws the letters at their real widths, and the label ends past its anchor.\n\n**Why only some cases fail.**\n- The error adds up with each letter, so long labels show it and short ones don't.\n- The 14 standard PDF/PostScript fonts have whole-number widths, so rounding changes nothing for them.\n- Fonts with fractional widths are hit, such as a font you supply, or the bundled `cmr10.afm`, which has widths like 833.333.\n\n**Not deliberate.** The build reports itself as upstream matplotlib commit a2a1b0a11b. Compared with that upstream source, `_afm.py` differs only on this line: upstream uses `_to_float`. No changelog or API-change note mentions it. The comment on `_to_int` itself says it was a workaround to stop crashes, not a choice to round widths.\n\n**What I ran:**\n- A metrics file with `WX 611.9` gives a width of 611. For the string `'AB'*20`, the width comes out as 25540 instead of 25572.\n- With `cmr10.afm` at 12 pt, \"Quarterly revenue by region and product line\" measures 0.271 pt short. \"Q1\" is only 0.009 pt short, which matches \"short labels look normal\".\n- The existing tests in `test_afm.py` pass (9 passed). Their sample file only uses whole-number widths, so they don't catch this.\n\n**Fix.** Change line 222 back to `wx = _to_float(vals['WX'])`, and add a test with a fractional width that checks the character and string widths aren't rounded down.\n\n**Separate issue.** `bezier.py` also differs from upstream: it now compares a squared distance against the tolerance. That affects how curves are split, not how text is measured, so it isn't the cause here. It probably needs its own look.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Custom-font labels measured too short in PDF/PS\",\n  \"cause\": \"The Type 1 metrics reader parses each glyph width (WX) with _to_int, which truncates fractional widths (611.9 -> 611), whereas upstream matplotlib parses it with _to_float. The PDF/PS backends add these widths up to get a label's width for alignment, so labels in fonts with fractional widths are measured slightly too narrow. Right-aligned text then starts too far right and, drawn with the font's real widths, ends past its anchor; the error grows with label length, and the 14 standard fonts are unaffected because their widths are whole numbers.\",\n  \"files\": [\n    {\"path\": \"lib/matplotlib/_afm.py\", \"why\": \"Line 222 parses WX with _to_int (int(float(x))), truncating fractional glyph widths; upstream uses _to_float.\"},\n    {\"path\": \"lib/matplotlib/backends/_backend_pdf_ps.py\", \"why\": \"get_text_width_height_descent uses the AFM string bbox width (built from WX) as the text width used for alignment.\"},\n    {\"path\": \"lib/matplotlib/tests/test_afm.py\", \"why\": \"Test AFM data has only integer WX values, so the truncation is not covered; add a fractional-width case.\"}\n  ],\n  \"plan\": [\n    \"In lib/matplotlib/_afm.py _parse_char_metrics, change `wx = _to_int(vals['WX'])` to `wx = _to_float(vals['WX'])` (matches upstream).\",\n    \"Add a test in test_afm.py with an AFM whose CharMetrics have fractional WX (e.g. 611.9) asserting get_width_char and string_width_height / get_str_bbox_and_descent return the unrounded sums.\",\n    \"Optionally add a test checking that a long string in cmr10.afm reports its full fractional width.\"\n  ],\n  \"verification\": [\n    \"New test fails on current code (width 611 vs 611.9; 'AB'*20 width 25540 vs 25572) and passes after the change.\",\n    \"pytest lib/matplotlib/tests/test_afm.py and the PS/PDF backend tests still pass.\",\n    \"cmr10.afm: 'Quarterly revenue by region and product line' at 12pt measures 238.500 pt instead of 238.229 pt.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.85,\n  \"fixType\": \"silentFailure\",\n  \"intendedBehavior\": \"Parsing an AFM file with `WX 611.9` gives get_width_char('A') == 611.9, and the measured width of a right-aligned label equals the sum of its fractional glyph widths and kerning, so the label ends at its anchor.\",\n  \"intent\": {\n    \"deliberate\": false,\n    \"evidence\": \"Upstream matplotlib at the commit this tree was built from (a2a1b0a11b) parses `wx = _to_float(vals['WX'])`; this tree's `_to_int` is the only change in _afm.py and has no changelog or API-change note (doc/api/next_api_changes mentions only ps.useafm and mathtext). The _to_int helper's own comment calls truncation a crash workaround and says it should 'support floats, round rather than truncate'.\"\n  },\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"The AFM parser converts each glyph's WX width with _to_int, which truncates fractional widths.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/_afm.py:222\", \"quote\": \"wx = _to_int(vals['WX'])\"},\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/_afm.py:54\", \"quote\": \"return int(float(x))\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"rootCause\", \"text\": \"The PDF/PS renderers use the AFM string bbox width, built from these truncated WX values, as the text width used for alignment.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/backends/_backend_pdf_ps.py:111\", \"quote\": \"l, b, w, h, d = font.get_str_bbox_and_descent(s)\"},\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/_afm.py:416\", \"quote\": \"total_width += wx + self._kern.get((namelast, name), 0)\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"impact\", \"text\": \"Right alignment places the text using the measured width, so an under-measured width pushes long labels past their right edge.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/text.py:395\", \"quote\": \"elif halign == 'right':\"},\n      {\"type\": \"evidence\", \"ref\": \"ev_s1\", \"quote\": \"long right-aligned labels using our supplied font extend slightly past their intended right edge in exported documents\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"trigger\", \"text\": \"Running the current parser on a valid AFM with fractional widths shows the truncation, and the error grows with string length.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:python\", \"quote\": \"width A 611 expected 611.9\"},\n      {\"type\": \"query\", \"ref\": \"probe:python\", \"quote\": \"string width 25540 expected 25572.0\"},\n      {\"type\": \"query\", \"ref\": \"probe:python\", \"quote\": \"'Quarterly revenue by region and product line' current 238.229 pt float WX 238.500 pt short by 0.271 pt\"},\n      {\"type\": \"query\", \"ref\": \"probe:python\", \"quote\": \"'Q1' current 15.324 pt float WX 15.333 pt short by 0.009 pt\"}\n    ]},\n    {\"id\": \"c5\", \"role\": \"other\", \"text\": \"Upstream matplotlib parses WX as a float; the diff against upstream a2a1b0a11b shows this is the only change in _afm.py.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:diff\", \"quote\": \"-        wx = _to_float(vals['WX'])\"}\n    ]},\n    {\"id\": \"c6\", \"role\": \"other\", \"text\": \"Existing AFM tests only use integer widths, so they pass and do not catch the regression.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/tests/test_afm.py:29\", \"quote\": \"C 42 ; WX 1141 ; N foo ; B 40 60 800 360 ;\"},\n      {\"type\": \"query\", \"ref\": \"probe:pytest\", \"quote\": \"9 passed, 1 warning in 0.53s\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"FreeType/TrueType text measurement (ft2font.cpp, _text_helpers.py) changed and mis-measures supplied TTF fonts.\", \"why\": \"Diffing src/ and lib/ against the upstream commit this build came from shows no changes to ft2font, _text_helpers, the backend files or text.py; only _afm.py and bezier.py differ.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:diff\", \"quote\": \"Files /tmp/u/matplotlib-a2a1b0a11b993fe5f8fab64b6161e99243a6393c/lib/matplotlib/_afm.py and lib/matplotlib/_afm.py differ\"}\n    ]},\n    {\"hypothesis\": \"The bezier.py change (squared distance compared to tolerance) causes the text overshoot.\", \"why\": \"It only affects bezier/path splitting (e.g. arrow clipping), not text width measurement; it is a separate regression worth its own look.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:diff\", \"quote\": \"if np.hypot(start[0] - end[0], start[1] - end[1]) < tolerance:\"}\n    ]}\n  ],\n  \"plain\": {\n    \"headline\": \"Long right-aligned labels in a customer's own font run past their right edge in PDF/PostScript exports, because the product rounds that font's letter widths down.\",\n    \"happened\": \"When reading a font's metrics file, the product now drops the fractional part of each letter's width. Adding up those widths makes a long label look a little narrower than it really is, so it gets placed too far right. The printed letters keep their true widths, so the end of the label goes past the edge.\",\n    \"matters\": \"Anyone exporting documents with a font whose letter widths aren't whole numbers gets misaligned long labels, and the error grows with each extra letter.\",\n    \"fix\": \"Read letter widths with their decimals again, as the original library does, and add a test with fractional widths.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 79,
+  "inputTokens": {
+   "avg": 43804.303797468354,
+   "max": 66699
+  },
+  "mainUsage": {
+   "inputTokens": 3460540,
+   "cachedInputTokens": 3241044,
+   "outputTokens": 40956
+  },
+  "cacheHitPercent": 93.65717489177989,
+  "wallSeconds": 545.3500001430511,
+  "tools": {
+   "read": 65,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 1,
+   "subagent": 0,
+   "other": 24
+  },
+  "reads": 65,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 13,
+   "readFileIgnoringRange": 12
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 2.5646468000000002,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 2.5646468000000002
+}

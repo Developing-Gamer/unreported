@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 22725,
+ "finalText": "The cause is in this repository, and a fix is small. I only read the code. I did not run probe, so the reproduction below is traced by hand.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"viewcode adds source pages to epub when disabled\",\n  \"cause\": \"The viewcode_enable_epub=False check only exists in the step that reads each document (doctree_read). The step that writes the module pages (collect_pages) never checks it. With `make html epub` the two builders share one saved build environment. The html run fills `_viewcode_modules`. The epub run skips doctree_read, but collect_pages still sees the saved data and writes the `_modules/` pages into the epub.\",\n  \"files\": [\n    {\"path\": \"sphinx/ext/viewcode.py\", \"why\": \"collect_pages (line 181) has no epub guard, while doctree_read (line 59) does. Add the same guard to collect_pages.\"},\n    {\"path\": \"tests/test_ext_viewcode.py\", \"why\": \"Add a regression test: build html, then epub in the same outdir and doctree dir, and check that no `_modules` pages are in the epub output.\"}\n  ],\n  \"plan\": [\n    \"At the top of collect_pages, return early when app.builder.name starts with 'epub' and app.config.viewcode_enable_epub is False. A bare `return` is fine because the function is a generator.\",\n    \"Add the regression test described above.\",\n    \"Optionally also skip singlehtml in collect_pages, to match doctree_read.\"\n  ],\n  \"verification\": [\n    \"Run `make html epub` on a project with sphinx.ext.viewcode and check that the epub contains no `_modules/` pages or navigation entries.\",\n    \"Check that setting viewcode_enable_epub=True still produces them.\",\n    \"Run tests/test_ext_viewcode.py.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"likely\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.85,\n  \"intendedBehavior\": \"When viewcode_enable_epub is False, an epub build contains no viewcode module pages, even if an html build ran first on the same project.\",\n  \"intent\": {\"deliberate\": false, \"note\": \"The option's default is False, and doctree_read honours it. Only the page-generation step was missed, so the reported outcome was not chosen.\"},\n  \"fixType\": \"error\",\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"doctree_read honours viewcode_enable_epub, so epub builds on their own collect nothing.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"sphinx/ext/viewcode.py:59\", \"quote\": \"if app.builder.name.startswith(\\\"epub\\\") and not env.config.viewcode_enable_epub:\"}]},\n    {\"id\": \"c2\", \"text\": \"collect_pages has no epub check. It generates pages from whatever is in the saved `_viewcode_modules`, which an earlier html build filled.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"sphinx/ext/viewcode.py:185\", \"quote\": \"highlighter = app.builder.highlighter  # type: ignore\"}, {\"type\": \"code\", \"ref\": \"sphinx/ext/viewcode.py:285\", \"quote\": \"app.connect('html-collect-pages', collect_pages)\"}]}\n  ],\n  \"headline\": \"Epub books include source-code pages even though the setting that turns them off is set to off.\",\n  \"happened\": \"Running the html build and then the epub build in one go makes the html build collect source-code information. The epub build skips collecting its own, but it still writes out the source pages from the html build's leftovers, so they end up in the epub.\",\n  \"matters\": \"Anyone who builds html and epub together and relies on the default of no source pages in epub gets unwanted pages and a larger book.\",\n  \"fix\": \"Make the page-writing step skip epub builds when the setting is off, the same way the collecting step already does.\"\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 4,
+  "inputTokens": {
+   "avg": 13949.75,
+   "max": 16045
+  },
+  "mainUsage": {
+   "inputTokens": 55799,
+   "cachedInputTokens": 46768,
+   "outputTokens": 2185
+  },
+  "cacheHitPercent": 83.81512213480528,
+  "wallSeconds": 19.200000047683716,
+  "tools": {
+   "read": 5,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 0
+  },
+  "reads": 5,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 2,
+   "readFileIgnoringRange": 2
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.0537761,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.0537761
+}

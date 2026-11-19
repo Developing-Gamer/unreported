@@ -1,0 +1,13 @@
+diff --git a/sympy/physics/optics/utils.py b/sympy/physics/optics/utils.py
+index 4f1f612b21..fc5ac78330 100644
+--- a/sympy/physics/optics/utils.py
++++ b/sympy/physics/optics/utils.py
+@@ -141,7 +141,7 @@ def refraction_angle(incident, medium1, medium2, normal=None, plane=None):
+             raise ValueError('Angle of incidence not in range [0:pi/2)')
+ 
+         if critical_angle_ and angle_of_incidence > critical_angle_:
+-            raise ValueError('Ray undergoes total internal reflection')
++            return S.Zero
+         return asin(n1*sin(angle_of_incidence)/n2)
+ 
+     # Treat the incident as ray below

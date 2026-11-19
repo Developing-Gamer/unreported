@@ -1,0 +1,135 @@
+diff --git a/requests/api.py b/requests/api.py
+index 4a39211..7705f8f 100644
+--- a/requests/api.py
++++ b/requests/api.py
+@@ -40,8 +40,10 @@ def request(method, url, **kwargs):
+       <Response [200]>
+     """
+ 
+-    session = sessions.Session()
+-    return session.request(method=method, url=url, **kwargs)
++    # Use a context manager so the throwaway session (and its pooled
++    # sockets) is closed right away instead of lingering until GC.
++    with sessions.Session() as session:
++        return session.request(method=method, url=url, **kwargs)
+ 
+ 
+ def get(url, **kwargs):
+diff --git a/requests/models.py b/requests/models.py
+index 9926045..82e0d5c 100644
+--- a/requests/models.py
++++ b/requests/models.py
+@@ -386,13 +386,16 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):
+         self.body = body
+ 
+     def prepare_content_length(self, body):
+-        self.headers['Content-Length'] = '0'
+         if hasattr(body, 'seek') and hasattr(body, 'tell'):
+             body.seek(0, 2)
+             self.headers['Content-Length'] = str(body.tell())
+             body.seek(0, 0)
+         elif body is not None:
+             self.headers['Content-Length'] = str(len(body))
++        elif self.method not in ('GET', 'HEAD'):
++            # Bodiless GET/HEAD requests must not advertise a body length;
++            # some servers reject them (e.g. 503) when they do.
++            self.headers['Content-Length'] = '0'
+ 
+     def prepare_auth(self, auth):
+         """Prepares the given HTTP auth data."""
+diff --git a/requests/packages/urllib3/connectionpool.py b/requests/packages/urllib3/connectionpool.py
+index 51c87f5..be2d1ce 100644
+--- a/requests/packages/urllib3/connectionpool.py
++++ b/requests/packages/urllib3/connectionpool.py
+@@ -186,6 +186,17 @@ class HTTPConnectionPool(ConnectionPool, RequestMethods):
+         self.num_connections = 0
+         self.num_requests = 0
+ 
++    def _conn_kw(self):
++        """
++        Extra keyword arguments for the httplib connection constructor.
++
++        ``strict`` only exists on Python 2's httplib; Python 3.4+ removed it
++        and raises TypeError if it is passed.
++        """
++        if six.PY3:
++            return {}
++        return {'strict': self.strict}
++
+     def _new_conn(self):
+         """
+         Return a fresh :class:`httplib.HTTPConnection`.
+@@ -195,7 +206,7 @@ class HTTPConnectionPool(ConnectionPool, RequestMethods):
+                  (self.num_connections, self.host))
+         return HTTPConnection(host=self.host,
+                               port=self.port,
+-                              strict=self.strict)
++                              **self._conn_kw())
+ 
+     def _get_conn(self, timeout=None):
+         """
+@@ -539,11 +550,11 @@ class HTTPSConnectionPool(HTTPConnectionPool):
+ 
+             return HTTPSConnection(host=self.host,
+                                    port=self.port,
+-                                   strict=self.strict)
++                                   **self._conn_kw())
+ 
+         connection = VerifiedHTTPSConnection(host=self.host,
+                                              port=self.port,
+-                                             strict=self.strict)
++                                             **self._conn_kw())
+         connection.set_cert(key_file=self.key_file, cert_file=self.cert_file,
+                             cert_reqs=self.cert_reqs, ca_certs=self.ca_certs)
+ 
+diff --git a/test_requests.py b/test_requests.py
+index c974e98..4e74e1d 100644
+--- a/test_requests.py
++++ b/test_requests.py
+@@ -58,6 +58,46 @@ class RequestsTestCase(unittest.TestCase):
+         assert pr.body == 'life=42'
+ 
+ 
++    def test_no_content_length(self):
++        get_req = requests.Request('GET', 'http://example.com/').prepare()
++        self.assertTrue('Content-Length' not in get_req.headers)
++        head_req = requests.Request('HEAD', 'http://example.com/').prepare()
++        self.assertTrue('Content-Length' not in head_req.headers)
++
++    def test_content_length_for_bodiless_post(self):
++        post_req = requests.Request('POST', 'http://example.com/').prepare()
++        self.assertEqual(post_req.headers['Content-Length'], '0')
++        get_req = requests.Request('GET', 'http://example.com/',
++                                   data={'a': 'b'}).prepare()
++        self.assertEqual(get_req.headers['Content-Length'], '3')
++
++    def test_api_request_closes_session(self):
++        from requests import sessions
++        closed = []
++
++        class FakeSession(sessions.Session):
++            def request(self, *args, **kwargs):
++                return 'response'
++
++            def close(self):
++                closed.append(True)
++
++        original = sessions.Session
++        sessions.Session = FakeSession
++        try:
++            self.assertEqual(requests.get('http://example.com/'), 'response')
++        finally:
++            sessions.Session = original
++        self.assertEqual(closed, [True])
++
++    def test_new_connection_does_not_pass_unsupported_kwargs(self):
++        from requests.packages.urllib3.connectionpool import (
++            HTTPConnectionPool, HTTPSConnectionPool)
++        # Python 3.4+ httplib rejects ``strict``; creating a connection
++        # (no network I/O happens here) must not raise TypeError.
++        HTTPConnectionPool('localhost', 80)._new_conn()
++        HTTPSConnectionPool('localhost', 443)._new_conn()
++
+     def test_path_is_not_double_encoded(self):
+         request = requests.Request('GET', "http://0.0.0.0/get/test case").prepare()
+ 

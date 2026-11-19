@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 113400,
+ "finalText": "I re-checked the work against the request and nothing needed changing. I only read the code and ran commands in the probe's throwaway copy; no files in the repository were edited.\n\n**What's wrong:** asking for the migration plan of specific apps (for example `showmigrations --plan orders`) hides migrations from other apps that the requested app depends on. That's why the orders-only plan leaves out the accounts migration that the full project plan puts ahead of it. In [showmigrations.py](file:///testbed/django/core/management/commands/showmigrations.py), line 124 reads `if migration not in seen and (not app_names or migration[0] in app_names):`. The part after `and` drops any migration whose app wasn't named, even when the requested app needs it. That goes against the documentation in [django-admin.txt](file:///testbed/docs/ref/django-admin.txt) at lines 1106\u20131107: \"dependencies of provided apps may also be included.\" It also goes against the project's own tests.\n\n**Who feels it:** only the preview is wrong. A real `migrate orders` builds its plan another way, which keeps dependencies, so it still applies the accounts migration first. But someone checking the plan before a deploy sees an incomplete list and may be caught out.\n\n**How I confirmed it:**\n- The two existing tests for app-limited plans (`test_showmigrations_plan_single_app_label` and `test_showmigrations_plan_multiple_app_labels`) fail on the current code: `book_app.0001_initial` is missing between `author_app.0001_initial` and `author_app.0002_alter_id`.\n- With the condition changed to `if migration not in seen:`, all 90 tests in `migrations.test_commands` pass.\n\n**Fix:** remove the app filter on line 124. Line 115 already starts the plan only from the requested apps' latest migrations, so the output stays limited to those apps plus what they depend on.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"App-specific migration plan hides needed dependencies\",\n  \"cause\": \"When `showmigrations --plan` is given app labels, show_plan builds the full dependency-ordered plan for those apps' latest migrations but then drops every migration whose app wasn't named (`migration[0] in app_names`). Dependencies in other apps, such as an accounts migration that orders needs, are hidden. That contradicts the documentation ('dependencies of provided apps may also be included') and the existing tests.\",\n  \"files\": [\n    {\"path\": \"django/core/management/commands/showmigrations.py\", \"why\": \"show_plan line 124 filters out dependency migrations from apps not named on the command line\"},\n    {\"path\": \"tests/migrations/test_commands.py\", \"why\": \"test_showmigrations_plan_single_app_label / _multiple_app_labels already assert the expected output and fail today\"}\n  ],\n  \"plan\": [\n    \"In show_plan, change `if migration not in seen and (not app_names or migration[0] in app_names):` to `if migration not in seen:`; targets are already limited to the requested apps' leaf nodes on line 115.\",\n    \"Keep the existing showmigrations --plan app_label tests as regression coverage.\"\n  ],\n  \"verification\": [\n    \"Run `PYTHONPATH=.. python runtests.py migrations.test_commands` from tests/: both app-label plan tests fail today and all 90 tests pass with the filter removed (checked in a probe copy).\",\n    \"Manually: `showmigrations --plan author_app` should list book_app.0001_initial between author_app.0001_initial and author_app.0002_alter_id.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.95,\n  \"fixType\": \"silentFailure\",\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"show_plan discards any migration in the forwards plan whose app wasn't passed on the command line, which drops cross-app dependencies.\", \"role\": \"rootCause\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"django/core/management/commands/showmigrations.py:124\", \"quote\": \"if migration not in seen and (not app_names or migration[0] in app_names):\"},\n      {\"type\": \"code\", \"ref\": \"django/core/management/commands/showmigrations.py:115\", \"quote\": \"targets = [key for key in graph.leaf_nodes() if key[0] in app_names]\"}\n    ]},\n    {\"id\": \"c2\", \"text\": \"The documented contract says dependencies of the requested apps may be included in the app-limited plan.\", \"role\": \"other\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"docs/ref/django-admin.txt:1106\", \"quote\": \"``app_label``\\\\s arguments limit the output, however, dependencies of provided\"}\n    ]},\n    {\"id\": \"c3\", \"text\": \"The project's existing test expects the other app's dependency in the single-app plan, and it fails against the current code.\", \"role\": \"rootCause\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"tests/migrations/test_commands.py:500\", \"quote\": \"'[ ]  book_app.0001_initial\\\\n'\"},\n      {\"type\": \"query\", \"ref\": \"probe:runtests migrations.test_commands\", \"quote\": \"AssertionError: '[ ] [23 chars]l\\\\n[ ]  book_app.0001_initial\\\\n[ ]  author_app.0002_alter_id\\\\n' != '[ ] [23 chars]l\\\\n[ ]  author_app.0002_alter_id\\\\n'\"}\n    ]},\n    {\"id\": \"c4\", \"text\": \"The report describes exactly this: the orders-only plan skips an accounts migration that the full plan puts ahead of it.\", \"role\": \"impact\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s2\", \"quote\": \"The migration plan for just the orders app skips an accounts migration that still appears ahead of it in the full project plan.\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"The migration graph's dependency search (forwards_plan / iterative_dfs) loses cross-app parents.\", \"why\": \"It walks all parents regardless of app and matches upstream Django; the full plan in the report does include the accounts migration.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"django/db/migrations/graph.py:231\", \"quote\": \"stack += [(n, False) for n in sorted(node.parents if forwards else node.children)]\"}\n    ]},\n    {\"hypothesis\": \"The real `migrate orders` run skips the accounts migration.\", \"why\": \"The executor's migration_plan appends every unapplied node from forwards_plan with no app filter, so only the preview is wrong.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"django/db/migrations/executor.py:58\", \"quote\": \"for migration in self.loader.graph.forwards_plan(target):\"}\n    ]}\n  ],\n  \"intendedBehavior\": \"`showmigrations --plan author_app` lists author_app.0001_initial, book_app.0001_initial, author_app.0002_alter_id in that order.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"Limiting output to app labels is deliberate (1.11 release notes), but the docs explicitly say dependencies of the given apps may also be included, and the existing tests assert that cross-app dependencies appear; hiding them was never chosen.\"},\n  \"plain\": {\n    \"headline\": \"The deploy preview for a single app leaves out other apps' database changes that app depends on, so people see an incomplete plan.\",\n    \"happened\": \"Someone asked for the list of pending database changes for just the orders app. The tool worked out the right order, including an accounts change orders needs, then hid every change not from the orders app. The full-project list still showed the accounts change, so the two lists disagreed.\",\n    \"matters\": \"Anyone previewing one app's changes before a deploy gets a list that silently leaves out prerequisite changes from other apps, though the real run still applies them.\",\n    \"fix\": \"Stop hiding prerequisite changes from other apps in the single-app preview, as the documentation already promises.\"\n  },\n  \"sourceId\": \"S2\"\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 17,
+  "inputTokens": {
+   "avg": 25540.882352941175,
+   "max": 36521
+  },
+  "mainUsage": {
+   "inputTokens": 434195,
+   "cachedInputTokens": 404662,
+   "outputTokens": 9091
+  },
+  "cacheHitPercent": 93.19821739080368,
+  "wallSeconds": 113.01699995994568,
+  "tools": {
+   "read": 14,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 5
+  },
+  "reads": 14,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.4103794,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.4103794
+}

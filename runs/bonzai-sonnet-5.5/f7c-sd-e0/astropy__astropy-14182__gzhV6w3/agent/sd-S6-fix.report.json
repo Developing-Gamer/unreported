@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 52802,
+ "finalText": "`squeeze(axis=k)` on an axis that isn't length 1 now raises `ValueError` instead of returning the still multi-dimensional object. The change is uncommitted in the working tree, and no PR was opened because the benchmark note rules it out.\n\nThe cause was as the investigation said: `squeeze` in `astropy/utils/shapes.py` caught `ValueError` and returned `self`. It now just returns `self._apply(\"squeeze\", *args, **kwargs)`, as numpy does. Plain `squeeze()` on a batch with unit axes still works.\n\nI added a `Time` test and a `SkyCoord` test for `squeeze(axis=<non-unit axis>)`. The `Time` test failed before the fix with \"DID NOT RAISE ValueError\" and passes after it. The `SkyCoord` test passes after the fix, but only with `-W \"ignore::astropy.utils.exceptions.AstropyWarning\"`. Without that flag its fixture errors on an expired leap-second file, which is unrelated to this change. I did not run it against the unfixed code, so it has no before/after evidence of its own.\n\nIn the wider run of the time, coordinates and shapes test files, 224 passed and 1 failed. The failure is `TestArithmetic::test_ptp[masked]`, on the same leap-second warning, and I did not run it on the base commit. I did not add a separate test for representations, though `test_representation_methods.py` ran and passed.\n\nI also added a changelog note at `docs/changes/utils/14000.bugfix.rst`; the `14000` is a placeholder number I picked, not a real PR number. The PR title and description are in `/testbed/.factory/pr-S6.md`. None of the open PRs (#1000\u2013#1002) touch `squeeze`.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest -q astropy/time/tests/test_methods.py astropy/coordinates/tests/test_shape_manipulation.py astropy/coordinates/tests/test_representation_methods.py astropy/utils/tests/test_shapes.py\", \"passed\": false, \"alsoOnBase\": null, \"note\": \"224 passed; only TestArithmetic::test_ptp[masked] failed, on a leap-second auto-update warning. Not run on the base commit.\"},\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest -q astropy/time/tests/test_methods.py -k squeeze\", \"passed\": true},\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest -q astropy/coordinates/tests/test_shape_manipulation.py -k squeeze -W ignore::astropy.utils.exceptions.AstropyWarning\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"missingEnv\": [],\n  \"reproduction\": \"Create a Time (or SkyCoord) with shape (5,2,5), call .squeeze(axis=0); before the fix it returns the unchanged object instead of raising ValueError.\",\n  \"reproductionTest\": {\n    \"path\": \"astropy/time/tests/test_methods.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest -q astropy/time/tests/test_methods.py -k squeeze\",\n    \"signature\": \"Failed: DID NOT RAISE <class 'ValueError'>\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 13,
+  "inputTokens": {
+   "avg": 25055.46153846154,
+   "max": 30377
+  },
+  "mainUsage": {
+   "inputTokens": 325721,
+   "cachedInputTokens": 309230,
+   "outputTokens": 5855
+  },
+  "cacheHitPercent": 94.93707805146121,
+  "wallSeconds": 52.13600015640259,
+  "tools": {
+   "read": 10,
+   "edit": 4,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 2
+  },
+  "reads": 10,
+  "edits": 4,
+  "runs": 2,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 3,
+  "editOperations": 3,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.16160850000000004,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.16160850000000004
+}

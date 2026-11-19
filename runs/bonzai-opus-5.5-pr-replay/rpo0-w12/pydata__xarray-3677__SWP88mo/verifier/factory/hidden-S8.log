@@ -1,0 +1,115 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+_ test_accessor_initialization_failure_is_reported[DataArray-register_dataarray_accessor] _
+
+object_type = <class 'xarray.core.dataarray.DataArray'>
+register = <function register_dataarray_accessor at 0x7fd4617aeb00>
+
+    @pytest.mark.parametrize(
+        "object_type,register",
+        [
+            (xr.DataArray, xr.register_dataarray_accessor),
+            (xr.Dataset, xr.register_dataset_accessor),
+        ],
+    )
+    def test_accessor_initialization_failure_is_reported(object_type, register):
+        name = "calibration_probe_for_test"
+    
+        class CalibrationAccessor:
+            def __init__(self, obj):
+                self.units = obj.calibration_units
+    
+        register(name)(CalibrationAccessor)
+        try:
+            valid = object_type(attrs={"calibration_units": "K"})
+            assert getattr(valid, name).units == "K"
+    
+            missing_metadata = object_type()
+            observed_error = None
+            try:
+                getattr(missing_metadata, name)
+            except Exception as exc:
+                observed_error = exc
+    
+>           assert isinstance(observed_error, RuntimeError), (
+                "Accessor initialization failure was not reported as a RuntimeError: "
+                + repr(observed_error)
+            )
+E           AssertionError: Accessor initialization failure was not reported as a RuntimeError: None
+E           assert False
+E            +  where False = isinstance(None, RuntimeError)
+
+/tmp/test_hidden_S8.py:31: AssertionError
+_ test_accessor_initialization_failure_is_reported[Dataset-register_dataset_accessor] _
+
+object_type = <class 'xarray.core.dataset.Dataset'>
+register = <function register_dataset_accessor at 0x7fd4617aeb90>
+
+    @pytest.mark.parametrize(
+        "object_type,register",
+        [
+            (xr.DataArray, xr.register_dataarray_accessor),
+            (xr.Dataset, xr.register_dataset_accessor),
+        ],
+    )
+    def test_accessor_initialization_failure_is_reported(object_type, register):
+        name = "calibration_probe_for_test"
+    
+        class CalibrationAccessor:
+            def __init__(self, obj):
+                self.units = obj.calibration_units
+    
+        register(name)(CalibrationAccessor)
+        try:
+            valid = object_type(attrs={"calibration_units": "K"})
+            assert getattr(valid, name).units == "K"
+    
+            missing_metadata = object_type()
+            observed_error = None
+            try:
+                getattr(missing_metadata, name)
+            except Exception as exc:
+                observed_error = exc
+    
+>           assert isinstance(observed_error, RuntimeError), (
+                "Accessor initialization failure was not reported as a RuntimeError: "
+                + repr(observed_error)
+            )
+E           AssertionError: Accessor initialization failure was not reported as a RuntimeError: None
+E           assert False
+E            +  where False = isinstance(None, RuntimeError)
+
+/tmp/test_hidden_S8.py:31: AssertionError
+=============================== warnings summary ===============================
+xarray/core/dask_array_compat.py:13
+xarray/core/dask_array_compat.py:13
+  /testbed/xarray/core/dask_array_compat.py:13: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) >= LooseVersion("2.0.0"):
+
+xarray/core/dask_array_compat.py:100
+xarray/core/dask_array_compat.py:100
+  /testbed/xarray/core/dask_array_compat.py:100: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) >= LooseVersion("2.8.1"):
+
+xarray/core/dask_array_compat.py:137
+xarray/core/dask_array_compat.py:137
+  /testbed/xarray/core/dask_array_compat.py:137: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) > LooseVersion("2.9.0"):
+
+xarray/core/formatting_html.py:6
+  /testbed/xarray/core/formatting_html.py:6: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html
+    import pkg_resources
+
+xarray/core/pdcompat.py:45
+  /testbed/xarray/core/pdcompat.py:45: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(pd.__version__) < "0.25.0":
+
+../opt/miniconda3/envs/testbed/lib/python3.10/site-packages/setuptools/_distutils/version.py:345
+  /opt/miniconda3/envs/testbed/lib/python3.10/site-packages/setuptools/_distutils/version.py:345: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    other = LooseVersion(other)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED ../tmp/test_hidden_S8.py::test_accessor_initialization_failure_is_reported[DataArray-register_dataarray_accessor]
+FAILED ../tmp/test_hidden_S8.py::test_accessor_initialization_failure_is_reported[Dataset-register_dataset_accessor]
+2 failed, 9 warnings in 1.62s

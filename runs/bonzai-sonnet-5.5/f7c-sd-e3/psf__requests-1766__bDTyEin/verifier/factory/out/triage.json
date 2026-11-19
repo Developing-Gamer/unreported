@@ -1,0 +1,32 @@
+[
+  {
+    "source": "S1",
+    "decision": "fix",
+    "reason": "In the bundled urllib3, HTTPResponse.read() adds the length of the decompressed data to _fp_bytes_read. tell() is documented as the bytes pulled over the wire, so it should count compressed bytes. Pro"
+  },
+  {
+    "source": "S2",
+    "decision": "fix",
+    "reason": "Requests 2.0.1 (Oct 2013) verifies HTTPS only against its own bundled CA file, requests/cacert.pem, and ignores the system trust store. That file has no ISRG Root X1, Amazon, or USERTrust roots, and i"
+  },
+  {
+    "source": "S3",
+    "decision": "fix",
+    "reason": "When building the Digest Authorization header, build_digest_header appends `qop=auth` as a bare token (requests/auth.py line 147), while every other string directive (username, realm, nonce, uri, resp"
+  },
+  {
+    "source": "S4",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: The report describes versions before 1.2.0, which added 'Content-Length: 0' to every request, including GET. In the current code (v2.0.1), prepare_content_length only adds a zero Content-Length for me"
+  },
+  {
+    "source": "S5",
+    "decision": "fix",
+    "reason": "In requests/api.py, `head()` does `kwargs['allow_redirects'] = False`. That overwrites whatever the caller passed, so `requests.head(url, allow_redirects=True)` never follows redirects and returns the"
+  },
+  {
+    "source": "S6",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The error is a connection-refused (errno 111) error when opening a socket to api.stripe.com:443. The requests library worked as designed. After urllib3 exhausts its retries, the adapter wraps the fail"
+  }
+]

@@ -1,0 +1,30 @@
+{
+ "task": "pylint-dev__pylint-4604",
+ "kept": [
+  {
+   "path": "pylint/pyreverse/main.py",
+   "category": "silent wrong result (a value or output that is subtly wrong, no exception)",
+   "defect_patch": "diff --git a/pylint/pyreverse/main.py b/pylint/pyreverse/main.py\nindex a62a1c2e..f0208f29 100644\n--- a/pylint/pyreverse/main.py\n+++ b/pylint/pyreverse/main.py\n@@ -212,7 +212,7 @@ class Run(ConfigurationMixIn):\n             project = project_from_files(\n                 args,\n                 project_name=self.config.project,\n-                black_list=self.config.ignore_list,\n+                black_list=self.config.ignore_list or (\"CVS\",),\n             )\n             linker = Linker(project, tag=True)\n             handler = DiadefsHandler(self.config)\n",
+   "test_code": "import sys\n\nimport pytest\n\nfrom pylint.pyreverse import main\n\n\ndef test_empty_ignore_list_includes_normally_excluded_package(tmp_path, monkeypatch):\n    package = tmp_path / \"diagram_sample\"\n    package.mkdir()\n    (package / \"__init__.py\").write_text(\n        \"class RootModel:\\n    pass\\n\", encoding=\"utf-8\"\n    )\n    legacy_package = package / \"CVS\"\n    legacy_package.mkdir()\n    (legacy_package / \"__init__.py\").write_text(\n        \"class ArchivedRecord:\\n    pass\\n\", encoding=\"utf-8\"\n    )\n    output = tmp_path / \"diagrams\"\n    output.mkdir()\n\n    monkeypatch.chdir(tmp_path)\n    monkeypatch.setattr(main, \"insert_default_options\", lambda: None)\n    arguments = [\n        \"--ignore=\",\n        \"--output=dot\",\n        \"--output-directory=\" + str(output),\n        str(package),\n    ]\n    monkeypatch.setattr(sys, \"argv\", [\"pyreverse\"] + arguments)\n\n    with pytest.raises(SystemExit) as result:\n        main.Run(arguments)\n    assert result.value.code == 0\n\n    diagrams = \"\\n\".join(\n        path.read_text(encoding=\"utf-8\") for path in output.glob(\"*.dot\")\n    )\n    assert \"RootModel\" in diagrams\n    assert \"ArchivedRecord\" in diagrams\n",
+   "signal": {
+    "kind": "user",
+    "source": "diagram-export support channel",
+    "text": "The UML export finishes successfully, but a small legacy package is missing from the diagrams even when we supply an empty exclusion list."
+   },
+   "summary": "An explicitly empty ignore list incorrectly falls back to the default CVS exclusion, silently omitting classes from that package."
+  },
+  {
+   "path": "pylint/checkers/refactoring/not_checker.py",
+   "category": "silent wrong result (a value or output that is subtly wrong, no exception)",
+   "defect_patch": "diff --git a/pylint/checkers/refactoring/not_checker.py b/pylint/checkers/refactoring/not_checker.py\nindex ea3bae30..bbae00e1 100644\n--- a/pylint/checkers/refactoring/not_checker.py\n+++ b/pylint/checkers/refactoring/not_checker.py\n@@ -67,7 +67,7 @@ class NotChecker(checkers.BaseChecker):\n             frame = node.frame()\n             if frame.name == \"__ne__\" and operator == \"==\":\n                 return\n-            for _type in (utils.node_type(left), utils.node_type(right)):\n+            for _type in (utils.node_type(left),):\n                 if not _type:\n                     return\n                 if isinstance(_type, self.skipped_nodes):\n",
+   "test_code": "import astroid\n\nfrom pylint.checkers.refactoring.not_checker import NotChecker\nfrom pylint.testutils import UnittestLinter\n\n\ndef test_set_on_right_preserves_partial_ordering_exemption():\n    module = astroid.parse('''\nclass TagSet(set):\n    pass\n\nselected = TagSet({1})\nresult = not selected <= {2}\n''')\n    node = next(module.nodes_of_class(astroid.UnaryOp))\n    linter = UnittestLinter()\n    checker = NotChecker(linter)\n\n    checker.visit_unaryop(node)\n\n    messages = linter.release_messages()\n    assert messages == [], (\n        \"A negated subset comparison must not be simplified to a strict \"\n        \"superset comparison: these differ for incomparable sets. \"\n        f\"Unexpected messages: {messages!r}\"\n    )\n",
+   "signal": {
+    "kind": "user",
+    "source": "developer-support",
+    "text": "For disjoint tag groups, accepting a new comparison-simplification hint changes our filter result from true to false."
+   },
+   "summary": "The checker stops inspecting the right operand's type, causing unsafe negation-reversal suggestions when a set subclass is compared with a set literal."
+  }
+ ],
+ "rejected": []
+}

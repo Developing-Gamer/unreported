@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 90271,
+ "finalText": "I checked the report against the request and it holds up, so I'm giving it as is.\n\n**Verdict: fixable.** The problem is in sympy's partial-fraction function, `apart`. When a formula isn't a ratio of polynomials, it now returns the formula unchanged instead of raising an error.\n\n**Cause.** In [partfrac.py](file:///testbed/sympy/polys/partfrac.py), lines 82\u201384, `apart` tries to turn the numerator and denominator into polynomials. When that fails and the formula is commutative (which ordinary formulas are), the code now does `return f`. The published sympy 1.6 package does `raise PolynomialError(msg)` on that line; I downloaded it with the probe tool to compare. The repository has only one squashed \"Snapshot\" commit, so I can't tell which change made the swap.\n\n**What I ran (in the probe tool's throwaway copy):**\n- `apart(1/((x+1)*(x+2)), x)` still gives `-1/(x + 2) + 1/(x + 1)`, so ordinary rational formulas are fine, as the report says.\n- `sin(x)/(x+1)`, `1/(x**y+1)` and `exp(x)/(x**2-1)` each come back exactly as entered, with no error. That is the reported symptom.\n- The existing partial-fraction tests pass (10 passed, 1 xfailed, 1 xpassed). No test checks the error for non-rational input, which is why the change went unnoticed.\n- No code inside sympy catches this error from `apart`. Only outside callers that relied on the error to reject bad formulas, like the reporter's service, are affected.\n\n**Fix:** put `raise PolynomialError(msg)` back in place of `return f`, leave the non-commutative handling as it is, and add a test that `apart(sin(x)/(x + 1), x)` raises `PolynomialError`. I made no edits; this was a read-only investigation.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Non-rational formulas pass silently through apart\",\n  \"cause\": \"In sympy/polys/partfrac.py, apart() catches PolynomialError from parallel_poly_from_expr and, for commutative input, now returns f unchanged instead of re-raising. Released sympy 1.6 has `raise PolynomialError(msg)` there. So non-rational input such as sin(x)/(x+1) comes back exactly as entered instead of failing, while true rational functions still decompose normally.\",\n  \"files\": [\n    {\"path\": \"sympy/polys/partfrac.py\", \"why\": \"apart() returns f instead of raising PolynomialError for commutative non-rational input (lines 82-84)\"},\n    {\"path\": \"sympy/polys/tests/test_partfrac.py\", \"why\": \"No test asserts the error for non-rational input; add one\"}\n  ],\n  \"plan\": [\n    \"In apart(), replace `return f` under `if f.is_commutative:` with `raise PolynomialError(msg)`\",\n    \"Keep the non-commutative branch unchanged\",\n    \"Add raises(PolynomialError, lambda: apart(sin(x)/(x + 1), x)) to test_apart in sympy/polys/tests/test_partfrac.py\"\n  ],\n  \"verification\": [\n    \"apart(sin(x)/(x+1), x) and apart(1/(x**y+1), x) raise PolynomialError\",\n    \"apart(1/((x+1)*(x+2)), x) still returns -1/(x + 2) + 1/(x + 1)\",\n    \"pytest sympy/polys/tests/test_partfrac.py and the noncommutative apart tests pass\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.85,\n  \"fixType\": \"silentFailure\",\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"When the formula cannot be turned into polynomials, apart() returns the input unchanged for commutative expressions instead of raising.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"sympy/polys/partfrac.py:82\", \"quote\": \"except PolynomialError as msg:\\n        if f.is_commutative:\\n            return f\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"rootCause\", \"text\": \"The released sympy 1.6 package raises PolynomialError at this point, so returning the input unchanged is a regression from the published behaviour.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:pip download sympy==1.6 partfrac.py\", \"quote\": \"if f.is_commutative:\\n            raise PolynomialError(msg)\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"impact\", \"text\": \"Non-rational inputs come back exactly as entered with no error, while rational ones still decompose, matching the report.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:python apart calls\", \"quote\": \"sin(x)/(x + 1) -> sin(x)/(x + 1)\\n1/(x**y + 1) -> 1/(x**y + 1)\"},\n      {\"type\": \"query\", \"ref\": \"probe:python apart calls\", \"quote\": \"1/((x + 1)*(x + 2)) -> -1/(x + 2) + 1/(x + 1)\"},\n      {\"type\": \"evidence\", \"ref\": \"ev_s6\", \"quote\": \"A few formulas now come back exactly as entered with a success status, instead of the validation error we used to see.\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"other\", \"text\": \"The existing tests only check the multivariate NotImplementedError, so the missing PolynomialError went unnoticed.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"sympy/polys/tests/test_partfrac.py:52\", \"quote\": \"raises(NotImplementedError, lambda: apart(1/(x + 1)/(y + 2)))\"},\n      {\"type\": \"query\", \"ref\": \"probe:pytest sympy/polys/tests/test_partfrac.py\", \"quote\": \"10 passed, 1 xfailed, 1 xpassed\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"The multivariate error path changed\", \"why\": \"The multivariate NotImplementedError is still raised, and its test passes.\", \"citations\": [{\"type\": \"code\", \"ref\": \"sympy/polys/partfrac.py:123\", \"quote\": \"raise NotImplementedError(\\n            \\\"multivariate partial fraction decomposition\\\")\"}]},\n    {\"hypothesis\": \"This is the documented case where denominators with irrational roots come back unchanged\", \"why\": \"That documented case is for rational functions over the rationals. The affected inputs here are not rational functions at all.\", \"citations\": [{\"type\": \"code\", \"ref\": \"sympy/polys/partfrac.py:46\", \"quote\": \"The undetermined coefficients method does not provide a result when the\\n    denominators roots are not rational:\"}]}\n  ],\n  \"intendedBehavior\": \"apart(sin(x)/(x + 1), x) raises PolynomialError, while apart(1/((x + 1)*(x + 2)), x) returns -1/(x + 2) + 1/(x + 1).\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"The docstring documents rational-function input only. Released sympy 1.6 re-raises PolynomialError here, and no changelog, comment or test asks for returning non-rational input unchanged.\"},\n  \"plain\": {\n    \"headline\": \"Some formulas that should be rejected are now accepted and returned unchanged, because the step that splits fractions stopped reporting when it can't handle a formula.\",\n    \"happened\": \"The step that splits a fraction into simpler pieces first checks whether the formula is a plain ratio of polynomials. For formulas that aren't, such as ones containing sine or a variable power, it used to raise an error. It now quietly hands back the original formula, so callers treat it as a success.\",\n    \"matters\": \"Anyone relying on that error to reject bad formulas now passes them through as if they had been processed correctly.\",\n    \"fix\": \"Bring back the error for formulas that aren't ratios of polynomials, and add a test so it doesn't silently change again.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 9,
+  "inputTokens": {
+   "avg": 14936.777777777777,
+   "max": 20088
+  },
+  "mainUsage": {
+   "inputTokens": 134431,
+   "cachedInputTokens": 121347,
+   "outputTokens": 7583
+  },
+  "cacheHitPercent": 90.26712588614234,
+  "wallSeconds": 90.01399993896484,
+  "tools": {
+   "read": 7,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 2
+  },
+  "reads": 7,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.2413274,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.2413274
+}

@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 53688,
+ "finalText": "`ds.merge(da)` now works when `da` is a named DataArray, and it gives the same result as `xr.merge([ds, da])`. The fix is uncommitted in the working tree, as the benchmark note requires.\n\n**Cause.** The investigation was right. `dataset_merge_method` in `xarray/core/merge.py` passed a DataArray straight to `merge_core`, which treated it as a mapping and called `.items()` on it. It now converts a DataArray `other` with `to_dataset()` first, the same way the top-level `merge` does. The conversion comes before the `overwrite_vars` handling, which also reads `other` as a mapping.\n\n**Other changes.** I updated the `Dataset.merge` docstring to say `other` may be a named DataArray, and added a bug-fix entry to `doc/whats-new.rst`.\n\n**Test.** `TestMergeMethod.test_merge_dataarray` in `xarray/tests/test_merge.py` merges a named DataArray, plain and with `overwrite_vars` as a string and as a list. I re-ran it against the original `merge.py`: it fails with `AttributeError: 'DataArray' object has no attribute 'items'`. With the fix, all of `xarray/tests/test_merge.py` passes (22 tests), and the merge tests in `xarray/tests/test_dataset.py` passed earlier (25 across both files). I ran these with `/opt/miniconda3/envs/testbed/bin/python`, since the default `python` has no pytest.\n\n**Existing changes.** The working tree already had uncommitted changes in `doc/whats-new.rst`, `xarray/core/variable.py` and `xarray/tests/test_variable.py`. They match the open PR #1000, which handles a different problem, so I left them alone. My whats-new entry sits in the same \"Bug fixes\" section as PR #1000's entry, so the two may need merging by hand.\n\nThe pull request text is in `.factory/pr-S4.md`. I did not commit or push anything.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"checks\": [\n    {\"command\": \"python -m pytest xarray/tests/test_merge.py -k test_merge_dataarray\", \"passed\": true},\n    {\"command\": \"python -m pytest xarray/tests/test_merge.py xarray/tests/test_dataset.py -k merge\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"reproduction\": [\n    \"ds = xr.Dataset({'a': 0}); da = xr.DataArray(1, name='b'); ds.merge(da)\",\n    \"Before the fix this raises AttributeError: 'DataArray' object has no attribute 'items'\"\n  ],\n  \"reproductionTest\": {\n    \"path\": \"xarray/tests/test_merge.py\",\n    \"command\": \"python -m pytest xarray/tests/test_merge.py -k test_merge_dataarray\",\n    \"signature\": \"AttributeError: 'DataArray' object has no attribute 'items'\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 12,
+  "inputTokens": {
+   "avg": 23126.416666666668,
+   "max": 27697
+  },
+  "mainUsage": {
+   "inputTokens": 277517,
+   "cachedInputTokens": 263708,
+   "outputTokens": 5730
+  },
+  "cacheHitPercent": 95.02408861439119,
+  "wallSeconds": 53.361000061035156,
+  "tools": {
+   "read": 6,
+   "edit": 6,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 4
+  },
+  "reads": 6,
+  "edits": 6,
+  "runs": 4,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 6,
+  "editOperations": 6,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.14455010000000001,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.14455010000000001
+}

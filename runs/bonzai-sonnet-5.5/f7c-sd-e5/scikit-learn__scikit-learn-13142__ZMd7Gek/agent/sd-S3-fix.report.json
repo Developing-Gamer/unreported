@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 50648,
+ "finalText": "`BayesianRidge` and `ARDRegression` now centre and scale the query rows before computing the prediction std. The new test passes, and so do the other 11 tests in `test_bayes.py`.\n\nThe std was too wide because the posterior covariance is fitted on centred features, but `predict(X, return_std=True)` used the raw rows. So it grew with the feature mean while the point forecasts stayed the same. `ARDRegression` also never stored `X_offset_` and `X_scale_`, which is why `normalize=True` raised `AttributeError`.\n\n- **Fix:** both `predict` methods use `(X - X_offset_) / X_scale_` before computing the variance. In `ARDRegression` this happens before the `lambda_ < threshold_lambda` column mask. `ARDRegression.fit` now stores `X_offset_` and `X_scale_`. The changes are in `sklearn/linear_model/bayes.py`.\n- **Test:** `test_return_std_with_large_feature_offset` in `test_bayes.py` shifts the features by +1000. For both estimators, with `normalize` off and on, it requires the shifted mean and std to match the unshifted fit. Before the fix the std was about 86.7 against about 0.11 unshifted; after it they match.\n- **Run:** I ran `/opt/miniconda3/envs/testbed/bin/python -m pytest sklearn/linear_model/tests/test_bayes.py -q`. flake8 isn't installed, so I didn't lint.\n- **Other files:** I added an entry to `doc/whats_new/v0.21.rst` and wrote the PR text to `/testbed/.factory/pr-S3.md`. Nothing is committed. The other modified files in `git status` (mixture, `TruncatedSVD`, `v0.20.rst`) were already changed when I started. I didn't touch them, and they belong to open PRs #1000 and #1001.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"checks\": [\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest sklearn/linear_model/tests/test_bayes.py -q\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"reproductionSteps\": \"Fit BayesianRidge/ARDRegression on X + 1000 and call predict(X_test + 1000, return_std=True); std is ~86.7 instead of ~0.11 as for unshifted data. ARDRegression(normalize=True).predict(..., return_std=True) raised AttributeError.\",\n  \"reproductionTest\": {\n    \"path\": \"sklearn/linear_model/tests/test_bayes.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest sklearn/linear_model/tests/test_bayes.py -q\",\n    \"signature\": \"AssertionError: Arrays are not almost equal to 3 decimals; Max absolute difference: 86.59600741\"\n  },\n  \"prFile\": \".factory/pr-S3.md\"\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 14,
+  "inputTokens": {
+   "avg": 28446.5,
+   "max": 34986
+  },
+  "mainUsage": {
+   "inputTokens": 398251,
+   "cachedInputTokens": 377149,
+   "outputTokens": 5850
+  },
+  "cacheHitPercent": 94.70133157229988,
+  "wallSeconds": 50.01699995994568,
+  "tools": {
+   "read": 12,
+   "edit": 3,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 2
+  },
+  "reads": 12,
+  "edits": 3,
+  "runs": 2,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 2,
+   "readFileIgnoringRange": 2
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 1,
+  "editOperations": 3,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1866688,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1866688
+}

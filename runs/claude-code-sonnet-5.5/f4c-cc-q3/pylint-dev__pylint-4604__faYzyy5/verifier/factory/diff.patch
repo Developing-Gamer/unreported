@@ -1,0 +1,91 @@
+diff --git a/ChangeLog b/ChangeLog
+index a0f12a7a..29757f60 100644
+--- a/ChangeLog
++++ b/ChangeLog
+@@ -15,6 +15,13 @@ Release date: TBA
+ 
+ * astroid has been upgraded to 2.6.0
+ 
++* Fix false positive ``unused-import`` for a module used only through an attribute
++  access in a type comment (e.g. ``# type: abc.ABC``).
++
++  Closes #4150
++
++* ``pyreverse`` no longer ignores ``CVS`` when ``--ignore`` is given an empty list.
++
+ * Fix false positive ``useless-type-doc`` on ignored argument using ``pylint.extensions.docparams``
+   when a function was typed using pep484 but not inside the docstring.
+ 
+diff --git a/pylint/checkers/variables.py b/pylint/checkers/variables.py
+index 3ddafd59..8a463750 100644
+--- a/pylint/checkers/variables.py
++++ b/pylint/checkers/variables.py
+@@ -1826,6 +1826,10 @@ class VariablesChecker(BaseChecker):
+             self._type_annotation_names.append(type_annotation.name)
+             return
+ 
++        if isinstance(type_annotation, astroid.Attribute):
++            self._store_type_annotation_node(type_annotation.expr)
++            return
++
+         if not isinstance(type_annotation, astroid.Subscript):
+             return
+ 
+diff --git a/pylint/pyreverse/main.py b/pylint/pyreverse/main.py
+index f0208f29..a62a1c2e 100644
+--- a/pylint/pyreverse/main.py
++++ b/pylint/pyreverse/main.py
+@@ -212,7 +212,7 @@ class Run(ConfigurationMixIn):
+             project = project_from_files(
+                 args,
+                 project_name=self.config.project,
+-                black_list=self.config.ignore_list or ("CVS",),
++                black_list=self.config.ignore_list,
+             )
+             linker = Linker(project, tag=True)
+             handler = DiadefsHandler(self.config)
+diff --git a/tests/functional/u/unused/unused_import_type_comment_attribute.py b/tests/functional/u/unused/unused_import_type_comment_attribute.py
+new file mode 100644
+index 00000000..a18d2385
+--- /dev/null
++++ b/tests/functional/u/unused/unused_import_type_comment_attribute.py
+@@ -0,0 +1,7 @@
++"""Imports used only in type comments with attribute access are used."""
++# pylint: disable=invalid-name
++import abc
++from abc import ABC
++
++X = ...  # type: abc.ABC
++Y = ...  # type: ABC
+diff --git a/tests/unittest_pyreverse_main.py b/tests/unittest_pyreverse_main.py
+new file mode 100644
+index 00000000..25b26f83
+--- /dev/null
++++ b/tests/unittest_pyreverse_main.py
+@@ -0,0 +1,26 @@
++"""Tests for the pyreverse command line entry point."""
++from unittest import mock
++
++from pylint.pyreverse import main
++
++
++def _run_ignore(ignore_args):
++    with mock.patch.object(main, "project_from_files") as project_from_files:
++        project_from_files.return_value = mock.sentinel.project
++        with mock.patch.object(main, "Linker"), mock.patch.object(
++            main, "DiadefsHandler"
++        ), mock.patch.object(main.writer, "DotWriter"):
++            run = main.Run.__new__(main.Run)
++            run.config = mock.Mock(
++                project="", ignore_list=ignore_args, output_format="dot"
++            )
++            run.run(["somepackage"])
++    return project_from_files.call_args[1]["black_list"]
++
++
++def test_empty_ignore_list_is_respected():
++    assert _run_ignore(()) == ()
++
++
++def test_ignore_list_is_passed_through():
++    assert _run_ignore(("CVS", "foo")) == ("CVS", "foo")

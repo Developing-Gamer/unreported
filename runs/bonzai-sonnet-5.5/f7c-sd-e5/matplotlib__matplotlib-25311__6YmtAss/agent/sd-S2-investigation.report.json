@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 345677,
+ "finalText": "Everything in the report checks out against what I read and ran. No code change is needed: the step-histogram bug is already fixed here, by PR #24177 (shipped in 3.6.2). That fix made autoscaling use every path vertex instead of a simplified path that could drop the tallest peaks.\n\n- **Evidence:** `lib/matplotlib/axes/_base.py` line 2401 calls `p.iter_bezier(simplify=False)`. `test_small_autoscale` is at line 8269 of `lib/matplotlib/tests/test_axes.py`. Both quotes in the claims were copied from those files.\n- **Tests:** I ran `test_small_autoscale`, `test_bezier_autoscale` and the `hist_step` tests with probe, and all 11 passed.\n- **Direct checks:** `ax.hist(..., density=True)` gave the same y-limits for `bar`, `step` and `stepfilled` across the scales and bin counts listed below.\n- **Matching the fix:** The repository history is a single snapshot commit, `a21a1d00b6` (tagged v3.7.0), so I matched the report to PR #24177 from the 3.6.2 release notes and the symptom. The issue text was cut off, which is why certainty is \"likely\".\n\nI tried scales from 1e-20 to 1e30, 10 to 5000 bins, float32, int and big-endian data, a data set with one huge spike, and cumulative, log and horizontal orientations. Anyone still seeing the symptom is most likely on a release older than 3.6.2.\n\n```json\n{\n  \"sourceId\": \"S2\",\n  \"verdict\": \"covered\",\n  \"title\": \"Step histogram density axis cut off (already fixed)\",\n  \"cause\": \"Axes._update_patch_limits used to read the Polygon path with default simplification, which for step histograms with many bins dropped the tall peaks, so data limits (and the density y-axis) did not reach the real maximum. The current code calls p.iter_bezier(simplify=False), so all vertices count. The fix was PR #24177, shipped in 3.6.2.\",\n  \"files\": [\n    {\"path\": \"lib/matplotlib/axes/_base.py\", \"why\": \"_update_patch_limits now uses iter_bezier(simplify=False) when computing data limits (line 2401)\"},\n    {\"path\": \"lib/matplotlib/tests/test_axes.py\", \"why\": \"test_small_autoscale (line 8269) covers the original report (#24097)\"}\n  ],\n  \"plan\": [\"No change needed; users on a version older than 3.6.2 should upgrade.\"],\n  \"verification\": [\n    \"Existing tests test_small_autoscale, test_bezier_autoscale and the hist_step tests pass (11 passed).\",\n    \"ax.hist(density=True) with bar, step and stepfilled gives identical y-limits (about 1.05 times the max) across scales 1e-20 to 1e30, 10 to 5000 bins, float32/int/big-endian data, a spiky data set, and cumulative, log and horizontal orientations.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"likely\",\n  \"effort\": \"none\",\n  \"risk\": \"none\",\n  \"confidence\": 0.85,\n  \"coveredBy\": \"24177\",\n  \"fixedIn\": {\"commit\": \"a21a1d00b6\", \"release\": \"3.6.2\"},\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"Data limits for patches are now computed from unsimplified path vertices, which removes the cause of the step-histogram autoscale bug.\", \"role\": \"rootCause\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/axes/_base.py:2401\", \"quote\": \"for curve, code in p.iter_bezier(simplify=False):\"},\n      {\"type\": \"doc\", \"ref\": \"doc/users/prev_whats_new/github_stats_3.6.2.rst\", \"quote\": \"Don't simplify paths used for autoscaling\"}\n    ]},\n    {\"id\": \"c2\", \"text\": \"A regression test for the original report exists and passes.\", \"role\": \"other\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/tests/test_axes.py:8269\", \"quote\": \"def test_small_autoscale():\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"Sticky-edge tolerance or margin code mis-scales tiny or huge densities\", \"why\": \"ylim was correct (about 1.05 times the max) for data scales 1e-20 to 1e30.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/axes/_base.py:2900\", \"quote\": \"tol = 1e-5 * max(abs(x0), abs(x1), abs(x1 - x0))\"}\n    ]}\n  ],\n  \"intendedBehavior\": \"Axes.hist with histtype='step' and density=True autoscales the y-axis to include the tallest bin, the same as histtype='bar', whatever the data scale.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"The simplification of autoscaling paths was a defect, removed in 3.6.2 via PR #24177.\"},\n  \"fixType\": \"error\",\n  \"plain\": {\n    \"headline\": \"A histogram drawn as an outline could have its tallest peaks cut off at the top of the chart, and this was already fixed in an earlier release.\",\n    \"happened\": \"When the chart worked out how tall to make itself, it looked at a thinned-out version of the outline, which could skip the tallest peaks. Filled bar histograms were not affected. Later releases measure the full outline.\",\n    \"matters\": \"It affected anyone plotting outline-style histograms with many bins on a release older than 3.6.2.\",\n    \"fix\": \"Upgrade to a release that includes the fix; nothing more is needed in this repository.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 31,
+  "inputTokens": {
+   "avg": 34665.290322580644,
+   "max": 54880
+  },
+  "mainUsage": {
+   "inputTokens": 1074624,
+   "cachedInputTokens": 1026704,
+   "outputTokens": 20786
+  },
+  "cacheHitPercent": 95.54076588648681,
+  "wallSeconds": 344.4980001449585,
+  "tools": {
+   "read": 21,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 2,
+   "subagent": 0,
+   "other": 13
+  },
+  "reads": 21,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 6,
+   "readFileIgnoringRange": 6
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.5329678,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.5329678
+}

@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 43628,
+ "finalText": "The over-600% progress reading comes from this repository: the bundled urllib3 counts decompressed bytes where `tell()` promises bytes on the wire. The probe could not run because this codebase fails to import on the sandbox's Python 3.11 (`MutableMapping` is no longer in `collections`). The cause is therefore shown from the code, not by running it. I also did not look at how the export tool measures progress. I assumed it divides `tell()` by `Content-Length`.\n\n- **Where it goes wrong:** `HTTPResponse.read()` in `requests/packages/urllib3/response.py` decompresses the data and then does `self._fp_bytes_read += len(data)` (line 208). That adds the decompressed length, not the compressed length.\n- **Why progress overshoots:** `tell()` is documented as the \"number of bytes pulled over the wire\". `Content-Length` is the compressed size, so on a gzip or deflate response progress overshoots by roughly the compression ratio. A repetitive CSV compresses about 6 to 10 times, which fits readings above 600%.\n- **Why the CSV is fine:** decoding itself is correct, so only the counter is wrong.\n- **Why only \"occasionally\":** it should only happen on compressed responses.\n- **Who feels it:** people exporting large compressed CSVs see an impossible progress figure before the download completes.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Download progress goes over 100% on compressed files\",\n  \"cause\": \"In the bundled urllib3, HTTPResponse.read() adds the length of the decompressed data to _fp_bytes_read. tell() is documented as the bytes pulled over the wire, so it should count compressed bytes. Progress computed as tell()/Content-Length on a gzip or deflate response therefore overshoots by roughly the compression ratio, which can exceed 600% for a repetitive CSV. The downloaded content itself is correct. I could not run the code here because it fails to import on Python 3.11, so this is shown from the code only.\",\n  \"files\": [\n    {\"path\": \"requests/packages/urllib3/response.py\", \"why\": \"read() increments _fp_bytes_read with len(data) after decompression (line 208). tell() documents wire bytes, so it should count the raw data.\"}\n  ],\n  \"plan\": [\n    \"In HTTPResponse.read(), count the raw bytes read from the connection into _fp_bytes_read before decoding. This also covers the extra bytes the decoder emits at flush, which are decoded output and must not be counted.\",\n    \"Add a test: serve a gzip body through HTTPResponse with preload_content=False, stream it, and assert tell() equals the compressed length. Add a plain-body case where tell() equals the body length.\"\n  ],\n  \"verification\": [\n    \"The new test fails before the change (tell() equals the decompressed size) and passes after.\",\n    \"Download a large gzip CSV with stream=True and confirm tell()/Content-Length reaches exactly 1.0 and never exceeds it.\",\n    \"Run the existing test_requests.py suite on a Python version the codebase supports.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"likely\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.75,\n  \"deliberate\": false,\n  \"intent\": \"tell()'s docstring says it returns bytes pulled over the wire and may differ from the decoded content. Counting decoded bytes contradicts that contract, so the behaviour was not chosen.\",\n  \"fixType\": \"error\",\n  \"intendedBehavior\": \"For a gzip-encoded response, HTTPResponse.tell() after streaming equals the compressed body length, so tell()/Content-Length never exceeds 1.\",\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"read() adds the decoded length to the wire-byte counter after decompression.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"requests/packages/urllib3/response.py:208\", \"quote\": \"self._fp_bytes_read += len(data)\"}]},\n    {\"id\": \"c2\", \"text\": \"tell() promises wire bytes, which are different from decoded content.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"requests/packages/urllib3/response.py:135\", \"quote\": \"Obtain the number of bytes pulled over the wire so far.\"}]},\n    {\"id\": \"c3\", \"text\": \"Requests' iter_content streams decoded chunks, so a progress counter based on chunk length also exceeds Content-Length for compressed responses. That is by design.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"requests/models.py:611\", \"quote\": \"for chunk in self.raw.stream(chunk_size,\"}]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"Corrupt or duplicated CSV content\", \"why\": \"The report says the CSV is fine, and decoding in read() is correct. Only the counter is wrong.\", \"citations\": [{\"type\": \"code\", \"ref\": \"requests/packages/urllib3/response.py:197\", \"quote\": \"data = self._decoder.decompress(data)\"}]}\n  ],\n  \"plain\": {\n    \"headline\": \"The download progress bar went past 600% because it counted the unpacked size of a compressed file instead of the size actually sent.\",\n    \"happened\": \"Large exports are sent compressed and unpacked as they arrive. The counter that tracks how much has been downloaded added up the unpacked bytes. The total it is compared against is the compressed size, so the percentage overshot before the download finished.\",\n    \"matters\": \"Anyone downloading a large export that compresses well sees a confusing, impossible progress figure.\",\n    \"fix\": \"Make the counter add up the bytes actually received, before unpacking, and add a test for compressed downloads.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 6,
+  "inputTokens": {
+   "avg": 16101.833333333334,
+   "max": 21227
+  },
+  "mainUsage": {
+   "inputTokens": 96611,
+   "cachedInputTokens": 82394,
+   "outputTokens": 5403
+  },
+  "cacheHitPercent": 85.28428439825693,
+  "wallSeconds": 40.110000133514404,
+  "tools": {
+   "read": 6,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 1
+  },
+  "reads": 6,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1060433,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1060433
+}

@@ -1,0 +1,61 @@
+diff --git a/CHANGES.rst b/CHANGES.rst
+index 498d5e51..9dfc2699 100644
+--- a/CHANGES.rst
++++ b/CHANGES.rst
+@@ -35,6 +35,8 @@ Unreleased
+ -   Ensure subdomains are applied with nested blueprints. :issue:`4834`
+ -   ``config.from_file`` can use ``text=False`` to indicate that the parser wants a
+     binary file instead. :issue:`4989`
++-   A blueprint's ``name`` may not be empty; a ``ValueError`` is raised when creating
++    or registering a blueprint with an empty name. :issue:`4944`
+ 
+ 
+ Version 2.2.4
+diff --git a/src/flask/blueprints.py b/src/flask/blueprints.py
+index eb50585d..501245e4 100644
+--- a/src/flask/blueprints.py
++++ b/src/flask/blueprints.py
+@@ -190,6 +190,9 @@ class Blueprint(Scaffold):
+             root_path=root_path,
+         )
+ 
++        if not name:
++            raise ValueError("'name' may not be empty.")
++
+         if "." in name:
+             raise ValueError("'name' may not contain a dot '.' character.")
+ 
+@@ -296,6 +299,10 @@ class Blueprint(Scaffold):
+         """
+         name_prefix = options.get("name_prefix", "")
+         self_name = options.get("name", self.name)
++
++        if not self_name:
++            raise ValueError("'name' may not be empty.")
++
+         name = f"{name_prefix}.{self_name}".lstrip(".")
+ 
+         if name in app.blueprints:
+diff --git a/tests/test_blueprints.py b/tests/test_blueprints.py
+index d46b769b..6bca633f 100644
+--- a/tests/test_blueprints.py
++++ b/tests/test_blueprints.py
+@@ -256,6 +256,18 @@ def test_dotted_name_not_allowed(app, client):
+         flask.Blueprint("app.ui", __name__)
+ 
+ 
++def test_empty_name_not_allowed(app):
++    with pytest.raises(ValueError, match="may not be empty"):
++        flask.Blueprint("", __name__)
++
++
++def test_empty_name_not_allowed_on_register(app):
++    bp = flask.Blueprint("bp", __name__)
++
++    with pytest.raises(ValueError, match="may not be empty"):
++        app.register_blueprint(bp, name="")
++
++
+ def test_dotted_names_from_app(app, client):
+     test = flask.Blueprint("test", __name__)
+ 

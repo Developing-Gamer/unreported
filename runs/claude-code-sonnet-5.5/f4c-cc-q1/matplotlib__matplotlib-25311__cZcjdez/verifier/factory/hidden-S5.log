@@ -1,0 +1,44 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+___________ test_malformed_font_size_is_rejected[DejaVu Sans-12.5.4] ___________
+
+pattern = 'DejaVu Sans-12.5.4'
+
+    @pytest.mark.parametrize("pattern", [
+        "DejaVu Sans-12.5.4",
+        "DejaVu Sans-",
+    ])
+    def test_malformed_font_size_is_rejected(pattern):
+        error = None
+        try:
+            parse_fontconfig_pattern(pattern)
+        except ValueError as exc:
+            error = exc
+>       assert error is not None, f"Invalid font pattern was accepted: {pattern!r}"
+E       AssertionError: Invalid font pattern was accepted: 'DejaVu Sans-12.5.4'
+E       assert None is not None
+
+/tmp/test_hidden_S5.py:16: AssertionError
+______________ test_malformed_font_size_is_rejected[DejaVu Sans-] ______________
+
+pattern = 'DejaVu Sans-'
+
+    @pytest.mark.parametrize("pattern", [
+        "DejaVu Sans-12.5.4",
+        "DejaVu Sans-",
+    ])
+    def test_malformed_font_size_is_rejected(pattern):
+        error = None
+        try:
+            parse_fontconfig_pattern(pattern)
+        except ValueError as exc:
+            error = exc
+>       assert error is not None, f"Invalid font pattern was accepted: {pattern!r}"
+E       AssertionError: Invalid font pattern was accepted: 'DejaVu Sans-'
+E       assert None is not None
+
+/tmp/test_hidden_S5.py:16: AssertionError
+=========================== short test summary info ============================
+FAILED ../tmp/test_hidden_S5.py::test_malformed_font_size_is_rejected[DejaVu Sans-12.5.4]
+FAILED ../tmp/test_hidden_S5.py::test_malformed_font_size_is_rejected[DejaVu Sans-]
+2 failed in 0.26s

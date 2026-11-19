@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 65840,
+ "finalText": "The fix is in the working tree, uncommitted, and the PR description is at `.factory/pr-S1.md`.\n\n- **Cause:** `_parse_char_metrics` in `lib/matplotlib/_afm.py` parsed each glyph width (`WX`) with `_to_int`, which truncates fractional widths like 611.9 to 611. The PDF/PS backends sum these widths to measure a label for alignment, so long labels in fonts with fractional widths were measured too narrow. Right-aligned text then ran past its anchor, more so the longer the label. The standard fonts only have whole-number widths, so they were unaffected.\n- **Fix:** `WX` is now parsed with `_to_float`.\n- **Test:** I added `test_fractional_char_widths` to `lib/matplotlib/tests/test_afm.py`. It checks a `WX 611.9` glyph reports 611.9 and a 40-glyph string reports 40 \u00d7 611.9. Before the fix it failed with `Obtained: 611`.\n- **Checks:** `test_afm.py` failed before the fix and passes after it. `test_afm.py`, `test_backend_ps.py` and `test_backend_pdf.py` together give 61 passed. I did not measure the `cmr10.afm` label from the investigation (238.500 pt vs 238.229 pt).\n- **Not done:** per the benchmark note, nothing is committed, pushed or opened as a pull request.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"checks\": [\n    {\"command\": \"python -m pytest lib/matplotlib/tests/test_afm.py lib/matplotlib/tests/test_backend_ps.py lib/matplotlib/tests/test_backend_pdf.py -q\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"reproduction\": \"Parse an AFM with a fractional WX (e.g. 611.9) and call AFM.get_width_char / string_width_height: the width comes back truncated (611) instead of 611.9, so PDF/PS text measured for alignment is too narrow.\",\n  \"reproductionTest\": {\n    \"path\": \"lib/matplotlib/tests/test_afm.py\",\n    \"command\": \"python -m pytest lib/matplotlib/tests/test_afm.py -q\",\n    \"signature\": \"Obtained: 611 / Expected: 611.9 \u00b1 6.1e-04\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 13,
+  "inputTokens": {
+   "avg": 23320.846153846152,
+   "max": 27002
+  },
+  "mainUsage": {
+   "inputTokens": 303171,
+   "cachedInputTokens": 290055,
+   "outputTokens": 4415
+  },
+  "cacheHitPercent": 95.67372868777026,
+  "wallSeconds": 64.58100008964539,
+  "tools": {
+   "read": 7,
+   "edit": 4,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 4
+  },
+  "reads": 7,
+  "edits": 4,
+  "runs": 4,
+  "reReads": {
+   "total": 1,
+   "readFile": 1,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 4,
+  "editOperations": 4,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.134936,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.134936
+}

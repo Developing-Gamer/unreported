@@ -1,0 +1,13 @@
+diff --git a/django/utils/tree.py b/django/utils/tree.py
+index f67c90eae4..c416125b74 100644
+--- a/django/utils/tree.py
++++ b/django/utils/tree.py
+@@ -104,7 +104,7 @@ class Node:
+         elif (
+             isinstance(data, Node)
+             and not data.negated
+-            and (data.connector == conn_type or len(data) == 1)
++            and (data.connector == conn_type or len(self) == 1)
+         ):
+             # We can squash the other node's children directly into this node.
+             # We are just doing (AB)(CD) == (ABCD) here, with the addition that

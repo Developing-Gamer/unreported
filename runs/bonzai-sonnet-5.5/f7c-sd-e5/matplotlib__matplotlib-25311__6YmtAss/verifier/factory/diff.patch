@@ -1,0 +1,89 @@
+diff --git a/lib/matplotlib/_fontconfig_pattern.py b/lib/matplotlib/_fontconfig_pattern.py
+index b94a1760d3..d3933b9f39 100755
+--- a/lib/matplotlib/_fontconfig_pattern.py
++++ b/lib/matplotlib/_fontconfig_pattern.py
+@@ -87,8 +87,6 @@ def parse_fontconfig_pattern(pattern):
+     try:
+         parse = parser.parseString(pattern)
+     except ParseException as err:
+-        if ":" not in pattern:
+-            return {"family": [pattern]}
+         # explain becomes a plain method on pyparsing 3 (err.explain(0)).
+         raise ValueError("\n" + ParseException.explain(err, 0)) from None
+     parser.resetCache()
+diff --git a/lib/matplotlib/offsetbox.py b/lib/matplotlib/offsetbox.py
+index 1dee8a23d9..57b4ab8f89 100755
+--- a/lib/matplotlib/offsetbox.py
++++ b/lib/matplotlib/offsetbox.py
+@@ -1505,7 +1505,6 @@ class DraggableBase:
+         if not ref_artist.pickable():
+             ref_artist.set_picker(True)
+         self.got_artist = False
+-        self.canvas = self.ref_artist.figure.canvas
+         self._use_blit = use_blit and self.canvas.supports_blit
+         self.cids = [
+             self.canvas.callbacks._connect_picklable(
+@@ -1514,6 +1513,10 @@ class DraggableBase:
+                 'button_release_event', self.on_release),
+         ]
+ 
++    # A property, so that the (unpicklable) canvas is not stored on the helper
++    # and the figure stays picklable.
++    canvas = property(lambda self: self.ref_artist.figure.canvas)
++
+     def on_motion(self, evt):
+         if self._check_still_parented() and self.got_artist:
+             dx = evt.x - self.mouse_x
+diff --git a/lib/matplotlib/tests/test_fontconfig_pattern.py b/lib/matplotlib/tests/test_fontconfig_pattern.py
+index 792a8ed517..4b05f13ed3 100755
+--- a/lib/matplotlib/tests/test_fontconfig_pattern.py
++++ b/lib/matplotlib/tests/test_fontconfig_pattern.py
+@@ -1,6 +1,7 @@
+ import pytest
+ 
+ from matplotlib.font_manager import FontProperties
++from matplotlib._fontconfig_pattern import parse_fontconfig_pattern
+ 
+ 
+ # Attributes on FontProperties object to check for consistency
+@@ -75,3 +76,11 @@ def test_fontconfig_str():
+ def test_fontconfig_unknown_constant():
+     with pytest.warns(DeprecationWarning):
+         FontProperties(":unknown")
++
++
++@pytest.mark.parametrize("pattern", ["serif-12pt", "Helvetica-Bold"])
++def test_fontconfig_invalid_pattern(pattern):
++    with pytest.raises(ValueError):
++        FontProperties(pattern)
++    with pytest.raises(ValueError):
++        parse_fontconfig_pattern(pattern)
+diff --git a/lib/matplotlib/tests/test_pickle.py b/lib/matplotlib/tests/test_pickle.py
+index ec6bdcc2fe..a0e5d644d9 100755
+--- a/lib/matplotlib/tests/test_pickle.py
++++ b/lib/matplotlib/tests/test_pickle.py
+@@ -1,6 +1,7 @@
+ from io import BytesIO
+ import ast
+ import pickle
++import threading
+ 
+ import numpy as np
+ import pytest
+@@ -282,3 +283,16 @@ def test_dynamic_norm():
+ def test_vertexselector():
+     line, = plt.plot([0, 1], picker=True)
+     pickle.loads(pickle.dumps(VertexSelector(line)))
++
++
++def test_draggable_legend_and_annotation():
++    fig, ax = plt.subplots()
++    # Mimic a GUI canvas, which cannot be pickled.
++    fig.canvas.unpicklable = threading.Lock()
++    ax.plot([0, 1], label="line")
++    leg = ax.legend()
++    leg.set_draggable(True)
++    ann = ax.annotate("x", (0, 0))
++    ann.draggable(True)
++    fig2 = pickle.loads(pickle.dumps(fig))
++    assert fig2.axes[0].get_legend().get_draggable()

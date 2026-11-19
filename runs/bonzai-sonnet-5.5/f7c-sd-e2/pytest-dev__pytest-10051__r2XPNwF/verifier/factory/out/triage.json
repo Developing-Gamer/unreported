@@ -1,0 +1,37 @@
+[
+  {
+    "source": "S1",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: The report asks pytest to stop emitting ANSI colour codes when TERM=dumb, as Emacs sets it. should_do_markup() already returns False when the output is a terminal and TERM is 'dumb'. A test covers it:"
+  },
+  {
+    "source": "S2",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: The report came from an old pytest that sent pastes to bpaste.net with lexer=python3. Pasted session output is not Python, so the lexer could make the server reject some contents with HTTP 400. The cu"
+  },
+  {
+    "source": "S3",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The error comes from a separate 'webhook-relay' service (relay/deliver.py, aiohttp) that timed out calling api.github.com. This repository is pytest: it has no relay package, no post_webhook function,"
+  },
+  {
+    "source": "S4",
+    "decision": "fix",
+    "reason": "The table that escapes non-printable characters in test IDs is built with `i not in range(32, 128)`, so 127 (DEL) is not escaped. Bytes or str parameters containing 0x7f get a raw invisible DEL in the"
+  },
+  {
+    "source": "S5",
+    "decision": "fix",
+    "reason": "get_timeout_config_value wraps the parsed faulthandler_timeout in int(), so 0.5 becomes 0. The `timeout > 0` check in pytest_runtest_protocol then skips faulthandler.dump_traceback_later, so no thread"
+  },
+  {
+    "source": "S6",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: The report came from a pytest version before 5.1.2, where report serialization dropped the chain of `raise ... from` exceptions, so xdist showed only the last one. The serializer in this code now writ"
+  },
+  {
+    "source": "S7",
+    "decision": "fix",
+    "reason": "At the start of each test phase, pytest stores the handler's current records list in `item.stash[caplog_records_key][when]`, so `get_records(when)` and `caplog.records` share one list. `caplog.clear()"
+  }
+]

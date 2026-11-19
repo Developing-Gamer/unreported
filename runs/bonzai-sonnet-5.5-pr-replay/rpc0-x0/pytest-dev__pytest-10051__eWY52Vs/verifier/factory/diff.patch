@@ -1,0 +1,59 @@
+diff --git a/changelog/9877.bugfix.rst b/changelog/9877.bugfix.rst
+new file mode 100644
+index 000000000..0d8098e2e
+--- /dev/null
++++ b/changelog/9877.bugfix.rst
+@@ -0,0 +1 @@
++Fixed :meth:`caplog.get_records() <pytest.LogCaptureFixture.get_records>` becoming out of sync with :attr:`caplog.records <pytest.LogCaptureFixture.records>` after :meth:`caplog.clear() <pytest.LogCaptureFixture.clear>` is called: the list returned by ``get_records`` is now cleared and keeps receiving new records.
+diff --git a/src/_pytest/logging.py b/src/_pytest/logging.py
+index a4f4214b1..c76a04e00 100644
+--- a/src/_pytest/logging.py
++++ b/src/_pytest/logging.py
+@@ -341,6 +341,10 @@ class LogCaptureHandler(logging_StreamHandler):
+         self.records.append(record)
+         super().emit(record)
+ 
++    def clear(self) -> None:
++        self.records.clear()
++        self.stream = StringIO()
++
+     def reset(self) -> None:
+         self.records = []
+         self.stream = StringIO()
+@@ -440,7 +444,7 @@ class LogCaptureFixture:
+ 
+     def clear(self) -> None:
+         """Reset the list of log records and the captured log text."""
+-        self.handler.reset()
++        self.handler.clear()
+ 
+     def set_level(self, level: Union[int, str], logger: Optional[str] = None) -> None:
+         """Set the level of a logger for the duration of a test.
+diff --git a/testing/logging/test_fixture.py b/testing/logging/test_fixture.py
+index bcb20de58..f2de1b9c9 100644
+--- a/testing/logging/test_fixture.py
++++ b/testing/logging/test_fixture.py
+@@ -172,6 +172,23 @@ def test_caplog_captures_for_all_stages(caplog, logging_during_setup_and_teardow
+     assert set(caplog._item.stash[caplog_records_key]) == {"setup", "call"}
+ 
+ 
++def test_clear_for_call_stage(caplog, logging_during_setup_and_teardown):
++    logger.info("a_call_log")
++    assert [x.message for x in caplog.get_records("call")] == ["a_call_log"]
++    assert [x.message for x in caplog.get_records("setup")] == ["a_setup_log"]
++    assert set(caplog._item.stash[caplog_records_key]) == {"setup", "call"}
++
++    caplog.clear()
++
++    assert caplog.get_records("call") == []
++    assert [x.message for x in caplog.get_records("setup")] == ["a_setup_log"]
++    logger.info("a_second_call_log")
++    assert [x.message for x in caplog.records] == ["a_second_call_log"]
++    assert [x.message for x in caplog.get_records("call")] == ["a_second_call_log"]
++    assert caplog.get_records("call") == caplog.records
++    assert set(caplog._item.stash[caplog_records_key]) == {"setup", "call"}
++
++
+ def test_ini_controls_global_log_level(pytester: Pytester) -> None:
+     pytester.makepyfile(
+         """

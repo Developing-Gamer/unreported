@@ -1,0 +1,32 @@
+[
+  {
+    "source": "S1",
+    "decision": "fix",
+    "reason": "get_template_directories() turns every TEMPLATES DIRS entry (and every loader dir) into cwd / to_path(dir) without skipping empty strings, so '' becomes the project's working directory. template_chang"
+  },
+  {
+    "source": "S2",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: The issue asks for a ModelAdmin.get_inlines(request, obj) hook so inlines can depend on the request or the record without copying the get_inline_instances() loop. That hook now exists in options.py, a"
+  },
+  {
+    "source": "S3",
+    "decision": "fix",
+    "reason": "The Oracle backend's test_db_signature() identifies a test database by HOST, PORT, ENGINE, NAME and the main USER, ignoring the configured TEST['USER']. Two aliases sharing a login but with different "
+  },
+  {
+    "source": "S4",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The OOMKilled error comes from the `export-job` service's own modules (export/worker.py run, export/csv_writer.py flush), and neither exists in this repository, which is the Django framework source. N"
+  },
+  {
+    "source": "S5",
+    "decision": "fix",
+    "reason": "Node.add in django/utils/tree.py merges a child group into its parent when the parent has one child (len(self) == 1) instead of when the child has one (len(data) == 1). So Q(is_active=True) & (Q(email"
+  },
+  {
+    "source": "S6",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: Older get_child_arguments() always rebuilt the restart command with __main__.__spec__.parent, so `python -m foo.bar.baz runserver` was restarted as `-m foo.bar`. The current code uses the parent only "
+  }
+]

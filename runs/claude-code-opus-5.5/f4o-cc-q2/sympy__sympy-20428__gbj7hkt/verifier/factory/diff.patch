@@ -1,0 +1,88 @@
+diff --git a/sympy/polys/densearith.py b/sympy/polys/densearith.py
+index bce08bb356..a11dcbfd41 100644
+--- a/sympy/polys/densearith.py
++++ b/sympy/polys/densearith.py
+@@ -269,7 +269,9 @@ def dup_mul_ground(f, c, K):
+     if not c or not f:
+         return []
+     else:
+-        return [ cf * c for cf in f ]
++        # Products can vanish in domains like EX where an expression
++        # may simplify to zero, so the result has to be stripped.
++        return dup_strip([ cf * c for cf in f ])
+ 
+ 
+ def dmp_mul_ground(f, c, u, K):
+@@ -291,7 +293,7 @@ def dmp_mul_ground(f, c, u, K):
+ 
+     v = u - 1
+ 
+-    return [ dmp_mul_ground(cf, c, v, K) for cf in f ]
++    return dmp_strip([ dmp_mul_ground(cf, c, v, K) for cf in f ], u)
+ 
+ 
+ def dup_quo_ground(f, c, K):
+diff --git a/sympy/polys/tests/test_densearith.py b/sympy/polys/tests/test_densearith.py
+index 55b2f47ba6..afa8f0323b 100644
+--- a/sympy/polys/tests/test_densearith.py
++++ b/sympy/polys/tests/test_densearith.py
+@@ -39,7 +39,8 @@
+ )
+ 
+ from sympy.polys.specialpolys import f_polys
+-from sympy.polys.domains import FF, ZZ, QQ
++from sympy.polys.domains import FF, ZZ, QQ, EX
++from sympy.functions.elementary.miscellaneous import sqrt
+ 
+ from sympy.testing.pytest import raises
+ 
+@@ -195,6 +196,17 @@ def test_dmp_mul_ground():
+              QQ(1, 14)], [QQ(1, 14)]]
+     ]
+ 
++    # Products in EX may simplify to zero and must be stripped (issue 20427)
++    # z is nonzero as given but vanishes when multiplied by c
++    c = EX(1 + sqrt(2))
++    z = EX(sqrt(2)/(1 + sqrt(2)) - 2 + sqrt(2))
++    assert z
++    assert dup_mul_ground([z], c, EX) == []
++    assert dup_mul_ground([z, EX(1)], c, EX) == [c]
++    assert dmp_mul_ground([[z]], c, 1, EX) == [[]]
++    assert dmp_mul_ground([[z], [EX(1)]], c, 1, EX) == [[c]]
++    assert dmp_mul_ground([[z, EX(1)], [EX(1)]], c, 1, EX) == [[c], [c]]
++
+ 
+ def test_dup_quo_ground():
+     raises(ZeroDivisionError, lambda: dup_quo_ground(dup_normal([1, 2,
+diff --git a/sympy/polys/tests/test_polytools.py b/sympy/polys/tests/test_polytools.py
+index c774fc41e2..05d07d1d97 100644
+--- a/sympy/polys/tests/test_polytools.py
++++ b/sympy/polys/tests/test_polytools.py
+@@ -3441,3 +3441,27 @@ def test_deserialized_poly_equals_original():
+         "Deserialized polynomial not equal to original.")
+     assert poly.gens == deserialized.gens, (
+         "Deserialized polynomial has different generators than original.")
++
++
++def test_issue_20427():
++    f = Poly(-117968192370600*18**Rational(1, 3)/(217603955769048*(24201 +
++        253*sqrt(9165))**Rational(1, 3) + 2273005839412*sqrt(9165)*(24201 +
++        253*sqrt(9165))**Rational(1, 3)) - 15720318185*2**Rational(2, 3)*3**Rational(1, 3)*(24201
++        + 253*sqrt(9165))**Rational(2, 3)/(217603955769048*(24201 + 253*sqrt(9165))**
++        Rational(1, 3) + 2273005839412*sqrt(9165)*(24201 + 253*sqrt(9165))**Rational(1, 3))
++        + 15720318185*12**Rational(1, 3)*(24201 + 253*sqrt(9165))**Rational(2, 3)/(
++        217603955769048*(24201 + 253*sqrt(9165))**Rational(1, 3) + 2273005839412*
++        sqrt(9165)*(24201 + 253*sqrt(9165))**Rational(1, 3)) + 117968192370600*2**(
++        Rational(1, 3))*3**Rational(2, 3)/(217603955769048*(24201 + 253*sqrt(9165))**
++        Rational(1, 3) + 2273005839412*sqrt(9165)*(24201 + 253*sqrt(9165))**Rational(1, 3)), x)
++    g = Poly(0, x, domain='EX')
++
++    assert f.clear_denoms() == (
++        217603955769048*(24201 + 253*sqrt(9165))**Rational(1, 3) +
++        2273005839412*sqrt(9165)*(24201 + 253*sqrt(9165))**Rational(1, 3), g)
++
++    _, bad = f.clear_denoms()
++    assert bad.rep == g.rep
++    assert bad.is_zero
++    assert bad.terms_gcd() == ((0,), g)
++    assert bad.primitive() == (0, g)

@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 37698,
+ "finalText": "The reported error no longer occurs in this code, so the verdict is \"covered\". I couldn't run the reproduction, because the probe's Python has no numpy or pytest installed. This rests on reading the code, the existing test and the changelog.\n\n- **Cause:** `combine_by_coords` used to require monotonic coordinates on every dimension, even one that was identical across all datasets. A shared coordinate like `y=['a','c','b']` therefore raised a ValueError.\n- **Current code:** `_infer_concat_order_from_coords` in `xarray/core/combine.py` (line 71) now skips any dimension whose index is equal on every dataset. That happens before the monotonic check at lines 76\u201385, so the reporter's example combines along `x` only.\n- **Evidence it was fixed on purpose:**\n  - `test_combine_leaving_bystander_dimensions` in `xarray/tests/test_combine.py` asserts exactly this case.\n  - The changelog (`doc/whats-new.rst` line 536) lists the fix under v0.13.0 (17 Sep 2019).\n  - The repository snapshot is v0.14.1, which is later than v0.13.0.\n- **Who is affected:** anyone on v0.12.x or earlier; v0.13.0 and newer already have the fix. I couldn't name the fixing commit, because the git history is a single snapshot commit.\n\n```json\n{\n  \"verdict\": \"covered\",\n  \"title\": \"Identical non-monotonic coords no longer break combine\",\n  \"cause\": \"combine_by_coords used to require monotonic coordinates on every dimension, even one that was identical across all datasets, so a non-sorted shared coordinate like y=['a','c','b'] raised ValueError. The current code skips such bystander dimensions via an index.equals check before the monotonic check, so the reported example works. The changelog lists the fix in v0.13.0 (issue 3150).\",\n  \"files\": [\n    {\"path\": \"xarray/core/combine.py\", \"why\": \"_infer_concat_order_from_coords skips dimensions whose index is equal on all datasets before the monotonic check (lines 69-85)\"},\n    {\"path\": \"xarray/tests/test_combine.py\", \"why\": \"test_combine_leaving_bystander_dimensions covers the reported case\"},\n    {\"path\": \"doc/whats-new.rst\", \"why\": \"Line 536 records the fix under v0.13.0\"}\n  ],\n  \"plan\": [\"No change needed; upgrade to v0.13.0 or later.\"],\n  \"verification\": [\"Run test_combine.py::TestCombineAuto::test_combine_leaving_bystander_dimensions (not run here: no numpy or pytest in the probe environment)\"],\n  \"userFacing\": true,\n  \"certainty\": \"likely\",\n  \"effort\": \"none\",\n  \"risk\": \"none\",\n  \"confidence\": 0.85,\n  \"fixedIn\": {\"release\": \"v0.13.0\", \"note\": \"whats-new entry for issue 3150; the git history is a single snapshot commit, so no sha is available\"},\n  \"intendedBehavior\": \"combine_by_coords combines datasets whose shared, identical dimension coordinate is non-monotonic, concatenating only along dimensions whose coordinates differ.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"The monotonic requirement on a shared dimension was an unhandled case and was fixed as a bug (issue 3150, changelog v0.13.0).\"},\n  \"fixType\": \"error\",\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"Dimensions with identical coordinates on all datasets are now left alone before the monotonic check.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"xarray/core/combine.py:71\", \"quote\": \"if not all(index.equals(indexes[0]) for index in indexes[1:]):\"}]},\n    {\"id\": \"c2\", \"text\": \"A test covers the reported non-monotonic bystander case.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"xarray/tests/test_combine.py:652\", \"quote\": \"# Check non-monotonic bystander dimension coord doesn't raise\"}]},\n    {\"id\": \"c3\", \"text\": \"The changelog records the fix.\", \"role\": \"other\", \"citations\": [{\"type\": \"doc\", \"ref\": \"doc/whats-new.rst\", \"quote\": \"an unused dimension with coordinates which were not monotonic (:issue:`3150`).\"}]}\n  ],\n  \"plain\": {\n    \"headline\": \"Combining datasets failed when a shared label list wasn't sorted, but that was fixed in an earlier release.\",\n    \"happened\": \"Someone combined two datasets that shared the same, unsorted labels along one axis. The tool wrongly demanded those shared labels be sorted and stopped with an error. Newer versions leave shared labels alone and only order the axis that actually differs.\",\n    \"matters\": \"It affected anyone on older versions combining datasets with unsorted shared labels.\",\n    \"fix\": \"Upgrade to version 0.13.0 or later; no new change is needed.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 9,
+  "inputTokens": {
+   "avg": 16202.555555555555,
+   "max": 20352
+  },
+  "mainUsage": {
+   "inputTokens": 145823,
+   "cachedInputTokens": 132475,
+   "outputTokens": 4890
+  },
+  "cacheHitPercent": 90.846437118973,
+  "wallSeconds": 35.50099992752075,
+  "tools": {
+   "read": 9,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 1
+  },
+  "reads": 9,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.108754,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.108754
+}

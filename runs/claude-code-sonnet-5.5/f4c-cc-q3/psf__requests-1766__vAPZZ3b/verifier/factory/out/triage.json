@@ -1,0 +1,8 @@
+[
+{"source":"S1","decision":"skip","reason":"Vague report of download progress over 600% with no identifiable code path in this library (requests has no progress reporting); likely application-side."},
+{"source":"S2","decision":"skip","reason":"CERTIFICATE_VERIFY_FAILED is an environment/CA-bundle or server certificate issue, not a defect in this repository's code."},
+{"source":"S3","decision":"fix","reason":"HTTPDigestAuth sent qop=auth unquoted, violating RFC 2617; now sends qop=\"auth\"."},
+{"source":"S4","decision":"skip","reason":"Already fixed: prepare_content_length does not add Content-Length for body-less GET/HEAD requests."},
+{"source":"S5","decision":"skip","reason":"Could not reproduce: 301 redirects (absolute, relative, scheme-relative, chained) are followed with allow_redirects enabled; report lacks specifics."},
+{"source":"S6","decision":"skip","reason":"Connection refused to api.stripe.com is a network/infrastructure condition outside this repository's code."}
+]

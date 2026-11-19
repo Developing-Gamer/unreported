@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 449672,
+ "finalText": "The `mode.use_inf_as_null` crash is fixed in all three places and the plots render again with pandas 2.0.0. The change is left uncommitted in the working tree, and the PR text is at `.factory/pr-S1.md`.\n\nOn the base commit the four new regression tests in `tests/test_inf_handling.py` failed with `OptionError`. They now pass; I re-ran them just now (4 passed).\n\n**Cause:** pandas 2.0 removed the `mode.use_inf_as_null` alias. The three call sites were `Plot.split_generator` (`seaborn/_core/plot.py`), `comp_data` (`seaborn/_oldcore.py`) and `_lv_box_ends` (`seaborn/categorical.py`).\n\n**Fix:** I dropped the option context in all three and replace \u00b1inf with NaN explicitly before the existing dropna/notna logic. I did not rename it to `mode.use_inf_as_na`, because pandas 2.1 deprecates that too.\n\n**Wider run:** I ran `tests/_core/test_plot.py`, `tests/test_distributions.py`, `tests/test_categorical.py` and `tests/test_core.py` together: 872 passed, 4 failed. I did not run flake8 or the full suite.\n\nThe 4 failures also fail on the base commit:\n- **`test_comp_data_missing`, fixtures 6\u20138:** these fail in `variable_type` on `pd.NA`, which this change doesn't touch.\n- **`test_share_xy`:** on the base commit it hit the same `OptionError`; after the fix it fails on a `DeprecationWarning` instead. I did not trace where that comes from.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest tests/test_inf_handling.py -q\", \"passed\": true},\n    {\"command\": \"python -m pytest tests/test_inf_handling.py tests/_core/test_plot.py tests/test_distributions.py tests/test_categorical.py tests/test_core.py\", \"passed\": false, \"alsoOnBase\": true, \"note\": \"4 failures (test_share_xy, test_comp_data_missing fixtures 6-8) also fail on base: fixtures 6-8 hit a pd.NA TypeError in variable_type; test_share_xy hit the same OptionError on base and now fails on a DeprecationWarning\"}\n  ],\n  \"visual\": false,\n  \"reproductionSteps\": \"With pandas 2.0, run so.Plot(x=[1,2,np.inf], y=[1,2,3]).add(so.Dot()).plot(), sns.histplot(x=[1,2,3,np.inf]) or sns.boxenplot(x=[1.,2,3,4,np.inf]); each raises OptionError: No such keys(s): 'mode.use_inf_as_null'.\",\n  \"reproductionTest\": {\n    \"path\": \"tests/test_inf_handling.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest tests/test_inf_handling.py -q\",\n    \"signature\": \"pandas._config.config.OptionError: \\\"No such keys(s): 'mode.use_inf_as_null'\\\"\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 18,
+  "inputTokens": {
+   "avg": 26240.61111111111,
+   "max": 34110
+  },
+  "mainUsage": {
+   "inputTokens": 472331,
+   "cachedInputTokens": 452097,
+   "outputTokens": 6819
+  },
+  "cacheHitPercent": 95.71613974098672,
+  "wallSeconds": 449.1080000400543,
+  "tools": {
+   "read": 4,
+   "edit": 4,
+   "test": 0,
+   "verify": 0,
+   "git": 1,
+   "exec-poll": 5,
+   "subagent": 0,
+   "other": 4
+  },
+  "reads": 4,
+  "edits": 4,
+  "runs": 5,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.20917439999999998,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.20917439999999998
+}

@@ -1,0 +1,10 @@
+[
+  {"source": "S1", "decision": "fix", "reason": "Package.collect() still eagerly imports every package __init__.py (5.2.3 regression), reproduced with a non-test __init__.py containing 'assert False'."},
+  {"source": "S2", "decision": "fix", "reason": "Node.add_marker(..., append=False) inserts at index 1 instead of 0, so a plugin-prepended skip marker loses to a test's existing skip marker and its reason is not shown."},
+  {"source": "S3", "decision": "skip", "reason": "The TypeError comes from pytest.skip()'s keyword-only signature rejecting an unknown kwarg, which is intended and covered by testing/test_skipping.py::test_invalid_skip_keyword_parameter (the frames are pytest's own test fixtures)."},
+  {"source": "S4", "decision": "skip", "reason": "Already fixed: EncodedFile.mode in src/_pytest/capture.py strips 'b' from the underlying buffer mode."},
+  {"source": "S5", "decision": "fix", "reason": "The pytest_report_header hookspec is wrongly marked firstresult=True, so only the first implementation's header lines are shown and other plugins' lines (e.g. build metadata) are dropped."},
+  {"source": "S6", "decision": "skip", "reason": "Already fixed: num_mock_patch_args compares p.new to the mock DEFAULT sentinels with 'is', so array-valued 'new' no longer triggers an ambiguous truth value."},
+  {"source": "S7", "decision": "skip", "reason": "A network timeout in an external webhook-relay service talking to api.github.com, which is unrelated to this repository's code."},
+  {"source": "S8", "decision": "skip", "reason": "Not a defect: firstresult is a hookspec option, not a hook-implementation argument, and the :ref:`firstresult` target exists in doc/en/writing_plugins.rst; pytest_make_parametrize_id is already firstresult so returning None falls back to default ids."}
+]

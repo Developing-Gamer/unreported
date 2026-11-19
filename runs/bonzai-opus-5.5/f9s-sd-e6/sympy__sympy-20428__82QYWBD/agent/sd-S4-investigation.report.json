@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 119565,
+ "finalText": "I checked the report against the request. Two things were wrong, and both are fixed below:\n- The report was missing the plain-language summary for non-coders.\n- Some quotes from my test runs spanned several lines; they are now exact single-line copies.\n\nThe findings themselves have not changed.\n\n**What happens:** `Poly.clear_denoms()` is called on a complicated constant polynomial that is actually zero. It returns a polynomial that prints as `Poly(0, x, domain='EX')` but is stored as `[EX(0)]` instead of the empty list `[]`, which is how a zero polynomial is supposed to be stored. As a result:\n- `is_zero` returns `False`.\n- `terms_gcd()` crashes with `IndexError: tuple index out of range`.\n- The issue links this to the `ZeroDivisionError` in #17990. I did not trace that path myself.\n\n**Cause:** `dup_clear_denoms` and `dmp_clear_denoms` (in `sympy/polys/densetools.py`) multiply every coefficient by the common denominator using `dup_mul_ground` and `dmp_mul_ground` (in `sympy/polys/densearith.py`). Those two functions never remove zero leading coefficients. With symbolic (`EX`) coefficients, a coefficient can become exactly zero only after this multiplication, so a zero coefficient is left behind. This code is old, not a recent regression.\n\n**Fix:** wrap the results in `dup_strip(...)` and `dmp_strip(..., u)`, which are already imported in that file. I tried this in the throwaway copy:\n- The issue's example now gives `DMP([], EX, None)`.\n- `is_zero` is `True`, and `terms_gcd()` works.\n- The existing tests for these modules still pass (321 passed).\n\nNothing in the repository was changed. A regression test for the issue's example still needs to be written.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"clear_denoms leaves a zero polynomial in a broken state\",\n  \"cause\": \"dup_clear_denoms/dmp_clear_denoms multiply all coefficients by the common denominator via dup_mul_ground/dmp_mul_ground, which return the product list without stripping leading zeros. With EX coefficients a coefficient that did not simplify to 0 can become exactly 0 after multiplication, leaving DMP([EX(0)]) instead of the canonical []. Downstream code that assumes stripped representations then misbehaves (is_zero False, terms_gcd IndexError, and the ZeroDivisionError reported in #17990).\",\n  \"files\": [\n    {\"path\": \"sympy/polys/densearith.py\", \"why\": \"dup_mul_ground/dmp_mul_ground return unstripped coefficient lists\"},\n    {\"path\": \"sympy/polys/densetools.py\", \"why\": \"dup_clear_denoms/dmp_clear_denoms call the ground multiplication and return its result as is\"},\n    {\"path\": \"sympy/polys/tests/test_polytools.py\", \"why\": \"place for a regression test with the issue's expression\"}\n  ],\n  \"plan\": [\n    \"In dup_mul_ground return dup_strip([cf * c for cf in f]).\",\n    \"In dmp_mul_ground return dmp_strip([dmp_mul_ground(cf, c, v, K) for cf in f], u).\",\n    \"Add a regression test: Poly(<issue expression>, x).clear_denoms()[1] has rep [] and is_zero True, and terms_gcd()/primitive() work.\"\n  ],\n  \"verification\": [\n    \"Run the issue's snippet: bad_poly.rep should be DMP([], EX, None) and bad_poly.is_zero True.\",\n    \"Run pytest on sympy/polys/tests/test_densearith.py, test_densetools.py, test_polytools.py, test_rings.py and test_polyclasses.py (321 passed with the probe patch).\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.9,\n  \"fixType\": \"error\",\n  \"plain\": {\n    \"headline\": \"Simplifying a complicated expression that equals zero gives a result that looks like zero but crashes later steps, because a cleanup step leaves a hidden zero term behind.\",\n    \"happened\": \"A user asked the library to remove fractions from a long expression that is really zero. Multiplying through made its single term exactly zero, but that zero term was kept instead of removed. The result shows as zero, yet the library treats it as not zero, and later operations crash.\",\n    \"matters\": \"Anyone working with complicated symbolic expressions that cancel to zero can get wrong answers or crashes, including in the equation-solving crash the reporter linked to this.\",\n    \"fix\": \"Remove zero terms right after multiplying, so the result is a true zero.\"\n  },\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"dup_mul_ground multiplies each coefficient but never strips leading zeros, so a coefficient that becomes zero stays in the list.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"sympy/polys/densearith.py:272\", \"quote\": \"return [ cf * c for cf in f ]\"},\n      {\"type\": \"code\", \"ref\": \"sympy/polys/densearith.py:294\", \"quote\": \"return [ dmp_mul_ground(cf, c, v, K) for cf in f ]\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"trigger\", \"text\": \"clear_denoms multiplies by the common denominator using that function and returns the result unchanged.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"sympy/polys/densetools.py:1199\", \"quote\": \"f = dup_mul_ground(f, common, K0)\"},\n      {\"type\": \"code\", \"ref\": \"sympy/polys/polyclasses.py:588\", \"quote\": \"coeff, F = dmp_clear_denoms(f.rep, f.lev, f.dom)\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"impact\", \"text\": \"With the issue's input the result prints as zero but stores [EX(0)], is_zero is False and terms_gcd raises IndexError.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:python /tmp/t.py\", \"quote\": \"Poly(0, x, domain='EX') DMP([EX(0)], EX, None)\"},\n      {\"type\": \"query\", \"ref\": \"probe:python /tmp/t.py\", \"quote\": \"terms_gcd <class 'IndexError'> tuple index out of range\"},\n      {\"type\": \"evidence\", \"ref\": \"ev_s4\", \"quote\": \"The was the immediate cause of the ZeroDivisionError in #17990\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"other\", \"text\": \"Stripping in the ground multiplication fixes the example and keeps the existing polys tests passing.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:patched dup_mul_ground run\", \"quote\": \"Poly(0, x, domain='EX') DMP([], EX, None)\"},\n      {\"type\": \"query\", \"ref\": \"probe:patched dup_mul_ground run\", \"quote\": \"321 passed, 332 warnings in 12.12s\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"Printing bug only (the polynomial really is fine)\", \"why\": \"The internal representation is [EX(0)] and is_zero returns False, so it is a representation defect, not a display issue.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:python /tmp/t.py\", \"quote\": \"Poly(0, x, domain='EX') DMP([EX(0)], EX, None)\"}\n    ]}\n  ],\n  \"intendedBehavior\": \"Poly(expr, x).clear_denoms() for an expression equal to zero returns a polynomial whose rep is DMP([], EX, None), with is_zero True, and terms_gcd() does not raise.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"Dense polynomials in sympy.polys are required to be stripped (the zero polynomial is []); dup_mul_ground already returns [] for zero input, so leaving a zero leading coefficient after multiplication is an unhandled case, not a design choice.\"}\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 7,
+  "inputTokens": {
+   "avg": 20917.428571428572,
+   "max": 27303
+  },
+  "mainUsage": {
+   "inputTokens": 146422,
+   "cachedInputTokens": 126127,
+   "outputTokens": 9074
+  },
+  "cacheHitPercent": 86.13937796232807,
+  "wallSeconds": 118.89300012588501,
+  "tools": {
+   "read": 3,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 3
+  },
+  "reads": 3,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.3081624,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.3081624
+}

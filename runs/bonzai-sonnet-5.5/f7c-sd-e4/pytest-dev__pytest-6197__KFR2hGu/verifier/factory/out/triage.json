@@ -1,0 +1,42 @@
+[
+  {
+    "source": "S1",
+    "decision": "fix",
+    "reason": "In 5.2.3 (the #5830 fix), Package.collect() begins with self._mount_obj_if_needed(). That call imports the package's __init__.py (via Module._getobj -> _importtestmodule) every time a package director"
+  },
+  {
+    "source": "S2",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: pytest's built-in skip handling runs first in test setup. If a test already has a skip or skipif mark, it skips with the mark's reason before any ordinary plugin setup hook runs. A plugin that skips f"
+  },
+  {
+    "source": "S3",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: pytest.skip() takes only a message and a keyword-only allow_module_level flag, so passing an unknown keyword makes Python raise TypeError. The stack frames in the evidence (foopkg/__init__.py, test_cu"
+  },
+  {
+    "source": "S4",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: The report (pytest issue #5257) said the capture file wrapper copied the underlying stream's `rb+` mode, so youtube-dl wrote bytes and the wrapper rejected them. In the current code (5.2.3), the wrapp"
+  },
+  {
+    "source": "S5",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: pytest prints the runtime label as `platform.python_version()`, with no build suffix. The only extra metadata it adds is the `[pypy-X.Y.Z-level]` suffix, and only when `sys.pypy_version_info` exists. "
+  },
+  {
+    "source": "S6",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: Older pytest compared patch's `new` value to mock's DEFAULT sentinel with `==`. That comparison is ambiguous for a numpy array, so it raised ValueError during collection. The current `num_mock_patch_a"
+  },
+  {
+    "source": "S7",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The error comes from a separate service, `webhook-relay`, which has a `relay/deliver.py` that posts webhooks with aiohttp. This repository is pytest. It has no `relay` package, no webhook delivery cod"
+  },
+  {
+    "source": "S8",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The user's conftest hook (with a stray firstresult=True parameter) is called per argument by _idval and its non-None result is used as the id. In a 5.2.3 checkout it produced ids like test_x['add'-2-2"
+  }
+]

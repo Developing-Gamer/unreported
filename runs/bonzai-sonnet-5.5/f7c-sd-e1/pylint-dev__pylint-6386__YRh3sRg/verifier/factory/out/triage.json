@@ -1,0 +1,42 @@
+[
+  {
+    "source": "S1",
+    "decision": "fix",
+    "reason": "When a legacy message name is shared by several current messages (e.g. missing-docstring / C0111, now C0114, C0115 and C0116), MessageIdStore.add_legacy_msgid_and_symbol overwrites the mapping with `["
+  },
+  {
+    "source": "S2",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: The report (pyreverse ignoring PEP 484 hints, especially `a: str = None`) came from a version before 2.9. Since 2.9 (ChangeLog: 'Add type annotations to pyreverse dot files', Closes #1548), get_annota"
+  },
+  {
+    "source": "S3",
+    "decision": "skip",
+    "reason": "Self-Driving verdict outsideCode: Pylint infers attributes through astroid. When astroid expands `from .x import *` inside a package such as asyncio, it adds every public name of the imported module and ignores `__all__`. The `import "
+  },
+  {
+    "source": "S4",
+    "decision": "fix",
+    "reason": "The verbose option is registered with a short -v flag and a do-nothing action that takes no nargs setting. The preprocessing step that strips verbose only recognises the long --verbose, so -v reaches "
+  },
+  {
+    "source": "S5",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: In pylint 2.8.3, `import abc` used only as `abc.ABC` inside a `# type:` comment was reported as unused, because attribute expressions in type comments were not unpacked to find the base module name. T"
+  },
+  {
+    "source": "S6",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The error comes from a separate 'webhook-relay' service (relay/deliver.py, aiohttp) that timed out waiting on api.github.com. This repository is pylint, a static analysis tool. A search found no relay"
+  },
+  {
+    "source": "S7",
+    "decision": "fix",
+    "reason": "`--verbose` is handled by pylint's early option pre-processing, which strips it before argparse sees it, so the long form works. `-v` is not pre-processed, so it reaches argparse. There it is register"
+  },
+  {
+    "source": "S8",
+    "decision": "fix",
+    "reason": "The legacy options mixin's `options_and_values(options=None)` tests `if not options:` instead of `if options is None:`. Passing an empty list (nothing selected) is treated like passing nothing, so it "
+  }
+]

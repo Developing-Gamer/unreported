@@ -1,0 +1,38 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+___________ test_explicit_template_directory_overrides_app_templates ___________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-1/test_explicit_template_directo0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fbd4479a400>
+
+    def test_explicit_template_directory_overrides_app_templates(tmp_path, monkeypatch):
+        overrides = tmp_path / 'overrides'
+        packaged = tmp_path / 'packaged'
+        overrides.mkdir()
+        packaged.mkdir()
+        (overrides / 'receipt.html').write_text('Custom receipt', encoding='utf-8')
+        (packaged / 'receipt.html').write_text('Default receipt', encoding='utf-8')
+    
+        monkeypatch.setattr(
+            base, 'get_app_template_dirs', lambda dirname: (str(packaged),)
+        )
+        engine = AppTemplateEngine({
+            'NAME': 'receipts',
+            'DIRS': [str(overrides)],
+            'APP_DIRS': True,
+        })
+    
+        selected = next(
+            Path(filename)
+            for filename in engine.iter_template_filenames('receipt.html')
+            if Path(filename).is_file()
+        )
+>       assert selected.read_text(encoding='utf-8') == 'Custom receipt'
+E       AssertionError: assert 'Default receipt' == 'Custom receipt'
+E         - Custom receipt
+E         + Default receipt
+
+/tmp/test_hidden_S3.py:32: AssertionError
+=========================== short test summary info ============================
+FAILED ../tmp/test_hidden_S3.py::test_explicit_template_directory_overrides_app_templates
+1 failed in 0.10s

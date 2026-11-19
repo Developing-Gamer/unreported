@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 215119,
+ "finalText": "Numeric legend labels for large ranges now keep their full magnitude. The three new regression tests fail on the starting code and pass with the fix. The change is uncommitted in the working tree, and the PR text is in `.factory/pr-S1.md`.\n\nThe cause the investigation named is right. `ScalarFormatter` pulls a shared exponent or offset out of each legend label, and seaborn never draws that offset text. Both legend paths had the problem:\n- **Objects interface:** `ContinuousBase._setup` in `seaborn/_core/scales.py` now turns off the offset and scientific notation on the legend formatter when it is a `ScalarFormatter`. Axis tick labels are untouched.\n- **Classic functions:** `locator_to_legend_entries` in `seaborn/utils.py` gets the same treatment for the brief numeric legends that `scatterplot` and `lineplot` build for hue and size.\n\nI added `test_legend_large_values` in `tests/_core/test_scales.py`. I also added `test_locator_to_legend_entries_large_values` in `tests/test_utils.py`, covering limits (1000001, 1000005) and (2.7e6, 6.3e6). Before the fix the labels came out as `3.0, 4.5, 6.0` against levels of 3000000 and up. There is also a whatsnew entry in `doc/whatsnew/v0.12.2.rst`. I did not run the issue's `so.Plot` example or `sns.scatterplot(size=...)` end to end; the tests drive the same code directly.\n\n`tests/_core/test_scales.py` and `tests/test_utils.py` have three failures: `test_tick_minor` and the two `test_move_legend_*` tests. They fail identically on the base commit, so they are not caused by this change.\n\nA wider run over `tests/test_relational.py` and `tests/_core/test_plot.py` showed 110 failures, many with `pandas.er\u2026` errors. I did not compare that run against the base commit, so I can't say whether the change affects any of those failures.\n\n`seaborn/_marks/base.py` was already modified in the working tree when I started (a `to_rgba_array(color, alpha)` call changed to `to_rgba_array(color)`). I left it alone.\n\n```json\n{\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"command\": \"python -m pytest tests/_core/test_scales.py tests/test_utils.py -q -k large_values\", \"passed\": true},\n    {\"command\": \"python -m pytest tests/_core/test_scales.py tests/test_utils.py -q\", \"passed\": false, \"alsoOnBase\": true, \"note\": \"only test_tick_minor and test_move_legend_* fail, same on base\"}\n  ],\n  \"visual\": false,\n  \"reproductionSteps\": [\n    \"Build a Continuous scale on values 2.7e6..6.3e6 with PointSize and read scale._legend: labels are 3.0, 4.5, 6.0 instead of 3000000...\",\n    \"Call utils.locator_to_legend_entries(MaxNLocator(nbins=3), (2.7e6, 6.3e6), float): labels lack the offset\"\n  ],\n  \"reproductionTest\": {\n    \"path\": \"tests/test_utils.py\",\n    \"command\": \"python -m pytest tests/_core/test_scales.py tests/test_utils.py -q -k large_values\",\n    \"signature\": \"assert [3.0, 4.5, 6.0] == approx([3000000.0 \u00b1 3, 4500000.0 \u00b1 4.5, 6000000.0 \u00b1 6])\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 19,
+  "inputTokens": {
+   "avg": 27844.36842105263,
+   "max": 34570
+  },
+  "mainUsage": {
+   "inputTokens": 529043,
+   "cachedInputTokens": 508347,
+   "outputTokens": 8770
+  },
+  "cacheHitPercent": 96.08803065157275,
+  "wallSeconds": 214.7039999961853,
+  "tools": {
+   "read": 13,
+   "edit": 6,
+   "test": 0,
+   "verify": 0,
+   "git": 2,
+   "exec-poll": 4,
+   "subagent": 0,
+   "other": 0
+  },
+  "reads": 13,
+  "edits": 6,
+  "runs": 2,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 7,
+  "editOperations": 9,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.2410884,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.2410884
+}

@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 74163,
+ "finalText": "I checked the report against your request once more and found nothing to change. The bug is already fixed in the current code.\n\n**What the user saw:** they gave a weighted average true/false weights over three values that are all 1.0. It returned 2.0 instead of 1.0. The total of the weights came out as \"True\" (which counts as 1) instead of 2, so the average was divided by the wrong number.\n\n**Current code:** the function that adds up the weights (`_sum_of_weights` in `xarray/core/weighted.py`, lines 237\u2013244) now turns true/false weights into whole numbers before adding them. Its comment refers to issue GH4074.\n\n**Checked in a throwaway copy of the repository:**\n- The reporter's example now returns a mean of `1.0` and a total weight of `2.0`.\n- `pytest xarray/tests/test_weighted.py -k bool` passes all 5 tests. They are regression tests linked to issue #4074 and cover mean, total weight, quantile, variance and standard deviation.\n\n**Release:** the changelog (`doc/whats-new.rst:1725`) lists the fix under v0.16.0 (2020-07-11). This checkout has only a single \"Snapshot\" commit, so I can't name the commit or pull request that fixed it. Anyone on v0.16.0 or later gets the right result, and nothing needs to change in the repository.\n\n```json\n{\n  \"verdict\": \"covered\",\n  \"title\": \"Weighted mean with true/false weights already fixed\",\n  \"cause\": \"Summing true/false weights used a dot product that returned a true/false value (True == 1) instead of a count, so the weighted mean was divided by 1 instead of the true number of weights. The current _sum_of_weights converts boolean weights to int before reducing, and regression tests for issue #4074 cover it. The changelog records the fix in v0.16.0.\",\n  \"files\": [\n    {\"path\": \"xarray/core/weighted.py\", \"why\": \"_sum_of_weights casts bool weights to int before the dot product (the fix)\"},\n    {\"path\": \"xarray/tests/test_weighted.py\", \"why\": \"Regression tests for GH4074 (sum_of_weights, mean, quantile, var, std with bool weights)\"},\n    {\"path\": \"doc/whats-new.rst\", \"why\": \"Changelog entry recording the fix in v0.16.0\"}\n  ],\n  \"plan\": [],\n  \"verification\": [\n    \"Ran the reporter's example in the probe environment: weighted mean = 1.0, sum_of_weights = 2.0\",\n    \"pytest xarray/tests/test_weighted.py -k bool: 5 passed\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"none\",\n  \"risk\": \"none\",\n  \"confidence\": 0.95,\n  \"fixType\": \"silentFailure\",\n  \"fixedIn\": {\"release\": \"v0.16.0\"},\n  \"intendedBehavior\": \"DataArray([1., 1., 1.]).weighted(DataArray([True, True, False])).mean() returns 1.0.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"The wrong result came from xr.dot returning a boolean for boolean inputs. It was fixed on purpose and recorded in the changelog for issue 4074.\"},\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"The reported wrong mean came from summing boolean weights with a dot product that returns True rather than a count.\", \"role\": \"rootCause\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"xarray/core/weighted.py:237\", \"quote\": \"# bool -> int, because ``xr.dot([True, True], [True, True])`` -> True\"}\n    ]},\n    {\"id\": \"c2\", \"text\": \"Current code casts boolean weights to int before computing the sum of weights, which removes the cause.\", \"role\": \"other\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"xarray/core/weighted.py:239\", \"quote\": \"if self.weights.dtype == bool:\\n            sum_of_weights = self._reduce(\\n                mask, self.weights.astype(int), dim=dim, skipna=False\"}\n    ]},\n    {\"id\": \"c3\", \"text\": \"The reporter's example now gives the expected answer.\", \"role\": \"other\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe\", \"quote\": \"1.0 2.0\\n.....                                                                    [100%]\\n5 passed, 486 deselected\"}\n    ]},\n    {\"id\": \"c4\", \"text\": \"The fix is recorded in the changelog under v0.16.0 and is covered by regression tests.\", \"role\": \"other\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"doc/whats-new.rst:1725\", \"quote\": \"- Fix weighted mean when passing boolean weights (:issue:`4074`).\"},\n      {\"type\": \"code\", \"ref\": \"xarray/tests/test_weighted.py:372\", \"quote\": \"def test_weighted_mean_bool():\\n    # https://github.com/pydata/xarray/issues/4074\"}\n    ]},\n    {\"id\": \"c5\", \"text\": \"The user who filed the issue got a mean of 2 instead of 1, a silently wrong number.\", \"role\": \"impact\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s6\", \"quote\": \"dta.weighted(wgt).mean() ``` Returns ``` \u2039xarray.DataArray ()\u203a array(2.)\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"The bug still exists in the current code\", \"why\": \"The reporter's example returns 1.0 and the five bool regression tests pass\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe\", \"quote\": \"5 passed, 486 deselected in 0.26s\"}\n    ]}\n  ],\n  \"plain\": {\n    \"headline\": \"Someone got a wrong average when they marked which values count with yes/no flags, but newer versions already give the right answer.\",\n    \"happened\": \"The user averaged three values and marked two of them to count, but got 2 instead of 1. The total number of counted values was added up as a single yes/no answer, which counts as 1, instead of the actual count of 2. Version 0.16.0 changed this so yes/no flags are counted as numbers first.\",\n    \"matters\": \"Only people on versions older than 0.16.0 still get wrong averages when they use yes/no weights.\",\n    \"fix\": \"No code change is needed; affected users should upgrade to version 0.16.0 or later.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 6,
+  "inputTokens": {
+   "avg": 14695.333333333334,
+   "max": 18094
+  },
+  "mainUsage": {
+   "inputTokens": 88172,
+   "cachedInputTokens": 77088,
+   "outputTokens": 5638
+  },
+  "cacheHitPercent": 87.42911581908089,
+  "wallSeconds": 73.63699984550476,
+  "tools": {
+   "read": 1,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 3
+  },
+  "reads": 1,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1835816,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1835816
+}

@@ -1,0 +1,12 @@
+diff --git a/src/flask/globals.py b/src/flask/globals.py
+index e00a0c10..4ca258c7 100644
+--- a/src/flask/globals.py
++++ b/src/flask/globals.py
+@@ -89,6 +89,6 @@ def __getattr__(name: str) -> t.Any:
+             DeprecationWarning,
+             stacklevel=2,
+         )
+-        return __request_ctx_stack
++        return __app_ctx_stack
+ 
+     raise AttributeError(name)

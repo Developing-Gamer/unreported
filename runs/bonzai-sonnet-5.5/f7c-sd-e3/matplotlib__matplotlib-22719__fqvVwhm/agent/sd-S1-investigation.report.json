@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 139804,
+ "finalText": "The overshoot comes from this repository's code, and I'm fairly confident of the cause but could not run it. The probe environment has no numpy, so I could not build or import matplotlib. This is from reading the code, not from a reproduction or a test. I re-checked every code citation in the report below against the lines I read earlier, and each quote matches.\n\n**Cause.** The width used to right-align a label is computed one way, and the PDF backend then draws the same text a different way.\n\n- **Measuring.** The width comes from `FT2Font.set_text`. It uses grid-fitted kerning (`FT_KERNING_DEFAULT`) and a per-glyph advance truncated to the font's coarse pixel grid. The measuring call is `font.set_text(s, 0.0, flags=LOAD_NO_HINTING)` in `_backend_pdf_ps.py`, at line 119.\n- **Drawing.** For PDF, `draw_text` uses `_text_helpers.layout(..., kern_mode=KERNING_UNFITTED)`, which means unrounded kerning and the unhinted `linearHoriAdvance` (`backend_pdf.py` lines 2355-2386).\n- **Effect.** The two widths differ by an error that grows with string length. A right-aligned long label therefore ends past its intended right edge. `text.py:366-367` shifts each line by `width - w`, so any gap between measured and drawn width moves the right edge directly.\n- **Why only supplied fonts.** Standard fonts use the AFM path (Adobe font-metrics files), which measures and draws from the same data. That matches the report that standard fonts look normal.\n- **PS and SVG.** PS measures and draws with fitted kerning, so only a small advance-truncation gap remains. SVG measures and draws with the same default-kerning layout, so I found no kerning gap there.\n- **Not confirmed.** I did not see the offending commit. The repository has a single snapshot commit tagged v3.5.0. I also could not check the exact size of the overshoot or its sign for a given font.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Long right-aligned labels overshoot in PDF export\",\n  \"cause\": \"For TrueType fonts the label width used for right-alignment comes from FT2Font.set_text, which uses grid-fitted kerning and a truncated per-glyph advance. The PDF backend then draws the same string with _text_helpers.layout using KERNING_UNFITTED and unhinted linearHoriAdvance. The two widths differ by an error that grows with string length, so a right-aligned long label ends past its intended right edge. AFM standard fonts measure and draw from the same data, so they are unaffected.\",\n  \"files\": [\n    {\"path\": \"lib/matplotlib/backends/_backend_pdf_ps.py\", \"why\": \"get_text_width_height_descent measures TTF text with font.set_text (fitted kerning, truncated advance) at lines 118-126.\"},\n    {\"path\": \"lib/matplotlib/backends/backend_pdf.py\", \"why\": \"draw_text lays out glyphs with KERNING_UNFITTED and unhinted advances at lines 2355-2386, so the drawn width differs from the measured width.\"},\n    {\"path\": \"lib/matplotlib/_text_helpers.py\", \"why\": \"layout() is the layout used for drawing; it is the natural single source of truth for measuring.\"},\n    {\"path\": \"lib/matplotlib/backends/backend_ps.py\", \"why\": \"draw_text uses layout() with default kerning while measuring uses set_text; the advance truncation is the only remaining mismatch.\"},\n    {\"path\": \"src/ft2font.cpp\", \"why\": \"set_text uses FT_KERNING_DEFAULT and face->glyph->advance.x when computing advance and width, the source of the measured width.\"}\n  ],\n  \"plan\": [\n    \"Add a helper in _text_helpers that returns the string width as the last layout item's x plus its linearHoriAdvance/65536, taking the same kern_mode as the drawing code.\",\n    \"In _backend_pdf_ps.get_text_width_height_descent, use that helper for the TTF branch so the width matches what draw_text emits. PDF uses KERNING_UNFITTED, and PS uses the kern mode its draw_text uses. Keep height and descent from set_text.\",\n    \"Optionally make the PS backend draw and measure with the same kern mode.\",\n    \"Add a test with a TTF font and a long string that checks measured width equals the layout end position, and that a right-aligned Text's rendered right edge equals its anchor within a small tolerance.\"\n  ],\n  \"verification\": [\n    \"Unit test: for DejaVu Sans, cmr10 and a kerning-heavy string repeated many times, compare get_text_width_height_descent width with the layout-derived end x; before the fix they differ and the gap grows with length.\",\n    \"Export a PDF with a long right-aligned label in a TTF font and check the glyph end position against the anchor.\",\n    \"Run the existing test_backend_pdf, test_backend_ps and test_text suites, and review any changed baseline images.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"likely\",\n  \"effort\": \"small\",\n  \"risk\": \"low-medium: text extents change slightly for TTF text in PDF/PS, so some image-comparison baselines may need review\",\n  \"confidence\": 0.6,\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"Text width for TTF fonts in PDF/PS is measured via FT2Font.set_text.\", \"role\": \"rootCause\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/backends/_backend_pdf_ps.py:119\", \"quote\": \"font.set_text(s, 0.0, flags=LOAD_NO_HINTING)\"}\n    ]},\n    {\"id\": \"c2\", \"text\": \"set_text applies grid-fitted kerning and takes the width from the pen position.\", \"role\": \"rootCause\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"src/ft2font.cpp:467\", \"quote\": \"FT_Get_Kerning(face, previous, glyph_index, FT_KERNING_DEFAULT, &delta);\"}\n    ]},\n    {\"id\": \"c3\", \"text\": \"PDF draws glyphs with unfitted kerning and unhinted advances, a different model from the measurement.\", \"role\": \"rootCause\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/backends/backend_pdf.py:2355\", \"quote\": \"for item in _text_helpers.layout(\\n                    s, font, kern_mode=KERNING_UNFITTED):\"},\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/_text_helpers.py:67\", \"quote\": \"x += glyph.linearHoriAdvance / 65536\"}\n    ]},\n    {\"id\": \"c4\", \"text\": \"Right alignment places the text origin using the measured width, so any difference between measured and drawn width moves the right edge.\", \"role\": \"impact\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/text.py:367\", \"quote\": \"offset_layout = [(x + width - w, y)\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"Standard (AFM) fonts share the bug\", \"why\": \"AFM measuring and drawing both use the same AFM data, matching the report that standard fonts look normal.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/backends/_backend_pdf_ps.py:109\", \"quote\": \"elif mpl.rcParams[self._use_afm_rc_name]:\"}\n    ]},\n    {\"hypothesis\": \"Alignment arithmetic in Text._get_layout is wrong\", \"why\": \"The right/center offsets are computed correctly from the supplied widths; only the widths are inconsistent with the drawing.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/text.py:367\", \"quote\": \"offset_layout = [(x + width - w, y)\"}\n    ]},\n    {\"hypothesis\": \"PDF font Widths arrays are wrong\", \"why\": \"Widths come from LOAD_NO_SCALE|LOAD_NO_HINTING horiAdvance, which is consistent with the unhinted advances used in layout().\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/backends/backend_pdf.py:1141\", \"quote\": \"font.load_char(\\n                    s, flags=LOAD_NO_SCALE | LOAD_NO_HINTING).horiAdvance\"}\n    ]}\n  ],\n  \"intendedBehavior\": \"A right-aligned TrueType-font label of any length in a PDF export ends at its anchor x position, within sub-point tolerance.\",\n  \"intent\": {\"deliberate\": false, \"note\": \"Nothing in the code or tests shows the width/draw mismatch was chosen; measuring and drawing simply use different kerning and advance models.\"},\n  \"fixType\": \"error\",\n  \"plain\": {\n    \"headline\": \"Long right-aligned labels in exported documents run slightly past their right edge when a custom font is used.\",\n    \"happened\": \"The app measures how wide a label is one way, then draws the letters using slightly different spacing rules. Each pair of letters adds a tiny difference, so the longer the label, the further it overshoots when it is lined up to the right.\",\n    \"matters\": \"Anyone exporting documents with their own font and long right-aligned labels sees them hang over the edge.\",\n    \"fix\": \"Measure label width with the same spacing rules used to draw it, so the two always agree.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 24,
+  "inputTokens": {
+   "avg": 34191.041666666664,
+   "max": 53387
+  },
+  "mainUsage": {
+   "inputTokens": 820585,
+   "cachedInputTokens": 774172,
+   "outputTokens": 17208
+  },
+  "cacheHitPercent": 94.34391318388711,
+  "wallSeconds": 139.08400011062622,
+  "tools": {
+   "read": 30,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 2
+  },
+  "reads": 30,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 6,
+   "readFileIgnoringRange": 6
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.4429208999999999,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.4429208999999999
+}

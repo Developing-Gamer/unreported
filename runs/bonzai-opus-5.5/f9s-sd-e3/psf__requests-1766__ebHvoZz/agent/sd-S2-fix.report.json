@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 50141,
+ "finalText": "The stale `requests/cacert.pem` was the cause, and I replaced it with a current bundle. The new test now passes. I haven't confirmed that a real HTTPS request succeeds, because there is no network here.\n\n**What was wrong:** `verify=True` uses the bundled `requests/cacert.pem`, an old snapshot of 148 certificates with no ISRG Root X1 (Let's Encrypt). Servers chaining to current roots failed with \"unable to get local issuer certificate\".\n\n**What changed:** `requests/cacert.pem` is now certifi 2023.11.17's bundle (146 roots), copied from the certifi installed under Python 3.11. I made no code change. I skipped the optional \"prefer certifi when installed\" change to `certs.where()`, because certifi isn't installed in the Python 3.9 test environment.\n\n**Reproduction test:** `TestBundledCACerts.test_bundle_contains_current_roots` in `test_requests.py` loads the bundle into an SSLContext and checks that ISRG Root X1 and DigiCert Global Root G2 are present. I re-ran it against the original bundle just now and it fails with `AssertionError: assert 'ISRG Root X1' in names`. With the new bundle it passes.\n\n**Other checks:**\n- The full `test_requests.py` on Python 3.9 gives 91 passed and 1 failed.\n- The failure is `test_conflicting_post_params`, a TypeError that fails identically on the base commit.\n- I did not run the live requests to letsencrypt.org, github.com or google.com, so `test_mixed_case_scheme_acceptable` is also unconfirmed.\n- PR #1000 (`HTTPResponse.tell()`) is unrelated. Its uncommitted edits to `requests/packages/urllib3/response.py` and `test_requests.py` are still in the working tree next to mine.\n\nNothing is committed or pushed. The pull request text is in `/testbed/.factory/pr-S2.md`.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest test_requests.py -k bundle_contains\", \"passed\": true},\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest test_requests.py\", \"passed\": false, \"alsoOnBase\": true, \"note\": \"only test_conflicting_post_params fails, identically on base; unrelated\"}\n  ],\n  \"visual\": false,\n  \"reproductionSteps\": [\n    \"Load requests.certs.where() into an ssl SSLContext on the base commit\",\n    \"Observe 148 certs and no ISRG Root X1, so Let's Encrypt-chained servers fail with CERTIFICATE_VERIFY_FAILED\"\n  ],\n  \"reproductionTest\": {\n    \"path\": \"test_requests.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest test_requests.py -k bundle_contains\",\n    \"signature\": \"AssertionError: assert 'ISRG Root X1' in names\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 10,
+  "inputTokens": {
+   "avg": 22641,
+   "max": 26109
+  },
+  "mainUsage": {
+   "inputTokens": 226410,
+   "cachedInputTokens": 214193,
+   "outputTokens": 4701
+  },
+  "cacheHitPercent": 94.60403692416412,
+  "wallSeconds": 49.61300015449524,
+  "tools": {
+   "read": 1,
+   "edit": 1,
+   "test": 0,
+   "verify": 1,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 5
+  },
+  "reads": 1,
+  "edits": 1,
+  "runs": 6,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.12037909999999999,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.12037909999999999
+}

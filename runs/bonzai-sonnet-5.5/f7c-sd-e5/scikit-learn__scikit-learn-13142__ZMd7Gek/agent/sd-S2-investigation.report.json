@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 43809,
+ "finalText": "I could not run anything to confirm this, because the probe's Python has no numpy. The finding comes from reading the code. I'm correcting two statements in my earlier report that I had not verified.\n\n- **Existing test:** I said the sparse-vs-dense test passes because its matrix is nearly square. That was unverified. The test compares sparse and dense `explained_variance_ratio_` at 60\u00d755 and should already fail, because the sparse total variance is taken per row and the dense one per column. A failing existing test would be the strongest confirmation of the cause.\n- **\"Above 1\":** I said the ratio can go above 1 for some shapes. I did not show that, so I removed it.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Sparse TruncatedSVD reports wrong explained variance\",\n  \"cause\": \"In TruncatedSVD.fit_transform, the total variance that explained_variance_ratio_ divides by is computed for sparse input with mean_variance_axis(X, axis=1). That gives one variance per row (sample), while the dense branch uses np.var(X, axis=0).sum(), the per-feature total. Sparse and dense input therefore give different ratios for the same data, unless n_samples equals n_features and the data happens to line up. The projection (U*Sigma) and components_ do not use this value, so embedding coordinates stay the same while the percentage changes.\",\n  \"files\": [\n    {\"path\": \"sklearn/decomposition/truncated_svd.py\", \"why\": \"Line 187 uses axis=1 in mean_variance_axis for sparse X; it should be axis=0 to match the dense branch.\"},\n    {\"path\": \"sklearn/decomposition/tests/test_truncated_svd.py\", \"why\": \"test_explained_variance already compares sparse and dense ratios (and should fail on this bug); add a clearly non-square case.\"}\n  ],\n  \"plan\": [\n    \"Change mean_variance_axis(X, axis=1) to mean_variance_axis(X, axis=0) in fit_transform.\",\n    \"Run test_explained_variance and add a test with a strongly non-square sparse matrix asserting sparse and dense ratios are equal.\",\n    \"Add a changelog entry under bug fixes.\"\n  ],\n  \"verification\": [\n    \"Run sklearn/decomposition/tests/test_truncated_svd.py; the sparse-vs-dense comparison should pass after the fix.\",\n    \"Fit TruncatedSVD on a sparse matrix and on its dense copy, and check that explained_variance_ratio_ is identical for both.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"likely\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.85,\n  \"intendedBehavior\": \"TruncatedSVD.explained_variance_ratio_ is the same for a sparse matrix and its dense equivalent, because both divide by the total per-feature variance.\",\n  \"intent\": {\n    \"deliberate\": false,\n    \"evidence\": \"The dense branch uses axis=0 for the total variance, and the test compares sparse and dense ratios and expects them to match. No comment or changelog entry says sparse input should differ.\"\n  },\n  \"fixType\": \"silentFailure\",\n  \"claims\": [\n    {\n      \"id\": \"c1\",\n      \"text\": \"For sparse input the total variance is computed over axis=1 (per sample), unlike the dense branch, which uses axis=0.\",\n      \"role\": \"rootCause\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"sklearn/decomposition/truncated_svd.py:187\", \"quote\": \"_, full_var = mean_variance_axis(X, axis=1)\"},\n        {\"type\": \"code\", \"ref\": \"sklearn/decomposition/truncated_svd.py:190\", \"quote\": \"full_var = np.var(X, axis=0).sum()\"}\n      ]\n    },\n    {\n      \"id\": \"c2\",\n      \"text\": \"The embedding coordinates (U*Sigma) do not depend on the wrong denominator, so only the ratio changes.\",\n      \"role\": \"impact\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"sklearn/decomposition/truncated_svd.py:191\", \"quote\": \"self.explained_variance_ratio_ = exp_var / full_var\"}\n      ]\n    },\n    {\n      \"id\": \"c3\",\n      \"text\": \"The test's contract is that sparse and dense ratios match.\",\n      \"role\": \"other\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"sklearn/decomposition/tests/test_truncated_svd.py:154\", \"quote\": \"assert_array_almost_equal(svd_sparse.explained_variance_ratio_,\"}\n      ]\n    }\n  ],\n  \"ruledOut\": [],\n  \"plain\": {\n    \"headline\": \"The explained-variance percentage for sparse document batches was wrong because the total was measured along the wrong direction of the data.\",\n    \"happened\": \"When the reduction runs on sparse data, the total amount of variation is added up across documents instead of across features. The embedding itself is computed separately, so its coordinates stayed the same. Only the percentage, which divides by that wrong total, changed.\",\n    \"matters\": \"Anyone who runs the reduction on sparse data such as text or document matrices gets a variance percentage that disagrees with what the same data gives when dense.\",\n    \"fix\": \"Add up the total variation across features for sparse data too, the way dense data already does, and add a test with a clearly non-square matrix.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 7,
+  "inputTokens": {
+   "avg": 15240.857142857143,
+   "max": 19255
+  },
+  "mainUsage": {
+   "inputTokens": 106686,
+   "cachedInputTokens": 94437,
+   "outputTokens": 5691
+  },
+  "cacheHitPercent": 88.51864349586637,
+  "wallSeconds": 43.21999979019165,
+  "tools": {
+   "read": 7,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 1
+  },
+  "reads": 7,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 2,
+   "readFile": 2,
+   "shell": 0,
+   "sameFile": 4,
+   "readFileIgnoringRange": 4
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.10641089999999999,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.10641089999999999
+}

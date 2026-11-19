@@ -1,0 +1,30 @@
+{
+ "task": "pylint-dev__pylint-6386",
+ "kept": [
+  {
+   "path": "pylint/message/message_id_store.py",
+   "category": "silent wrong result (a value or output that is subtly wrong, no exception)",
+   "defect_patch": "diff --git a/pylint/message/message_id_store.py b/pylint/message/message_id_store.py\nindex 9b89c876..1dbb9a95 100644\n--- a/pylint/message/message_id_store.py\n+++ b/pylint/message/message_id_store.py\n@@ -71,9 +71,7 @@ class MessageIdStore:\n         \"\"\"\n         self.__msgid_to_symbol[msgid] = symbol\n         self.__symbol_to_msgid[symbol] = msgid\n-        existing_old_names = self.__old_names.get(msgid, [])\n-        existing_old_names.append(new_msgid)\n-        self.__old_names[msgid] = existing_old_names\n+        self.__old_names[msgid] = [new_msgid]\n \n     def check_msgid_and_symbol(self, msgid: str, symbol: str) -> None:\n         existing_msgid: str | None = self.__symbol_to_msgid.get(symbol)\n",
+   "test_code": "import pytest\n\nfrom pylint.message.message_id_store import MessageIdStore\n\n\n@pytest.mark.parametrize(\"legacy_name\", [\"W9000\", \"w9000\", \"old-combined-warning\"])\ndef test_legacy_name_keeps_all_replacement_messages(legacy_name):\n    store = MessageIdStore()\n    store.register_message_definition(\n        \"W9001\", \"first-warning\", [(\"W9000\", \"old-combined-warning\")]\n    )\n    store.register_message_definition(\n        \"W9002\", \"second-warning\", [(\"W9000\", \"old-combined-warning\")]\n    )\n\n    assert store.get_active_msgids(\"first-warning\") == [\"W9001\"]\n    assert store.get_active_msgids(\"second-warning\") == [\"W9002\"]\n    assert store.get_active_msgids(legacy_name) == [\"W9001\", \"W9002\"]\n",
+   "signal": {
+    "kind": "user",
+    "source": "CI lint support channel",
+    "text": "Our existing disable entry used to quiet both warnings. Now one still shows up in CI even though the configuration hasn't changed."
+   },
+   "summary": "Registering multiple replacement messages for a shared legacy message overwrites earlier replacements, so legacy lookups return only the last registered message."
+  },
+  {
+   "path": "pylint/config/options_provider_mixin.py",
+   "category": "silent wrong result (a value or output that is subtly wrong, no exception)",
+   "defect_patch": "diff --git a/pylint/config/options_provider_mixin.py b/pylint/config/options_provider_mixin.py\nindex c7c2be9e..96703e3a 100644\n--- a/pylint/config/options_provider_mixin.py\n+++ b/pylint/config/options_provider_mixin.py\n@@ -114,7 +114,7 @@ class OptionsProviderMixIn:\n             yield section.upper(), options\n \n     def options_and_values(self, options=None):\n-        if options is None:\n+        if not options:\n             options = self.options\n         for optname, optdict in options:\n             yield optname, optdict, self.option_value(optname)\n",
+   "test_code": "import pytest\n\nfrom pylint.config.options_provider_mixin import OptionsProviderMixIn\n\n\nclass ReportOptions(OptionsProviderMixIn):\n    name = \"report-options\"\n    options = (\n        (\"report-label\", {\"type\": \"string\", \"default\": \"nightly\", \"help\": \"Report label.\"}),\n        (\"report-format\", {\"type\": \"string\", \"default\": \"text\", \"help\": \"Report format.\"}),\n    )\n\n\n@pytest.mark.parametrize(\"selection\", [[], ()])\ndef test_explicit_empty_option_selection_yields_nothing(selection):\n    with pytest.warns(DeprecationWarning, match=\"OptionsProviderMixIn has been deprecated\"):\n        provider = ReportOptions()\n\n    assert [name for name, _, _ in provider.options_and_values()] == [\n        \"report-label\", \"report-format\"\n    ]\n    assert list(provider.options_and_values(provider.options[:1])) == [\n        (\"report-label\", provider.options[0][1], \"nightly\")\n    ]\n    assert list(provider.options_and_values(selection)) == []\n",
+   "signal": {
+    "kind": "user",
+    "source": "Configuration report support channel",
+    "text": "The report includes every setting when no settings are selected. Selecting just one setting produces the expected single entry."
+   },
+   "summary": "An explicitly empty option selection is treated as an omitted selection, silently returning all configured options instead of none."
+  }
+ ],
+ "rejected": []
+}

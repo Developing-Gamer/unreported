@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 40164,
+ "finalText": "I confirmed the cause in this repository's code. The JSON report below is the final one. I made no file changes, and the only command I ran was the probe against a throwaway copy.\n\nThe simple helpers (`requests.get`, `head`, `post` and so on) create a new `Session` in `requests/api.py` and never close it. A successful request returns its connection to that session's pool, and the connection stays open until the session is garbage collected.\n\nI called `requests.get` three times against a local server with garbage collection disabled. The server's sockets for the first two calls were closed, because those sessions had already been collected. The third was still open while its response object was alive.\n\n`Session.close()` and `HTTPAdapter.close()` already exist and close the pooled connections. The fix is to run the session in a `with` block inside `request()`. A response read with `stream=True` should be unaffected, since its connection is checked out of the pool, but I did not test that. I did not run the existing test suite.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Simple requests.get/post calls leave connections open\",\n  \"cause\": \"Each top-level call (requests.get, head, post and so on) goes through requests.api.request. That function builds a new Session and returns session.request(...) without ever closing the session. With the default stream=False, the connection goes back into that session's pool and stays open. It is only closed when the session is garbage collected. Session.close() and HTTPAdapter.close() already exist and would close the pooled connections, but the simple API never calls them.\",\n  \"files\": [\n    {\"path\": \"requests/api.py\", \"why\": \"request() creates a Session at line 43 and never closes it. This is the cause.\"},\n    {\"path\": \"requests/sessions.py\", \"why\": \"Session already has __enter__/__exit__ and close(), so the fix can use them (lines 201-205 and 388-391).\"},\n    {\"path\": \"test_requests.py\", \"why\": \"Add a regression test that the simple API leaves no pooled connection open.\"}\n  ],\n  \"plan\": [\n    \"In requests.api.request, use `with sessions.Session() as session: return session.request(method=method, url=url, **kwargs)` so the session's pooled connections are closed on return.\",\n    \"Check that stream=True responses still read correctly. Their connection is checked out of the pool, so closing the pool should not affect them.\",\n    \"Add a test that calls requests.get against a local socket server and asserts the server sees the connection close.\"\n  ],\n  \"verification\": [\n    \"Probe run, current code: three requests.get calls against a local server. The server's sockets for the first two were closed only because the session had been garbage collected. The third was still open while its response object was alive.\",\n    \"After the fix, the connection from the last call should also be closed once requests.get returns, with garbage collection disabled.\",\n    \"Run the existing test_requests.py suite, including the streaming tests.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.85,\n  \"deliberate\": false,\n  \"intent\": \"Nothing in the code, tests or HISTORY.rst says the simple API should leave connections open. HISTORY.rst lists 'Long awaited fix for hanging connections!' and 'Fix leaking connections' as intended fixes, which points the other way.\",\n  \"fixType\": \"performance\",\n  \"intendedBehavior\": \"After requests.get/head/post returns, the client holds no idle pooled connection open from that call's session, so the server sees the connection close without waiting for garbage collection.\",\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"The simple API creates a throwaway Session and never closes it.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"requests/api.py:43\", \"quote\": \"session = sessions.Session()\\n    return session.request(method=method, url=url, **kwargs)\"}]},\n    {\"id\": \"c2\", \"text\": \"Session.close(), which closes the adapters' pooled connections, exists but the simple API does not call it.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"requests/sessions.py:388\", \"quote\": \"\\\"\\\"\\\"Closes all adapters and as such the session\\\"\\\"\\\"\"}]},\n    {\"id\": \"c3\", \"text\": \"A probe against a local server showed a connection still open from a requests.get call while its response was alive.\", \"role\": \"impact\", \"citations\": [{\"type\": \"code\", \"ref\": \"requests/adapters.py:126\", \"quote\": \"Currently, this just closes the PoolManager, which closes pooled\"}]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"A newer release already fixed this.\", \"why\": \"The repository is at v1.1.0, and api.py still has the unclosed Session.\", \"citations\": [{\"type\": \"code\", \"ref\": \"requests/api.py:43\", \"quote\": \"session = sessions.Session()\"}]}\n  ],\n  \"plain\": {\n    \"headline\": \"Every quick one-off web request leaves a connection open on the other server until the program cleans up later.\",\n    \"happened\": \"The simple helpers (get, post, head and so on) start a temporary session for each call. The session is never closed after the request finishes. Its connection stays open until the program's automatic cleanup gets to it, so the remote server sees a lingering open connection.\",\n    \"matters\": \"It hits anyone using the simple helpers, especially in loops or against servers with limited connections, and it uses up the server's resources.\",\n    \"fix\": \"Close the temporary session as soon as the simple helper finishes its request.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 5,
+  "inputTokens": {
+   "avg": 15651.6,
+   "max": 18780
+  },
+  "mainUsage": {
+   "inputTokens": 78258,
+   "cachedInputTokens": 66490,
+   "outputTokens": 4967
+  },
+  "cacheHitPercent": 84.96255973830152,
+  "wallSeconds": 39.48699998855591,
+  "tools": {
+   "read": 7,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 1
+  },
+  "reads": 7,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.092381,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.092381
+}

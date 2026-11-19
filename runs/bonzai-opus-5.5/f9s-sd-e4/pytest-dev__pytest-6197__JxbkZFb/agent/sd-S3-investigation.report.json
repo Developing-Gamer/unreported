@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 114537,
+ "finalText": "The error doesn't need a fix. It is pytest's own test suite deliberately calling `skip()` with a bad argument to check that the call fails, and that test passes on the current code.\n\n**What the evidence shows.** Every frame in the Sentry stack is a throwaway file that pytest's own tests create on the fly and then run:\n- `test_invalid_skip_keyword_parameter.py` comes from the test in `testing/test_skipping.py` at line 1098. It writes a module containing `pytest.skip(\"skip_module_level\", unknown=1)` and then expects to see a TypeError in the output.\n- `test_02_import_error.py`, `test_03_import_error.py` and `test_custom_repr_failure.py` come from tests in `testing/test_collection.py`. Those tests import modules that don't exist on purpose. The `foopkg` frame is a file of the same throwaway kind.\n\n**Why the error appears.** `skip()` in `src/_pytest/outcomes.py:92` is declared as `def skip(msg: str = \"\", *, allow_module_level: bool = False)`. Its only keyword is `allow_module_level`, so Python refuses `unknown=1` with exactly the reported message. Nobody calling `skip()` correctly hits this. The 160 events from 15 \"users\" are these test runs (CI or local development) being recorded as production errors.\n\n**What I ran.** In a throwaway copy of the repository:\n- The test `test_invalid_skip_keyword_parameter` passes, and its output contains `TypeError: skip() got an unexpected keyword argument 'unknown'`.\n- A normal `@pytest.mark.skip` on a class still skips only that class's tests. A plain test next to it still passed.\n\n**Side note.** A full run of `testing/test_skipping.py` in that copy failed 43 of its 76 tests (`test_skip_class` among them). When run alone, `test_skip_class` passes. The likely cause is this old pytest (5.2.4.dev) running on Python 3.9, or tests leaking state into each other. It has nothing to do with this error, and I did not investigate it further.\n\n**What to do.** Stop sending errors from pytest's own test runs to production Sentry, or filter them out there. No change to this repository is needed.\n\n```json\n{\n  \"verdict\": \"notActionable\",\n  \"title\": \"Skip TypeError comes from pytest's own self-test\",\n  \"cause\": \"The reported TypeError is what testing/test_skipping.py::test_invalid_skip_keyword_parameter intentionally provokes: it writes a temporary module that calls pytest.skip(\\\"skip_module_level\\\", unknown=1) and asserts that a TypeError is printed. skip() accepts only the keyword-only argument allow_module_level, so Python rejects 'unknown'. Every other frame (test_02_import_error.py, test_03_import_error.py, test_custom_repr_failure.py, foopkg) is also a temporary file from pytest's own suite, so these events are test runs being reported as production errors.\",\n  \"files\": [\n    {\"path\": \"testing/test_skipping.py\", \"why\": \"test_invalid_skip_keyword_parameter writes the module that raises this exact TypeError and asserts it\"},\n    {\"path\": \"src/_pytest/outcomes.py\", \"why\": \"skip() has the keyword-only signature that rejects unknown keywords; this is intended\"},\n    {\"path\": \"testing/test_collection.py\", \"why\": \"Source of the other stack frames (test_02_import_error, test_custom_repr_failure), which are also deliberate failure fixtures\"}\n  ],\n  \"plan\": [\n    \"No code change: stop sending pytest's own test runs (CI or local) to production Sentry, or filter out events whose frames are pytester temporary modules.\"\n  ],\n  \"verification\": [\n    \"PYTHONPATH=src python -m pytest testing/test_skipping.py -k invalid_skip_keyword passes and prints 'TypeError: skip() got an unexpected keyword argument 'unknown''.\",\n    \"A real module using @pytest.mark.skip on a class still skips only that class's tests and runs its other tests.\"\n  ],\n  \"userFacing\": false,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"none\",\n  \"risk\": \"none\",\n  \"confidence\": 0.9,\n  \"fixType\": \"error\",\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"pytest's own self-test writes a module that calls skip() with an unknown keyword and asserts that a TypeError is printed.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"testing/test_skipping.py:1105\", \"quote\": \"pytest.skip(\\\"skip_module_level\\\", unknown=1)\"},\n      {\"type\": \"code\", \"ref\": \"testing/test_skipping.py:1112\", \"quote\": \"result.stdout.fnmatch_lines([\\\"*TypeError:*['unknown']*\\\"])\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"rootCause\", \"text\": \"skip() takes only allow_module_level as a keyword, so Python itself raises the reported message for 'unknown'.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"src/_pytest/outcomes.py:92\", \"quote\": \"def skip(msg: str = \\\"\\\", *, allow_module_level: bool = False) -> \\\"NoReturn\\\":\"},\n      {\"type\": \"query\", \"ref\": \"probe:pytest testing/test_skipping.py -k invalid_skip_keyword -rA\", \"quote\": \"E   TypeError: skip() got an unexpected keyword argument 'unknown'\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"trigger\", \"text\": \"The other frames in the event are temporary modules from pytest's collection tests, which deliberately import modules that don't exist.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"testing/test_collection.py:811\", \"quote\": \"test_02_import_error=\\\"\\\"\\\"\"},\n      {\"type\": \"code\", \"ref\": \"testing/test_collection.py:271\", \"quote\": \"def test_custom_repr_failure(self, testdir):\"},\n      {\"type\": \"evidence\", \"ref\": \"ev_s3\", \"quote\": \"test_02_import_error.py:1 in \u2039module\u203a test_03_import_error.py:1 in \u2039module\u203a test_invalid_skip_keyword_parameter.py:2\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"impact\", \"text\": \"The self-test passes on current code, so no user of pytest calling skip() correctly sees this error.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:pytest testing/test_skipping.py -k invalid_skip_keyword\", \"quote\": \"1 passed, 75 deselected in 0.22s\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"skip() is broken for valid calls\", \"why\": \"A real module with @pytest.mark.skip on a class skipped only that class's test, and the plain test next to it passed; the reported error needs an invalid keyword.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:pytest -rs -v on sample module\", \"quote\": \"SKIPPED [1] test_a.py: unconditional skip\"}\n    ]}\n  ],\n  \"intendedBehavior\": \"pytest.skip() called with an unknown keyword argument raises a TypeError naming that argument, and pytest's self-test asserting this passes.\",\n  \"intent\": {\"deliberate\": true, \"evidence\": \"testing/test_skipping.py::test_invalid_skip_keyword_parameter, whose description is 'Verify that using pytest.skip() with unknown parameter raises an error', asserts this TypeError; skip() in src/_pytest/outcomes.py is keyword-only on purpose.\"},\n  \"plain\": {\n    \"headline\": \"The reported error is pytest's own test suite checking that a wrong use of skip is refused, not a fault people run into.\",\n    \"happened\": \"One of pytest's own tests deliberately calls skip with a setting that doesn't exist, to check that pytest refuses it. pytest refuses it with exactly the error that was reported. These test runs were being sent to the production error tracker, so the planned failure showed up there as an error.\",\n    \"matters\": \"No one using pytest correctly is affected; the events only add noise to production error reports.\",\n    \"fix\": \"Stop sending error reports from pytest's own test runs to the production error tracker, or filter them out there; the code needs no change.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 14,
+  "inputTokens": {
+   "avg": 19240.785714285714,
+   "max": 27918
+  },
+  "mainUsage": {
+   "inputTokens": 269371,
+   "cachedInputTokens": 248447,
+   "outputTokens": 10013
+  },
+  "cacheHitPercent": 92.23227444676672,
+  "wallSeconds": 113.91799998283386,
+  "tools": {
+   "read": 5,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 7
+  },
+  "reads": 5,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.35453740000000006,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.35453740000000006
+}

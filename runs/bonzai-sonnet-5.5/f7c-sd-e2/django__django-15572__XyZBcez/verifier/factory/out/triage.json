@@ -1,0 +1,32 @@
+[
+  {
+    "source": "S1",
+    "decision": "fix",
+    "reason": "get_template_directories() joins every configured template dir onto the current directory with `cwd / to_path(dir)`. An empty string, such as from `DIRS: ''.split(',')`, becomes the project root itsel"
+  },
+  {
+    "source": "S2",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: The requested ModelAdmin.get_inlines(request, obj) hook is already in this code. get_inline_instances() calls it instead of reading the inlines attribute directly, so users can override get_inlines an"
+  },
+  {
+    "source": "S3",
+    "decision": "fix",
+    "reason": "Oracle's test_db_signature() identifies a test database by the main settings USER, not by the TEST USER. Two aliases that share a main user but have different TEST USER schemas (default and reporting)"
+  },
+  {
+    "source": "S4",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The OOMKilled error comes from an export-job service whose files (export/worker.py, export/csv_writer.py) do not exist in this repository, which is the Django framework source. Nothing here references"
+  },
+  {
+    "source": "S5",
+    "decision": "fix",
+    "reason": "Node.add in django/utils/tree.py decides whether to merge a child group into itself using len(self) == 1 instead of len(data) == 1. When an OR group is added to an AND group that has one condition so "
+  },
+  {
+    "source": "S6",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: The reported bug was that get_child_arguments always used spec.parent, turning `-m foo.bar.baz` into `-m foo.bar`. The current code only uses spec.parent when the module is a package's __main__ and ot"
+  }
+]

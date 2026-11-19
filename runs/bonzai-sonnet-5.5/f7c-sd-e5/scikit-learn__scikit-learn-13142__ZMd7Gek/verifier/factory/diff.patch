@@ -1,0 +1,271 @@
+diff --git a/doc/whats_new/v0.20.rst b/doc/whats_new/v0.20.rst
+index 4daae8857..41a1105d0 100755
+--- a/doc/whats_new/v0.20.rst
++++ b/doc/whats_new/v0.20.rst
+@@ -36,6 +36,11 @@ Changelog
+   threaded when `n_jobs > 1` or `n_jobs = -1`.
+   :issue:`13005` by :user:`Prabakaran Kumaresshan <nixphix>`.
+ 
++- |Fix| Fixed a bug in :class:`decomposition.TruncatedSVD` where
++  ``explained_variance_ratio_`` was computed with the per-sample instead of
++  the per-feature total variance for sparse input, so it differed from the
++  dense result unless ``n_samples == n_features``.
++
+ :mod:`sklearn.impute`
+ .....................
+ 
+@@ -281,6 +286,11 @@ Changelog
+   if the convergence criterion is too loose or not met. :issue:`12451`
+   by :user:`Olivier Grisel <ogrisel>`.
+ 
++- |Fix| Fixed a bug where ``fit_predict`` of :class:`mixture.GaussianMixture`
++  and :class:`mixture.BayesianGaussianMixture` returned labels computed from
++  the last initialization instead of the best one when ``n_init > 1``, so they
++  disagreed with ``predict``.
++
+ :mod:`sklearn.neighbors`
+ ........................
+ 
+diff --git a/doc/whats_new/v0.21.rst b/doc/whats_new/v0.21.rst
+index 7355f75b8..06a19029f 100755
+--- a/doc/whats_new/v0.21.rst
++++ b/doc/whats_new/v0.21.rst
+@@ -152,6 +152,13 @@ Support for Python 3.4 and below has been officially dropped.
+   `compute_score=True`. :issue:`12174` by
+   :user:`Albert Thomas <albertcthomas>`.
+ 
++- |Fix| Fixed a bug in :class:`linear_model.BayesianRidge` and
++  :class:`linear_model.ARDRegression` where ``predict(X, return_std=True)``
++  did not center the query samples, so the returned standard deviation grew
++  with the mean of the features. ``ARDRegression`` now also stores
++  ``X_offset_`` and ``X_scale_``, which fixes an ``AttributeError`` with
++  ``normalize=True``.
++
+ - |API| :func:`linear_model.logistic_regression_path` is deprecated
+   in version 0.21 and will be removed in version 0.23.
+   :issue:`12821` by :user:`Nicolas Hug <NicolasHug>`.
+diff --git a/sklearn/decomposition/tests/test_truncated_svd.py b/sklearn/decomposition/tests/test_truncated_svd.py
+index 2e185c348..38f0d4eb4 100755
+--- a/sklearn/decomposition/tests/test_truncated_svd.py
++++ b/sklearn/decomposition/tests/test_truncated_svd.py
+@@ -79,6 +79,20 @@ def test_integers():
+     assert_equal(Xtrans.shape, (n_samples, tsvd.n_components))
+ 
+ 
++@pytest.mark.parametrize('algo', ("arpack", "randomized"))
++@pytest.mark.parametrize('shape', [(100, 20), (20, 100)])
++def test_explained_variance_ratio_sparse_dense_non_square(algo, shape):
++    # explained_variance_ratio_ must not depend on the input being sparse
++    rng = np.random.RandomState(0)
++    X_sp = sp.random(shape[0], shape[1], density=0.2, format='csr',
++                     random_state=rng)
++    X_de = X_sp.toarray()
++    svd_sp = TruncatedSVD(5, algorithm=algo, random_state=0).fit(X_sp)
++    svd_de = TruncatedSVD(5, algorithm=algo, random_state=0).fit(X_de)
++    assert_allclose(svd_sp.explained_variance_ratio_,
++                    svd_de.explained_variance_ratio_, rtol=1e-6)
++
++
+ def test_explained_variance():
+     # Test sparse data
+     svd_a_10_sp = TruncatedSVD(10, algorithm="arpack")
+diff --git a/sklearn/decomposition/truncated_svd.py b/sklearn/decomposition/truncated_svd.py
+index d808ed4df..cbaa5e190 100755
+--- a/sklearn/decomposition/truncated_svd.py
++++ b/sklearn/decomposition/truncated_svd.py
+@@ -184,7 +184,7 @@ class TruncatedSVD(BaseEstimator, TransformerMixin):
+         X_transformed = U * Sigma
+         self.explained_variance_ = exp_var = np.var(X_transformed, axis=0)
+         if sp.issparse(X):
+-            _, full_var = mean_variance_axis(X, axis=1)
++            _, full_var = mean_variance_axis(X, axis=0)
+             full_var = full_var.sum()
+         else:
+             full_var = np.var(X, axis=0).sum()
+diff --git a/sklearn/feature_extraction/tests/test_text.py b/sklearn/feature_extraction/tests/test_text.py
+index 894a720eb..d0c72a57a 100755
+--- a/sklearn/feature_extraction/tests/test_text.py
++++ b/sklearn/feature_extraction/tests/test_text.py
+@@ -1031,6 +1031,34 @@ def test_vectorizer_vocab_clone():
+     assert_equal(vect_vocab_clone.vocabulary_, vect_vocab.vocabulary_)
+ 
+ 
++@pytest.mark.parametrize('Vectorizer', (CountVectorizer, TfidfVectorizer))
++def test_vectorizer_unfitted_with_vocabulary(Vectorizer):
++    # A vocabulary passed to the constructor makes fitting unnecessary for
++    # transform, get_feature_names and inverse_transform alike.
++    vect = Vectorizer(vocabulary=['pizza', 'beer', 'the'])
++    assert_equal(vect.get_feature_names(), ['pizza', 'beer', 'the'])
++    X = np.array([[1, 0, 1], [0, 1, 0]])
++    inv = vect.inverse_transform(X)
++    assert_array_equal(inv[0], ['pizza', 'the'])
++    assert_array_equal(inv[1], ['beer'])
++
++    vect = Vectorizer(vocabulary=['pizza', 'beer', 'the'])
++    inv = vect.inverse_transform(X)
++    assert_array_equal(inv[0], ['pizza', 'the'])
++
++
++@pytest.mark.parametrize('Vectorizer', (CountVectorizer, TfidfVectorizer))
++def test_vectorizer_unfitted_without_vocabulary(Vectorizer):
++    from sklearn.exceptions import NotFittedError
++    X = np.array([[1, 0, 1]])
++    for method, args in [('get_feature_names', ()),
++                         ('inverse_transform', (X,)),
++                         ('transform', (['the pizza'],))]:
++        vect = Vectorizer()
++        with pytest.raises(NotFittedError):
++            getattr(vect, method)(*args)
++
++
+ @pytest.mark.parametrize('Vectorizer',
+                          (CountVectorizer, TfidfVectorizer, HashingVectorizer))
+ def test_vectorizer_string_object_as_input(Vectorizer):
+diff --git a/sklearn/feature_extraction/text.py b/sklearn/feature_extraction/text.py
+index c630155f9..a672d79ac 100755
+--- a/sklearn/feature_extraction/text.py
++++ b/sklearn/feature_extraction/text.py
+@@ -360,6 +360,9 @@ class VectorizerMixin:
+ 
+     def _check_vocabulary(self):
+         """Check if vocabulary is empty or missing (not fit-ed)"""
++        if not hasattr(self, 'vocabulary_'):
++            self._validate_vocabulary()
++
+         msg = "%(name)s - Vocabulary wasn't fitted."
+         check_is_fitted(self, 'vocabulary_', msg=msg),
+ 
+@@ -1074,9 +1077,6 @@ class CountVectorizer(BaseEstimator, VectorizerMixin):
+                 "Iterable over raw text documents expected, "
+                 "string object received.")
+ 
+-        if not hasattr(self, 'vocabulary_'):
+-            self._validate_vocabulary()
+-
+         self._check_vocabulary()
+ 
+         # use the same matrix-building strategy as fit_transform
+@@ -1117,9 +1117,6 @@ class CountVectorizer(BaseEstimator, VectorizerMixin):
+ 
+     def get_feature_names(self):
+         """Array mapping from feature integer indices to feature name"""
+-        if not hasattr(self, 'vocabulary_'):
+-            self._validate_vocabulary()
+-
+         self._check_vocabulary()
+ 
+         return [t for t, i in sorted(self.vocabulary_.items(),
+diff --git a/sklearn/linear_model/bayes.py b/sklearn/linear_model/bayes.py
+index fd01b4441..24d4ed924 100755
+--- a/sklearn/linear_model/bayes.py
++++ b/sklearn/linear_model/bayes.py
+@@ -294,8 +294,7 @@ class BayesianRidge(LinearModel, RegressorMixin):
+         if return_std is False:
+             return y_mean
+         else:
+-            if self.normalize:
+-                X = X / self.X_scale_
++            X = (X - self.X_offset_) / self.X_scale_
+             sigmas_squared_data = (np.dot(X, self.sigma_) * X).sum(axis=1)
+             y_std = np.sqrt(sigmas_squared_data + (1. / self.alpha_))
+             return y_mean, y_std
+@@ -593,6 +592,8 @@ class ARDRegression(LinearModel, RegressorMixin):
+         self.alpha_ = alpha_
+         self.sigma_ = sigma_
+         self.lambda_ = lambda_
++        self.X_offset_ = X_offset_
++        self.X_scale_ = X_scale_
+         self._set_intercept(X_offset_, y_offset_, X_scale_)
+         return self
+ 
+@@ -622,8 +623,7 @@ class ARDRegression(LinearModel, RegressorMixin):
+         if return_std is False:
+             return y_mean
+         else:
+-            if self.normalize:
+-                X = (X - self.X_offset_) / self.X_scale_
++            X = (X - self.X_offset_) / self.X_scale_
+             X = X[:, self.lambda_ < self.threshold_lambda]
+             sigmas_squared_data = (np.dot(X, self.sigma_) * X).sum(axis=1)
+             y_std = np.sqrt(sigmas_squared_data + (1. / self.alpha_))
+diff --git a/sklearn/linear_model/tests/test_bayes.py b/sklearn/linear_model/tests/test_bayes.py
+index 389984085..fa1ec8c07 100755
+--- a/sklearn/linear_model/tests/test_bayes.py
++++ b/sklearn/linear_model/tests/test_bayes.py
+@@ -218,3 +218,26 @@ def test_return_std():
+         m2.fit(X, y)
+         y_mean2, y_std2 = m2.predict(X_test, return_std=True)
+         assert_array_almost_equal(y_std2, noise_mult, decimal=decimal)
++
++
++def test_return_std_with_large_feature_offset():
++    # The predictive std must not depend on a constant shift of the features:
++    # the posterior covariance is fitted on centred (and scaled) data, so the
++    # query points have to be transformed in the same way.
++    rng = np.random.RandomState(0)
++    n_train, n_test, d = 50, 10, 3
++    w = np.array([1.0, 0.0, -1.0])
++    X = rng.random_sample((n_train, d))
++    X_test = rng.random_sample((n_test, d))
++    y = np.dot(X, w) + 1. + 0.1 * rng.randn(n_train)
++    offset = 1000.
++
++    for Estimator in (BayesianRidge, ARDRegression):
++        for normalize in (False, True):
++            ref = Estimator(normalize=normalize).fit(X, y)
++            shifted = Estimator(normalize=normalize).fit(X + offset, y)
++            mean_ref, std_ref = ref.predict(X_test, return_std=True)
++            mean_sh, std_sh = shifted.predict(X_test + offset,
++                                              return_std=True)
++            assert_array_almost_equal(mean_sh, mean_ref, decimal=3)
++            assert_array_almost_equal(std_sh, std_ref, decimal=3)
+diff --git a/sklearn/mixture/base.py b/sklearn/mixture/base.py
+index bd34333c0..2dd7f804b 100755
+--- a/sklearn/mixture/base.py
++++ b/sklearn/mixture/base.py
+@@ -257,11 +257,6 @@ class BaseMixture(DensityMixin, BaseEstimator, metaclass=ABCMeta):
+                 best_params = self._get_parameters()
+                 best_n_iter = n_iter
+ 
+-        # Always do a final e-step to guarantee that the labels returned by
+-        # fit_predict(X) are always consistent with fit(X).predict(X)
+-        # for any value of max_iter and tol (and any random_state).
+-        _, log_resp = self._e_step(X)
+-
+         if not self.converged_:
+             warnings.warn('Initialization %d did not converge. '
+                           'Try different init parameters, '
+@@ -273,6 +268,12 @@ class BaseMixture(DensityMixin, BaseEstimator, metaclass=ABCMeta):
+         self.n_iter_ = best_n_iter
+         self.lower_bound_ = max_lower_bound
+ 
++        # Always do a final e-step to guarantee that the labels returned by
++        # fit_predict(X) are always consistent with fit(X).predict(X)
++        # for any value of max_iter and tol (and any random_state).
++        # It must use the best parameters, so it runs after they are set.
++        _, log_resp = self._e_step(X)
++
+         return log_resp.argmax(axis=1)
+ 
+     def _e_step(self, X):
+diff --git a/sklearn/mixture/tests/test_gaussian_mixture.py b/sklearn/mixture/tests/test_gaussian_mixture.py
+index 4d549ccd7..2599ffaa8 100755
+--- a/sklearn/mixture/tests/test_gaussian_mixture.py
++++ b/sklearn/mixture/tests/test_gaussian_mixture.py
+@@ -598,6 +598,16 @@ def test_gaussian_mixture_fit_predict(seed, max_iter, tol):
+         assert_greater(adjusted_rand_score(Y, Y_pred2), .95)
+ 
+ 
++@pytest.mark.filterwarnings("ignore:.*did not converge.*")
++def test_gaussian_mixture_fit_predict_n_init():
++    # fit_predict(X) must agree with fit(X).predict(X) when n_init > 1
++    X = np.random.RandomState(0).randn(1000, 5)
++    gm = GaussianMixture(n_components=5, n_init=5, random_state=0)
++    y_pred1 = gm.fit_predict(X)
++    y_pred2 = gm.predict(X)
++    assert_array_equal(y_pred1, y_pred2)
++
++
+ def test_gaussian_mixture_fit():
+     # recover the ground truth
+     rng = np.random.RandomState(0)

@@ -1,0 +1,27 @@
+[
+  {
+    "source": "S1",
+    "decision": "fix",
+    "reason": "When a continuous scale builds its legend, it calls the axis's default ScalarFormatter to format the tick values. For large numbers such as body_mass_mg (3,000,000 to 6,000,000) that formatter turns o"
+  },
+  {
+    "source": "S2",
+    "decision": "fix",
+    "reason": "Dodge shrinks the bar widths by (1 - gap) before it computes the per-bar offsets, so the offsets are laid out edge to edge from the already-narrowed widths. Bars in a group therefore stay adjacent wit"
+  },
+  {
+    "source": "S3",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: In this code ci='sd' is mapped by the deprecation helper to errorbar='sd' and both go through the same aggregator (pandas std * level 1). Running the reporter's data gives identical line coordinates f"
+  },
+  {
+    "source": "S4",
+    "decision": "fix",
+    "reason": "In resolve_color (seaborn/_marks/base.py), the single-colour path returns RGBA colours unchanged, so legend swatches keep their own alpha. The branch for an N\u00d74 RGBA array instead calls to_rgba_array("
+  },
+  {
+    "source": "S5",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The error comes from a separate service called webhook-relay. Its code (relay/deliver.py, aiohttp) posts webhooks to api.github.com, and that call timed out after 30 s. This repository is the seaborn "
+  }
+]

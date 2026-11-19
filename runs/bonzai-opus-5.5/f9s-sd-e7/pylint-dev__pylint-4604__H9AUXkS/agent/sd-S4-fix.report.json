@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 37924,
+ "finalText": "The fix is in place: `unneeded-not` no longer suggests a flipped comparison when a set or frozenset is on the right-hand side. The change is uncommitted in the working tree, as the benchmark note asked.\n\nI re-ran the scoped functional tests (`unnecessary_not`, `consider_using_in`, `superfluous_parens`) and they pass (3 passed). I did not run the full test suite. The PR text is at `/testbed/.factory/pr-S4.md`.\n\nThe change is one line in `pylint/checkers/refactoring/not_checker.py`: the set/frozenset guard now checks both operands, not just the left one. I added four tolerated cases to `tests/functional/u/unnecessary/unnecessary_not.py` and a ChangeLog entry. The test file also gets `misplaced-comparison-constant` added to its disable line, because the `3 <= set(...)` case triggers it. Before the fix, the new cases failed with `unneeded-not` reported on all four of them.\n\n`git diff` also shows changes to `variables.py`, `constants.py`, `pyreverse/main.py` and two unit-test files, plus other ChangeLog lines. They were already in the working tree and come from the open PRs #1000 and #1001, not from this fix.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"command\": \"python -m pytest tests/test_functional.py -k 'unnecessary_not or consider_using_in or superfluous_parens'\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"reproductionSteps\": \"Lint `if not {}.keys() <= set(something): pass` with only unneeded-not enabled; before the fix it suggests `{}.keys() > set(something)`, which is not equivalent for disjoint sets.\",\n  \"reproductionTest\": {\n    \"path\": \"tests/functional/u/unnecessary/unnecessary_not.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest tests/test_functional.py -k unnecessary_not -q\",\n    \"signature\": \"AssertionError: Wrong results for file \\\"unnecessary_not\\\": Unexpected in testdata: 58: unneeded-not\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 11,
+  "inputTokens": {
+   "avg": 24392,
+   "max": 28822
+  },
+  "mainUsage": {
+   "inputTokens": 268312,
+   "cachedInputTokens": 253380,
+   "outputTokens": 4301
+  },
+  "cacheHitPercent": 94.43483705536838,
+  "wallSeconds": 36.467000007629395,
+  "tools": {
+   "read": 6,
+   "edit": 3,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 3
+  },
+  "reads": 6,
+  "edits": 3,
+  "runs": 3,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 1,
+  "editOperations": 1,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.131003,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.131003
+}

@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 110068,
+ "finalText": "`DataArrayRolling.__iter__` now respects `center`, so manually iterated windows match `rolling(..., center=True)` reductions. The change is uncommitted in the working tree, as the benchmark note asked. I checked the working tree and `.factory/pr-S4.md` once more and found nothing to correct.\n\n**Fix:** In `xarray/core/rolling.py`, window stops now start at `(window + 1) // 2` when `center` is set, and at 1 otherwise. Starts are clipped to 0, and `isel` clips stops past the end. The `min_periods` masking is unchanged.\n\n**Tests:** `test_rolling_iter` is now parametrized over `center`. I also added `test_rolling_iter_matches_reduction`, which compares each iterated window's mean with `rolling(...).mean()` for windows 3 and 4, centered and not.\n\n**Verification:** On the starting commit the new tests failed, 4 of them with `center=True`. After the fix, `pytest xarray/tests/test_rolling.py` gives 1798 passed, 32 skipped, 4 xpassed. I ran it with `/opt/miniconda3/envs/testbed/bin/python`, since the default `python` has no pytest.\n\nI also added a whats-new entry in `doc/whats-new.rst`, citing issue 6739, which I assumed from the discussion number 6738. The pull request text is in `.factory/pr-S4.md`.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"checks\": [\n    {\"name\": \"pytest xarray/tests/test_rolling.py\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"reproductionSteps\": [\n    \"da = xr.DataArray(np.arange(1.0, 10.0), dims='x')\",\n    \"r = da.rolling(x=3, center=True)\",\n    \"[w.mean().item() for _, w in r] differs from r.mean().values (windows trail their label instead of being centered)\"\n  ],\n  \"reproductionTest\": {\n    \"path\": \"xarray/tests/test_rolling.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest xarray/tests/test_rolling.py -k rolling_iter -q\",\n    \"signature\": \"AssertionError: Arrays are not equal (test_rolling_iter[numpy-True-1]: assert_array_equal(actual.isnull(), expected.isnull()) mismatched 12 / 12)\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 15,
+  "inputTokens": {
+   "avg": 23662.066666666666,
+   "max": 27945
+  },
+  "mainUsage": {
+   "inputTokens": 354931,
+   "cachedInputTokens": 340868,
+   "outputTokens": 5376
+  },
+  "cacheHitPercent": 96.03782143571567,
+  "wallSeconds": 109.21500015258789,
+  "tools": {
+   "read": 5,
+   "edit": 6,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 2,
+   "subagent": 0,
+   "other": 5
+  },
+  "reads": 5,
+  "edits": 6,
+  "runs": 5,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 5,
+  "editOperations": 6,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1570741,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1570741
+}

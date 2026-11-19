@@ -1,0 +1,125 @@
+diff --git a/seaborn/_core/plot.py b/seaborn/_core/plot.py
+index 4f0290a4..112053ba 100644
+--- a/seaborn/_core/plot.py
++++ b/seaborn/_core/plot.py
+@@ -14,6 +14,7 @@ from collections.abc import Callable, Generator
+ from typing import Any, List, Optional, cast
+ 
+ from cycler import cycler
++import numpy as np
+ import pandas as pd
+ from pandas import DataFrame, Series, Index
+ import matplotlib as mpl
+@@ -1475,21 +1476,22 @@ class Plotter:
+ 
+                 axes_df = self._filter_subplot_data(df, view)
+ 
+-                with pd.option_context("mode.use_inf_as_null", True):
+-                    if keep_na:
+-                        # The simpler thing to do would be x.dropna().reindex(x.index).
+-                        # But that doesn't work with the way that the subset iteration
+-                        # is written below, which assumes data for grouping vars.
+-                        # Matplotlib (usually?) masks nan data, so this should "work".
+-                        # Downstream code can also drop these rows, at some speed cost.
+-                        present = axes_df.notna().all(axis=1)
+-                        nulled = {}
+-                        for axis in "xy":
+-                            if axis in axes_df:
+-                                nulled[axis] = axes_df[axis].where(present)
+-                        axes_df = axes_df.assign(**nulled)
+-                    else:
+-                        axes_df = axes_df.dropna()
++                # Treat infinite values as missing
++                axes_df = axes_df.replace([np.inf, -np.inf], np.nan)
++                if keep_na:
++                    # The simpler thing to do would be x.dropna().reindex(x.index).
++                    # But that doesn't work with the way that the subset iteration
++                    # is written below, which assumes data for grouping vars.
++                    # Matplotlib (usually?) masks nan data, so this should "work".
++                    # Downstream code can also drop these rows, at some speed cost.
++                    present = axes_df.notna().all(axis=1)
++                    nulled = {}
++                    for axis in "xy":
++                        if axis in axes_df:
++                            nulled[axis] = axes_df[axis].where(present)
++                    axes_df = axes_df.assign(**nulled)
++                else:
++                    axes_df = axes_df.dropna()
+ 
+                 subplot_keys = {}
+                 for dim in ["col", "row"]:
+diff --git a/seaborn/_oldcore.py b/seaborn/_oldcore.py
+index 192af381..315fd417 100644
+--- a/seaborn/_oldcore.py
++++ b/seaborn/_oldcore.py
+@@ -1116,13 +1116,13 @@ class VectorPlotter:
+                 parts = []
+                 grouped = self.plot_data[var].groupby(self.converters[var], sort=False)
+                 for converter, orig in grouped:
+-                    with pd.option_context('mode.use_inf_as_null', True):
+-                        orig = orig.dropna()
+-                        if var in self.var_levels:
+-                            # TODO this should happen in some centralized location
+-                            # it is similar to GH2419, but more complicated because
+-                            # supporting `order` in categorical plots is tricky
+-                            orig = orig[orig.isin(self.var_levels[var])]
++                    # Treat infinite values as missing
++                    orig = orig.replace([np.inf, -np.inf], np.nan).dropna()
++                    if var in self.var_levels:
++                        # TODO this should happen in some centralized location
++                        # it is similar to GH2419, but more complicated because
++                        # supporting `order` in categorical plots is tricky
++                        orig = orig[orig.isin(self.var_levels[var])]
+                     comp = pd.to_numeric(converter.convert_units(orig))
+                     if converter.get_scale() == "log":
+                         comp = np.log10(comp)
+diff --git a/seaborn/categorical.py b/seaborn/categorical.py
+index 3394c9c7..d968e0e0 100644
+--- a/seaborn/categorical.py
++++ b/seaborn/categorical.py
+@@ -1790,8 +1790,7 @@ class _LVPlotter(_CategoricalPlotter):
+         vals = np.asarray(vals)
+         # Remove infinite values while handling a 'object' dtype
+         # that can come from pd.Float64Dtype() input
+-        with pd.option_context('mode.use_inf_as_null', True):
+-            vals = vals[~pd.isnull(vals)]
++        vals = pd.Series(vals).replace([np.inf, -np.inf], np.nan).dropna().to_numpy()
+         n = len(vals)
+         p = self.outlier_prop
+ 
+diff --git a/tests/_core/test_plot.py b/tests/_core/test_plot.py
+index 03a64917..d4c73484 100644
+--- a/tests/_core/test_plot.py
++++ b/tests/_core/test_plot.py
+@@ -661,6 +661,13 @@ class TestPlotting:
+         Plot().plot()
+         assert m.n_splits == 0
+ 
++    def test_infinite_values_dropped(self):
++
++        m = MockMark()
++        Plot(x=[1, 2, np.inf], y=[1, -np.inf, 3]).add(m).plot()
++        assert_array_equal(m.passed_data[0]["x"], [1])
++        assert_array_equal(m.passed_data[0]["y"], [1])
++
+     def test_single_split_single_layer(self, long_df):
+ 
+         m = MockMark()
+diff --git a/tests/test_categorical.py b/tests/test_categorical.py
+index 73b4b65c..a9a219b2 100644
+--- a/tests/test_categorical.py
++++ b/tests/test_categorical.py
+@@ -3363,6 +3363,13 @@ class TestBoxenPlotter(CategoricalFixture):
+ 
+         plt.close("all")
+ 
++    def test_infinite_values(self):
++
++        x = [1., 2, 3, 4, np.inf, -np.inf]
++        ax = cat.boxenplot(x=x)
++        assert ax.get_xlim()[1] < np.inf
++        plt.close("all")
++
+     def test_line_kws(self):
+         line_kws = {'linewidth': 5, 'color': 'purple',
+                     'linestyle': '-.'}

@@ -1,0 +1,154 @@
+diff --git a/django/db/backends/oracle/creation.py b/django/db/backends/oracle/creation.py
+index 50b36463f3..df773bff8c 100644
+--- a/django/db/backends/oracle/creation.py
++++ b/django/db/backends/oracle/creation.py
+@@ -460,5 +460,5 @@ class DatabaseCreation(BaseDatabaseCreation):
+             settings_dict["PORT"],
+             settings_dict["ENGINE"],
+             settings_dict["NAME"],
+-            settings_dict["USER"],
++            self._test_database_user(),
+         )
+diff --git a/django/template/autoreload.py b/django/template/autoreload.py
+index 84c8554165..f3fd704031 100644
+--- a/django/template/autoreload.py
++++ b/django/template/autoreload.py
+@@ -17,7 +17,7 @@ def get_template_directories():
+         if not isinstance(backend, DjangoTemplates):
+             continue
+ 
+-        items.update(cwd / to_path(dir) for dir in backend.engine.dirs)
++        items.update(cwd / to_path(dir) for dir in backend.engine.dirs if dir)
+ 
+         for loader in backend.engine.template_loaders:
+             if not hasattr(loader, "get_dirs"):
+@@ -25,7 +25,7 @@ def get_template_directories():
+             items.update(
+                 cwd / to_path(directory)
+                 for directory in loader.get_dirs()
+-                if not is_django_path(directory)
++                if directory and not is_django_path(directory)
+             )
+     return items
+ 
+diff --git a/django/utils/tree.py b/django/utils/tree.py
+index c416125b74..ac286c0481 100644
+--- a/django/utils/tree.py
++++ b/django/utils/tree.py
+@@ -104,13 +104,12 @@ class Node:
+         elif (
+             isinstance(data, Node)
+             and not data.negated
+-            and (data.connector == conn_type or len(self) == 1)
++            and (data.connector == conn_type or len(data) == 1)
+         ):
+             # We can squash the other node's children directly into this node.
+             # We are just doing (AB)(CD) == (ABCD) here, with the addition that
+             # if the length of the other node is 1 the connector doesn't
+-            # matter. However, for the len(self) == 1 case we don't want to do
+-            # the squashing, as it would alter self.connector.
++            # matter.
+             self.children.extend(data.children)
+             return self
+         else:
+diff --git a/tests/backends/oracle/test_creation.py b/tests/backends/oracle/test_creation.py
+index 6f6b9fd233..6dee9029bb 100644
+--- a/tests/backends/oracle/test_creation.py
++++ b/tests/backends/oracle/test_creation.py
+@@ -4,7 +4,7 @@ from unittest import mock
+ 
+ from django.db import DatabaseError, connection
+ from django.db.backends.oracle.creation import DatabaseCreation
+-from django.test import TestCase
++from django.test import SimpleTestCase, TestCase
+ 
+ 
+ @unittest.skipUnless(connection.vendor == "oracle", "Oracle tests")
+@@ -109,3 +109,32 @@ class DatabaseCreationTests(TestCase):
+                     # REUSE cannot be used with OMF.
+                     self.assertNotIn("REUSE", tblspace_sql)
+                     self.assertNotIn("REUSE", tblspace_tmp_sql)
++
++
++class TestDbSignatureTests(SimpleTestCase):
++    def get_creation(self, test_settings=None):
++        settings_dict = {
++            "HOST": "localhost",
++            "PORT": "1521",
++            "ENGINE": "django.db.backends.oracle",
++            "NAME": "xe",
++            "USER": "django",
++            "TEST": test_settings or {},
++        }
++        return DatabaseCreation(mock.Mock(settings_dict=settings_dict))
++
++    def test_different_test_users_have_different_signatures(self):
++        default = self.get_creation({"USER": "test_default"})
++        reporting = self.get_creation({"USER": "test_reporting"})
++        self.assertNotEqual(default.test_db_signature(), reporting.test_db_signature())
++
++    def test_same_test_user_has_same_signature(self):
++        first = self.get_creation({"USER": "test_shared"})
++        second = self.get_creation({"USER": "test_shared"})
++        self.assertEqual(first.test_db_signature(), second.test_db_signature())
++
++    def test_default_test_user_has_same_signature(self):
++        self.assertEqual(
++            self.get_creation().test_db_signature(),
++            self.get_creation().test_db_signature(),
++        )
+diff --git a/tests/queries/test_q.py b/tests/queries/test_q.py
+index 39645a6f31..eb077f90b2 100644
+--- a/tests/queries/test_q.py
++++ b/tests/queries/test_q.py
+@@ -51,6 +51,23 @@ class QTests(SimpleTestCase):
+                 self.assertEqual(q, base_q)
+                 self.assertIsNot(q, base_q)
+ 
++    def test_combine_keeps_nested_or_group(self):
++        q = Q(a=1) & (Q(b=2) | Q(c=3))
++        self.assertEqual(q.connector, Q.AND)
++        self.assertEqual(q.children[0], ("a", 1))
++        self.assertEqual(len(q.children), 2)
++        nested = q.children[1]
++        self.assertEqual(nested.connector, Q.OR)
++        self.assertEqual(nested.children, [("b", 2), ("c", 3)])
++
++    def test_combine_keeps_nested_and_group(self):
++        q = Q(b=2) | (Q(a=1) & Q(c=3))
++        self.assertEqual(q.connector, Q.OR)
++        self.assertEqual(len(q.children), 2)
++        nested = q.children[1]
++        self.assertEqual(nested.connector, Q.AND)
++        self.assertEqual(nested.children, [("a", 1), ("c", 3)])
++
+     def test_combine_or_both_empty(self):
+         self.assertEqual(Q() | Q(), Q())
+ 
+diff --git a/tests/template_tests/test_autoreloader.py b/tests/template_tests/test_autoreloader.py
+index cc2c3f58a5..071b41f797 100644
+--- a/tests/template_tests/test_autoreloader.py
++++ b/tests/template_tests/test_autoreloader.py
+@@ -103,6 +103,22 @@ class TemplateReloadTests(SimpleTestCase):
+             },
+         )
+ 
++    @override_settings(
++        TEMPLATES=[
++            {
++                "DIRS": [""],
++                "BACKEND": "django.template.backends.django.DjangoTemplates",
++            }
++        ]
++    )
++    @mock.patch("django.template.autoreload.reset_loaders")
++    def test_empty_template_dir_ignored(self, mock_reset):
++        self.assertNotIn(Path.cwd(), autoreload.get_template_directories())
++        self.assertIsNone(
++            autoreload.template_changed(None, Path.cwd() / "unrelated.txt")
++        )
++        mock_reset.assert_not_called()
++
+ 
+ @require_jinja2
+ @override_settings(INSTALLED_APPS=["template_tests"])

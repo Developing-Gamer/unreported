@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 81877,
+ "finalText": "I re-checked the work against the request. It was read-only: I edited no repository files and ran commands only through probe. One thing to correct: one probe run read the code from `/testbed` instead of the probe's own copy. It only linted `/tmp/a.py`. No repository files were changed, but pylint may have saved its usual score history outside the repository. I also replaced one citation whose quote was too short and spanned a line break.\n\n**Finding:** pylint gives a false \"unused import\" warning when a module is used only through a dotted name in a `# type:` comment. The bug is in this repository and still happens in the current code (pylint 2.9.0-dev1).\n\n**Why:** In `pylint/checkers/variables.py`, the function that records names used in type comments (`_store_type_annotation_node`) only handles two shapes:\n- a bare name, like `ABC`;\n- a subscripted form, like `List[int]`.\n\nA dotted name like `abc.ABC` is neither, so the function stops early (line 1829) and records nothing. The unused-import check (line 2034) then can't find `abc` among the names used in annotations and reports it as unused.\n\n**Confirmed:**\n- Running the current code on the issue's example prints `/tmp/a.py:3:0: W0611: Unused import abc (unused-import)`.\n- The existing variables unit tests and the `unused_import`/`unused_typing` functional tests all pass, so none of them covers this case.\n- No later change fixes it, and there are no open pull requests.\n\n**The fix:** when the annotation is a dotted name, record the name on its left-hand side (`abc` for `abc.ABC`, and `a` for `a.b.c`). Add a functional test with the issue's example. It's a few lines and low risk.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"False unused-import for module used in type comment\",\n  \"cause\": \"VariablesChecker._store_type_annotation_node only records names from astroid.Name and astroid.Subscript annotations; an astroid.Attribute such as `abc.ABC` from a `# type:` comment hits the early return, so `abc` never enters _type_annotation_names. The unused-import check then sees no use of `abc` and emits W0611.\",\n  \"files\": [\n    {\"path\": \"pylint/checkers/variables.py\", \"why\": \"_store_type_annotation_node (lines 1823-1843) ignores Attribute annotations; the unused-import check at line 2034 relies on the names it stores\"},\n    {\"path\": \"tests/functional/u/unused/unused_import.py\", \"why\": \"add a regression case for a module used only via a dotted type comment (with matching .txt expectations)\"}\n  ],\n  \"plan\": [\n    \"In _store_type_annotation_node, add: if isinstance(type_annotation, astroid.Attribute): self._store_type_annotation_node(type_annotation.expr); return \u2014 before the Subscript check, so nested attributes resolve down to the root Name\",\n    \"Add functional test lines: `import abc` with `X = ...  # type: abc.ABC`, and expect no unused-import\",\n    \"Optionally add a unittest in tests/checkers/unittest_variables.py asserting no unused-import for the issue snippet\"\n  ],\n  \"verification\": [\n    \"Run pylint --disable=all --enable=unused-import on the issue's snippet: no W0611 is reported\",\n    \"pytest tests/test_functional.py -k unused_import and tests/checkers/unittest_variables.py pass\",\n    \"Make sure a genuinely unused `import abc` (no type comment) still triggers W0611\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small (a few lines plus a test)\",\n  \"risk\": \"low: it only adds names to the 'used in annotations' set, for attribute-form annotations\",\n  \"confidence\": 0.95,\n  \"fixType\": \"error\",\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"_store_type_annotation_node returns without recording anything for annotations that are neither Name nor Subscript, which includes the Attribute `abc.ABC`.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"pylint/checkers/variables.py:1829\", \"quote\": \"if not isinstance(type_annotation, astroid.Subscript):\"},\n      {\"type\": \"code\", \"ref\": \"pylint/checkers/variables.py:1825\", \"quote\": \"if isinstance(type_annotation, astroid.Name):\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"rootCause\", \"text\": \"The unused-import check exempts an import only when its name appears in _type_annotation_names, so `abc` is reported as unused.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"pylint/checkers/variables.py:2034\", \"quote\": \"imported_name in self._type_annotation_names\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"trigger\", \"text\": \"Type comments on assignments go through _store_type_annotation_names, which forwards node.type_annotation to the faulty function.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"pylint/checkers/variables.py:1849\", \"quote\": \"self._store_type_annotation_node(node.type_annotation)\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"impact\", \"text\": \"Running the current checkout on the issue's snippet still emits the false positive.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:pylint /tmp/a.py\", \"quote\": \"/tmp/a.py:3:0: W0611: Unused import abc (unused-import)\"}\n    ]},\n    {\"id\": \"c5\", \"role\": \"impact\", \"text\": \"A user reported the false positive on pylint 2.8.3.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s6\", \"quote\": \"/tmp/a.py:3:0: W0611: Unused import abc (unused-import)\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"Already fixed after 2.8.3\", \"why\": \"The current checkout (pylint 2.9.0-dev1) still produces the warning on the issue's snippet.\", \"citations\": [{\"type\": \"query\", \"ref\": \"probe:pylint /tmp/a.py\", \"quote\": \"Your code has been rated at 7.50/10\"}]},\n    {\"hypothesis\": \"Existing tests cover dotted type comments\", \"why\": \"The relevant unit and functional tests all pass even though the bug is present, so none of them exercises this case.\", \"citations\": [{\"type\": \"query\", \"ref\": \"probe:pytest tests/checkers/unittest_variables.py\", \"quote\": \"20 passed, 1 warning in 0.78s\"}]}\n  ],\n  \"intendedBehavior\": \"Linting a module that imports `abc` and uses it only in `X = ...  # type: abc.ABC` reports no unused-import.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"The docstring says the function should 'store all the name nodes it refers to'; dropping Attribute annotations is a case the author did not handle, not a choice.\"},\n  \"plain\": {\n    \"headline\": \"Pylint wrongly says a module is unused when the code mentions it only in a type comment, written as module dot name.\",\n    \"happened\": \"The person imported a module and referred to it only in a type comment, as module dot class. Pylint collects the names used in type comments but skips this dotted form. So it reported the import as unused and lowered the code's score.\",\n    \"matters\": \"Anyone who writes type comments with dotted names gets false warnings and has to silence them or move their imports around.\",\n    \"fix\": \"Teach the type-comment reader to count the module on the left of a dotted name as used, and add a test for it.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 9,
+  "inputTokens": {
+   "avg": 16589.11111111111,
+   "max": 22925
+  },
+  "mainUsage": {
+   "inputTokens": 149302,
+   "cachedInputTokens": 133381,
+   "outputTokens": 7608
+  },
+  "cacheHitPercent": 89.33637861515587,
+  "wallSeconds": 81.21600008010864,
+  "tools": {
+   "read": 3,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 4
+  },
+  "reads": 3,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.25841919999999996,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.25841919999999996
+}

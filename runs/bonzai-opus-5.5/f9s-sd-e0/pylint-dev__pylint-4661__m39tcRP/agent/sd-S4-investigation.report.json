@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 60535,
+ "finalText": "**Fixable: when pylint's own functional tests fail, the mismatch summary never lists extra warnings.**\n\nThe summary has an \"Unexpected in testdata\" section for warnings that showed up but weren't expected. That section can never be filled, because of a bug in `multiset_difference` in [lint_module_test.py](file:///testbed/pylint/testutils/lint_module_test.py).\n\n**Cause:** the function works out the difference with `missing = expected_entries - actual_entries`. Subtracting two Python `Counter`s throws away any count of zero or below. The loop after it only records extras when a count is below zero, so that never happens. Missing warnings are still reported correctly. Extra warnings appear only in the raw output you get with `-v`, which is exactly what the CI message described.\n\n**Proof:** importing the real module in the probe copy failed because `toml` isn't installed, so I ran a copy of the function body on its own.\n- Expected warnings: `{(1,'a'):1, (4,'d'):1}`. Actual: `{(1,'a'):1, (2,'b'):1, (3,'c'):2}`.\n- Current code returns `(Counter({(4, 'd'): 1}), {})`, so both extras are lost.\n- Using `missing = expected.copy(); missing.subtract(actual)` returns `{(2, 'b'): 1, (3, 'c'): 2}` as extras.\n\n**Not deliberate:** the loop has a branch meant to collect extras, and the summary prints a section for them. There's no test for this function, and git history is a single snapshot commit, so I couldn't tell when it broke.\n\n**Fix:** change that one line to copy the expected counts and use `.subtract()`. Then add a unit test that checks extras come back from the function and appear in the summary.\n\n**Who feels it:** only pylint contributors and maintainers reading CI failures, not people who use pylint.\n\nI didn't edit any files; this was a read-only investigation.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Test mismatch summary never lists extra warnings\",\n  \"cause\": \"LintModuleTest.multiset_difference computes `missing = expected_entries - actual_entries`. Counter subtraction discards zero and negative counts, so the following loop that collects negative values into `unexpected` never fires. error_msg_for_unequal_messages therefore never prints the 'Unexpected in testdata' section, and extra warnings show up only in the verbose raw output.\",\n  \"files\": [\n    {\"path\": \"pylint/testutils/lint_module_test.py\", \"why\": \"multiset_difference uses Counter '-' which drops negative counts, so unexpected messages are always empty\"},\n    {\"path\": \"tests/testutils/\", \"why\": \"place for a new unit test of multiset_difference covering unexpected entries\"}\n  ],\n  \"plan\": [\n    \"In multiset_difference replace `missing = expected_entries - actual_entries` with `missing = expected_entries.copy(); missing.subtract(actual_entries)` so negative counts are kept\",\n    \"Keep the existing loop that pops counts <= 0 and records negative ones as unexpected\",\n    \"Add a unit test asserting multiset_difference(Counter({(1,'a'):1}), Counter({(1,'a'):1,(2,'b'):1})) returns ({}, {(2,'b'):1}) and that error_msg_for_unequal_messages contains 'Unexpected in testdata'\"\n  ],\n  \"verification\": [\n    \"New unit test fails on current code (unexpected == {}) and passes after the change\",\n    \"Run pytest tests/test_functional.py with a functional test file edited to emit an extra message and confirm the failure text includes the 'Unexpected in testdata' section\"\n  ],\n  \"userFacing\": false,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.95,\n  \"fixType\": \"silentFailure\",\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"multiset_difference uses Counter subtraction, which drops non-positive counts, so the branch that records unexpected entries is unreachable.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"pylint/testutils/lint_module_test.py:131\", \"quote\": \"missing = expected_entries - actual_entries\"},\n      {\"type\": \"code\", \"ref\": \"pylint/testutils/lint_module_test.py:136\", \"quote\": \"if value < 0:\\n                    unexpected[key] = -value\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"impact\", \"text\": \"The mismatch message only adds the 'Unexpected in testdata' section when unexpected is non-empty, so extra warnings appear only in the verbose raw output.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"pylint/testutils/lint_module_test.py:202\", \"quote\": \"if unexpected:\\n            msg.append(\\\"\\\\nUnexpected in testdata:\\\")\"},\n      {\"type\": \"code\", \"ref\": \"pylint/testutils/lint_module_test.py:207\", \"quote\": \"error_msg += \\\"\\\\n\\\\nActual pylint output for this file:\\\\n\\\"\"},\n      {\"type\": \"evidence\", \"ref\": \"ev_s4\", \"quote\": \"Extra warnings are visible in the verbose output but absent from the mismatch summary.\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"other\", \"text\": \"A standalone run of the function body with two extra actual messages returned an empty unexpected dict, while the copy-and-subtract variant returned them.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:python\", \"quote\": \"current (Counter({(4, 'd'): 1}), {})\\nfixed (Counter({(4, 'd'): 1}), {(2, 'b'): 1, (3, 'c'): 2})\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"Extras are intentionally omitted from the summary\", \"why\": \"The function has explicit code to collect negative counts into `unexpected`, and the caller prints an 'Unexpected in testdata' section, so reporting extras was the intended design.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"pylint/testutils/lint_module_test.py:203\", \"quote\": \"msg.append(\\\"\\\\nUnexpected in testdata:\\\")\"}\n    ]}\n  ],\n  \"intendedBehavior\": \"When a functional test emits a message not listed in the test file, the failure message lists it under 'Unexpected in testdata' with its line and symbol.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"multiset_difference contains a branch that records negative counts as unexpected and error_msg_for_unequal_messages prints them; Counter subtraction makes that branch unreachable, which nobody chose.\"},\n  \"plain\": {\n    \"headline\": \"When pylint's own tests fail, the summary hides warnings that showed up but weren't expected, so contributors only see half the problem.\",\n    \"happened\": \"A test compares the warnings pylint should give with the ones it actually gives. The step that works out the difference throws away the extra ones by accident. So the summary only lists the warnings that went missing, and the extras show up only in the long detailed output.\",\n    \"matters\": \"Every contributor or maintainer looking into a failed check gets an incomplete reason, which slows down fixing it.\",\n    \"fix\": \"Change how the difference is worked out so extra warnings are kept, and add a test that makes sure they appear in the summary.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 7,
+  "inputTokens": {
+   "avg": 14451.285714285714,
+   "max": 18718
+  },
+  "mainUsage": {
+   "inputTokens": 101159,
+   "cachedInputTokens": 89449,
+   "outputTokens": 6266
+  },
+  "cacheHitPercent": 88.42416393993614,
+  "wallSeconds": 59.70900011062622,
+  "tools": {
+   "read": 3,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 2
+  },
+  "reads": 3,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.20174179999999997,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.20174179999999997
+}

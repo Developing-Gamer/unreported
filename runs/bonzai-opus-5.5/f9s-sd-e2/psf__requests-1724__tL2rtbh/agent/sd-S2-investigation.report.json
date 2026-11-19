@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 65323,
+ "finalText": "I went back over the report and found one problem: two code quotes spanned two lines, so they wouldn't match the file exactly. I changed them to single-line quotes; the verdict is the same.\n\n**The error doesn't come from this repository.** When the billing worker tried to create a Stripe charge, its connection to `api.stripe.com` was refused before any request was sent. The `requests` library only passes that refusal on as a `ConnectionError`. The problem is in the network between the billing worker and Stripe.\n\n**What I checked:**\n- **The code:** in `requests/adapters.py`, the `send()` method only turns socket errors and urllib3's `MaxRetryError` into `ConnectionError`. It never decides where to connect or opens the socket itself.\n- **A test call:** a POST to a local port with nothing listening gave the same message as production: `Max retries exceeded with url: /v1/charges (... [Errno 111] Connection refused)`. To run it I had to patch the old `collections` names, because this 2.0.1 version won't load on Python 3.11 as it is.\n- **Not run:** the library's own tests didn't run because pytest isn't installed.\n- **Version:** the production message names `NewConnectionError`, which doesn't exist anywhere in this checkout. So the billing worker runs a newer `requests`/urllib3 than this code.\n- **Not checked:** I had no access to Sentry, PostHog or deploy history. I can't say how often this happens, when it started, or which charges failed.\n\n**Why it matters:** while the connection is blocked, every charge fails, so customers may not be billed. Stripe's public API normally answers on port 443, so a refusal usually means something on the worker's side: an outbound firewall rule, a proxy setting, or a wrong address lookup for `api.stripe.com`.\n\n**What to do:**\n1. From inside a billing-worker container, run `curl -v https://api.stripe.com/v1/charges` and `getent hosts api.stripe.com`.\n2. Check the outbound firewall or security-group rules for TCP 443, and the `HTTPS_PROXY` and `NO_PROXY` settings.\n3. Check status.stripe.com for the time of the errors.\n4. Make sure charges that failed this way are retried or flagged, not dropped.\n\n```json\n{\n  \"verdict\": \"outsideCode\",\n  \"title\": \"Billing worker can't reach Stripe (connection refused)\",\n  \"cause\": \"The billing worker's TCP connection to api.stripe.com:443 was refused at the socket level (Errno 111) before any HTTP exchange; requests' HTTPAdapter.send only wraps the OS socket error / urllib3 MaxRetryError into requests.exceptions.ConnectionError. A refusal from Stripe's public endpoint points to the worker's network path (egress firewall, proxy env, or DNS/hosts override) or a provider-side outage, not to library code. The production message's 'NewConnectionError' also shows the worker runs a newer urllib3 than this 2.0.1 snapshot.\",\n  \"files\": [\n    {\"path\": \"requests/adapters.py\", \"why\": \"send() maps socket errors and MaxRetryError to ConnectionError; it faithfully reports, not causes, the refusal\"}\n  ],\n  \"plan\": [\n    \"From inside a billing-worker container, run `curl -v https://api.stripe.com/v1/charges` and `getent hosts api.stripe.com` to see whether the connection is refused and where the name resolves\",\n    \"Check egress firewall/security-group rules for outbound TCP 443 and any HTTPS_PROXY/NO_PROXY settings on the worker\",\n    \"Check status.stripe.com for the incident window\",\n    \"Make sure charges that failed during the window are retried or flagged, not dropped\"\n  ],\n  \"verification\": [\n    \"curl from the worker to https://api.stripe.com gets an HTTP response (e.g. 401 without a key) instead of 'Connection refused'\",\n    \"No new ConnectionError ... /v1/charges logs from billing-worker after the network fix\"\n  ],\n  \"action\": \"On the billing-worker hosts, check outbound firewall and proxy settings and the DNS resolution of api.stripe.com, and fix whatever is refusing port 443. Also check status.stripe.com for that time window.\",\n  \"userFacing\": true,\n  \"certainty\": \"likely\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.8,\n  \"fixType\": \"dependency\",\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"The production error is an OS-level connection refusal to api.stripe.com:443, which requests only wraps into its ConnectionError.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s2\", \"quote\": \"Max retries exceeded with url: /v1/charges (Caused by NewConnectionError: [Errno 111] Connection refused)\"},\n      {\"type\": \"code\", \"ref\": \"requests/adapters.py:356\", \"quote\": \"raise ConnectionError(e)\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"other\", \"text\": \"Calling requests with a valid POST to a port nobody listens on reproduces the same message, showing the library reports refusals correctly rather than producing them.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:python\", \"quote\": \"ConnectionError HTTPSConnectionPool(host='127.0.0.1', port=1): Max retries exceeded with url: /v1/charges (Caused by <class 'ConnectionRefusedError'>: [Errno 111] Connection refused)\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"impact\", \"text\": \"Charge creation calls to Stripe fail, so customers may not be billed and revenue collection is disrupted while the network path is broken.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s2\", \"quote\": \"HTTPSConnectionPool(host='api.stripe.com', port=443): Max retries exceeded with url: /v1/charges\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"A bug in requests' adapter produces spurious connection errors\", \"why\": \"send() only translates socket.error/MaxRetryError raised by the OS/urllib3; the reproduction shows the same message for a real refusal\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/adapters.py:353\", \"quote\": \"raise ConnectionError(sockerr)\"}\n    ]},\n    {\"hypothesis\": \"This snapshot's code is what runs in production\", \"why\": \"The production message names NewConnectionError, which does not exist anywhere in this checkout's bundled urllib3; the worker runs a newer requests/urllib3\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/__init__.py:45\", \"quote\": \"__version__ = '2.0.1'\"}\n    ]}\n  ],\n  \"intendedBehavior\": \"From the billing worker, a POST to https://api.stripe.com/v1/charges gets an HTTP response from Stripe instead of a refused connection.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"Nobody chose to block traffic to Stripe; requests turning socket refusals into ConnectionError is the library's documented behaviour, but the refusal itself comes from the network.\"},\n  \"plain\": {\n    \"headline\": \"Charges to Stripe failed because the billing service's connection to Stripe was refused before any request was sent.\",\n    \"happened\": \"The billing service tried to create a charge with Stripe. Its network connection to Stripe was refused straight away, so nothing reached Stripe. The web library the service uses passed on that refusal as a connection error.\",\n    \"matters\": \"While the connection is blocked, every charge attempt fails, so customers may not be billed.\",\n    \"fix\": \"Check the billing service's outgoing network rules, proxy settings and address lookup for Stripe, fix whatever blocks secure web traffic to Stripe, and check Stripe's status page for that time.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 5,
+  "inputTokens": {
+   "avg": 14611.2,
+   "max": 18648
+  },
+  "mainUsage": {
+   "inputTokens": 73056,
+   "cachedInputTokens": 61420,
+   "outputTokens": 7037
+  },
+  "cacheHitPercent": 84.0724923346474,
+  "wallSeconds": 64.33700013160706,
+  "tools": {
+   "read": 4,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 2
+  },
+  "reads": 4,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.21119,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.21119
+}

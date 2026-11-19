@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 43433,
+ "finalText": "The work checks out against the request. The fix, the test, the changelog entry and `.factory/pr-S2.md` are all in place. I ran the tests earlier and did not repeat them.\n\nThe working tree also holds changes I did not make. `sklearn/mixture/base.py` and `sklearn/mixture/tests/test_gaussian_mixture.py` are modified, and `doc/whats_new/v0.20.rst` has 5 more added lines than my entry. They look like the open PR #1000 GaussianMixture change that was already in the working tree. I left them alone, and they are not part of this fix.\n\nMy change is `axis=1` \u2192 `axis=0` in `sklearn/decomposition/truncated_svd.py`. I also added a sparse-vs-dense test on tall and wide matrices and a bug-fix entry in `doc/whats_new/v0.20.rst`. Before the fix, the explained-variance tests failed (5 failed). After it, all 19 tests in `test_truncated_svd.py` pass.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"name\": \"pytest sklearn/decomposition/tests/test_truncated_svd.py\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"reproduction\": \"Fit TruncatedSVD on a non-square scipy sparse matrix and on its dense copy; explained_variance_ratio_ differs (sparse divided by per-sample variance sum) while the transformed coordinates are identical.\",\n  \"reproductionTest\": {\n    \"path\": \"sklearn/decomposition/tests/test_truncated_svd.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest sklearn/decomposition/tests/test_truncated_svd.py -q -k explained_variance\",\n    \"signature\": \"AssertionError: Arrays are not almost equal to 6 decimals (Max relative difference: 0.08188466)\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 13,
+  "inputTokens": {
+   "avg": 25117.69230769231,
+   "max": 29305
+  },
+  "mainUsage": {
+   "inputTokens": 326530,
+   "cachedInputTokens": 311111,
+   "outputTokens": 5057
+  },
+  "cacheHitPercent": 95.27792239610449,
+  "wallSeconds": 42.42799997329712,
+  "tools": {
+   "read": 9,
+   "edit": 5,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 3
+  },
+  "reads": 9,
+  "edits": 5,
+  "runs": 3,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 5,
+  "editOperations": 5,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1513247,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1513247
+}

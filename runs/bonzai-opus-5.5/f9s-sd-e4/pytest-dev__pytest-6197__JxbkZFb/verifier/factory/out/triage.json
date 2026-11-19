@@ -1,0 +1,42 @@
+[
+  {
+    "source": "S1",
+    "decision": "fix",
+    "reason": "pytest_collect_file in src/_pytest/python.py matches every .py file against python_files plus a hard-coded \"__init__.py\" pattern, added in 5.2.3 for #5830. Session._collect in src/_pytest/main.py send"
+  },
+  {
+    "source": "S2",
+    "decision": "fix",
+    "reason": "Node.add_marker(..., append=False) inserts the new mark at index 1 of own_markers instead of index 0, which contradicts its own docstring. When a test already has a skip mark, the plugin's mark lands "
+  },
+  {
+    "source": "S3",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The reported TypeError is what testing/test_skipping.py::test_invalid_skip_keyword_parameter intentionally provokes: it writes a temporary module that calls pytest.skip(\"skip_module_level\", unknown=1)"
+  },
+  {
+    "source": "S4",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: Before pytest 4.6.0, EncodedFile passed its mode through to the binary buffer underneath (e.g. 'rb+'), so libraries like youtube-dl that check for 'b' in out.mode wrote bytes, and EncodedFile.write() "
+  },
+  {
+    "source": "S5",
+    "decision": "fix",
+    "reason": "The hook spec for pytest_report_header is declared with @hookspec(firstresult=True), so pluggy stops at the first non-None result instead of collecting every plugin's and conftest's header lines. The "
+  },
+  {
+    "source": "S6",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: In pytest 3.6, num_mock_patch_args checked whether p.new was in the list of mock sentinels, which compares with ==; a numpy array returns an elementwise array whose truth value raises ValueError, so c"
+  },
+  {
+    "source": "S7",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The error comes from the webhook-relay service: relay/deliver.py post_webhook waits on aiohttp/asyncio and gives up after 30 s when api.github.com doesn't answer. The checked-out repository is pytest,"
+  },
+  {
+    "source": "S8",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The user put firstresult=True in their own pytest_make_parametrize_id signature. firstresult is an option on pytest's hook definition, and pluggy never passes arguments that have defaults, so that par"
+  }
+]

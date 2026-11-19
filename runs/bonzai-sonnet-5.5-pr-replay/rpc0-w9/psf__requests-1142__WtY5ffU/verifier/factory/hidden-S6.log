@@ -1,0 +1,69 @@
+FFF..                                                                    [100%]
+=================================== FAILURES ===================================
+_ test_request_uri_preserves_explicit_empty_query[https://files.example.test/download?-/download?] _
+
+url = 'https://files.example.test/download?', expected = '/download?'
+
+    @pytest.mark.parametrize('url, expected', [
+        ('https://files.example.test/download?', '/download?'),
+        ('https://files.example.test/download?#preview', '/download?'),
+        ('https://files.example.test?', '/?'),
+        ('https://files.example.test/download?token=abc', '/download?token=abc'),
+        ('https://files.example.test/download', '/download'),
+    ])
+    def test_request_uri_preserves_explicit_empty_query(url, expected):
+>       assert parse_url(url).request_uri == expected
+E       AssertionError: assert '/download' == '/download?'
+E         - /download?
+E         ?          -
+E         + /download
+
+/tmp/test_hidden_S6.py:14: AssertionError
+_ test_request_uri_preserves_explicit_empty_query[https://files.example.test/download?#preview-/download?] _
+
+url = 'https://files.example.test/download?#preview', expected = '/download?'
+
+    @pytest.mark.parametrize('url, expected', [
+        ('https://files.example.test/download?', '/download?'),
+        ('https://files.example.test/download?#preview', '/download?'),
+        ('https://files.example.test?', '/?'),
+        ('https://files.example.test/download?token=abc', '/download?token=abc'),
+        ('https://files.example.test/download', '/download'),
+    ])
+    def test_request_uri_preserves_explicit_empty_query(url, expected):
+>       assert parse_url(url).request_uri == expected
+E       AssertionError: assert '/download' == '/download?'
+E         - /download?
+E         ?          -
+E         + /download
+
+/tmp/test_hidden_S6.py:14: AssertionError
+_ test_request_uri_preserves_explicit_empty_query[https://files.example.test?-/?] _
+
+url = 'https://files.example.test?', expected = '/?'
+
+    @pytest.mark.parametrize('url, expected', [
+        ('https://files.example.test/download?', '/download?'),
+        ('https://files.example.test/download?#preview', '/download?'),
+        ('https://files.example.test?', '/?'),
+        ('https://files.example.test/download?token=abc', '/download?token=abc'),
+        ('https://files.example.test/download', '/download'),
+    ])
+    def test_request_uri_preserves_explicit_empty_query(url, expected):
+>       assert parse_url(url).request_uri == expected
+E       AssertionError: assert '/' == '/?'
+E         - /?
+E         + /
+
+/tmp/test_hidden_S6.py:14: AssertionError
+=============================== warnings summary ===============================
+requests/packages/urllib3/_collections.py:7
+  /testbed/requests/packages/urllib3/_collections.py:7: DeprecationWarning: Using or importing the ABCs from 'collections' instead of from 'collections.abc' is deprecated since Python 3.3, and in 3.10 it will stop working
+    from collections import MutableMapping
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED ../tmp/test_hidden_S6.py::test_request_uri_preserves_explicit_empty_query[https:/files.example.test/download?-/download?]
+FAILED ../tmp/test_hidden_S6.py::test_request_uri_preserves_explicit_empty_query[https:/files.example.test/download?#preview-/download?]
+FAILED ../tmp/test_hidden_S6.py::test_request_uri_preserves_explicit_empty_query[https:/files.example.test?-/?]
+3 failed, 2 passed, 1 warning in 0.15s

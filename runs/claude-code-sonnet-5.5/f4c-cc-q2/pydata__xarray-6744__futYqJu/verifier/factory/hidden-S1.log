@@ -1,0 +1,35 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+________________ test_generated_round_preserves_decimal_keyword ________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x728d10a53dc0>
+
+    def test_generated_round_preserves_decimal_keyword(monkeypatch):
+        source = "\n".join(generate_ops.render(generate_ops.ops_info, is_module=True))
+        namespace = {
+            "__name__": "xarray.core._generated_ops_test",
+            "__package__": "xarray.core",
+        }
+        exec(compile(source, "<generated operators>", "exec"), namespace)
+    
+        # Exercise the generated wrapper with the library's real array implementation.
+        monkeypatch.setattr(
+            xr.DataArray, "round", namespace["DataArrayOpsMixin"].round
+        )
+        data = xr.DataArray([1.234, 5.678], dims="sample")
+        expected = xr.DataArray([1.23, 5.68], dims="sample")
+    
+        xr.testing.assert_identical(data.round(2), expected)
+>       xr.testing.assert_identical(data.round(decimals=2), expected)
+E       AssertionError: Left and right DataArray objects are not identical
+E       
+E       Differing values:
+E       L
+E           array([1., 6.])
+E       R
+E           array([1.23, 5.68])
+
+/tmp/test_hidden_S1.py:21: AssertionError
+=========================== short test summary info ============================
+FAILED ../tmp/test_hidden_S1.py::test_generated_round_preserves_decimal_keyword
+1 failed in 1.22s

@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 64562,
+ "finalText": "The build-metadata lines from `conftest.py` files and plugins show up in the test-run banner again. The change is uncommitted in the working tree, and I made no pull request, as the benchmark note asked.\n\nThe cause was `@hookspec(firstresult=True)` on `pytest_report_header` in `src/_pytest/hookspec.py`. pluggy stopped at the terminal reporter's own rootdir/plugins lines and never called the other implementations. I removed that decorator. I also added a changelog entry, `changelog/6214.bugfix.rst`, and wrote the PR text to `.factory/pr-S5.md`.\n\n- **Reproduction:** the existing `test_pytest_report_header` test in `testing/test_terminal.py` failed on the starting commit and passes with the fix. I added no new test.\n- **Header tests:** `python -m pytest testing/test_terminal.py -k header` went from 4 failed and 3 passed to 7 passed.\n- **Wider run:** `testing/test_terminal.py`, `testing/test_helpconfig.py` and `testing/test_cacheprovider.py` give 182 passed and 1 failed. The failure is `test_cache_failure_warns`, which fails identically on the base commit.\n- **Interpreter:** the plain `python3` has no pytest, so I ran everything with `/opt/miniconda3/envs/testbed/bin/python`.\n- **Open pull requests:** neither #1000 nor #1001 touches this code, so neither covers it.\n- **Other working-tree changes:** the tree already had unrelated edits to `nodes.py`, `python.py`, two test files and two changelog entries (6194, 6211). I left them alone.\n- **Changelog number:** the number 6214 is a placeholder, since there is no real issue number here.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"command\": \"python -m pytest testing/test_terminal.py -k header\", \"passed\": true},\n    {\"command\": \"python -m pytest testing/test_terminal.py testing/test_helpconfig.py testing/test_cacheprovider.py\", \"passed\": false, \"alsoOnBase\": true, \"note\": \"only test_cache_failure_warns fails, identically on base\"}\n  ],\n  \"visual\": false,\n  \"reproduction\": \"Run pytest in a project whose conftest.py defines pytest_report_header returning ['build: 1234 sha=abc']; the line is missing from the header on the base commit and shown after the fix.\",\n  \"reproductionTest\": {\n    \"path\": \"testing/test_terminal.py\",\n    \"command\": \"python -m pytest testing/test_terminal.py -k header\",\n    \"signature\": \"testing/test_terminal.py:1036: Failed (header lines from conftest not in output)\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 14,
+  "inputTokens": {
+   "avg": 23774.785714285714,
+   "max": 28664
+  },
+  "mainUsage": {
+   "inputTokens": 332847,
+   "cachedInputTokens": 318067,
+   "outputTokens": 4956
+  },
+  "cacheHitPercent": 95.55952134163745,
+  "wallSeconds": 63.93899989128113,
+  "tools": {
+   "read": 6,
+   "edit": 4,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 8
+  },
+  "reads": 6,
+  "edits": 4,
+  "runs": 8,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 4,
+  "editOperations": 4,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1501074,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1501074
+}

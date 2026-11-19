@@ -1,0 +1,301 @@
+diff --git a/requests/api.py b/requests/api.py
+index 4a39211..c7a3e7d 100644
+--- a/requests/api.py
++++ b/requests/api.py
+@@ -40,8 +40,11 @@ def request(method, url, **kwargs):
+       <Response [200]>
+     """
+ 
+-    session = sessions.Session()
+-    return session.request(method=method, url=url, **kwargs)
++    # By using the 'with' statement we are sure the session is closed, thus we
++    # avoid leaving sockets open which can trigger a ResourceWarning in some
++    # cases, and look like a memory leak in others.
++    with sessions.Session() as session:
++        return session.request(method=method, url=url, **kwargs)
+ 
+ 
+ def get(url, **kwargs):
+diff --git a/requests/models.py b/requests/models.py
+index 9926045..dc46380 100644
+--- a/requests/models.py
++++ b/requests/models.py
+@@ -386,13 +386,15 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):
+         self.body = body
+ 
+     def prepare_content_length(self, body):
+-        self.headers['Content-Length'] = '0'
+         if hasattr(body, 'seek') and hasattr(body, 'tell'):
+             body.seek(0, 2)
+             self.headers['Content-Length'] = str(body.tell())
+             body.seek(0, 0)
+         elif body is not None:
+             self.headers['Content-Length'] = str(len(body))
++        elif self.method not in ('GET', 'HEAD'):
++            # Bodiless GET/HEAD requests must not advertise a length.
++            self.headers['Content-Length'] = '0'
+ 
+     def prepare_auth(self, auth):
+         """Prepares the given HTTP auth data."""
+diff --git a/requests/packages/urllib3/_collections.py b/requests/packages/urllib3/_collections.py
+index a052b1d..7dce603 100644
+--- a/requests/packages/urllib3/_collections.py
++++ b/requests/packages/urllib3/_collections.py
+@@ -4,7 +4,10 @@
+ # This module is part of urllib3 and is released under
+ # the MIT License: http://www.opensource.org/licenses/mit-license.php
+ 
+-from collections import MutableMapping
++try:
++    from collections.abc import MutableMapping
++except ImportError: # Python 2
++    from collections import MutableMapping
+ from threading import Lock
+ 
+ try: # Python 2.7+
+diff --git a/requests/packages/urllib3/connectionpool.py b/requests/packages/urllib3/connectionpool.py
+index 51c87f5..0f45fb5 100644
+--- a/requests/packages/urllib3/connectionpool.py
++++ b/requests/packages/urllib3/connectionpool.py
+@@ -186,6 +186,13 @@ class HTTPConnectionPool(ConnectionPool, RequestMethods):
+         self.num_connections = 0
+         self.num_requests = 0
+ 
++    def _connection_kwargs(self):
++        # Python 3.4+ removed the ``strict`` argument from httplib connections.
++        kwargs = {'host': self.host, 'port': self.port}
++        if not six.PY3:
++            kwargs['strict'] = self.strict
++        return kwargs
++
+     def _new_conn(self):
+         """
+         Return a fresh :class:`httplib.HTTPConnection`.
+@@ -193,9 +200,7 @@ class HTTPConnectionPool(ConnectionPool, RequestMethods):
+         self.num_connections += 1
+         log.info("Starting new HTTP connection (%d): %s" %
+                  (self.num_connections, self.host))
+-        return HTTPConnection(host=self.host,
+-                              port=self.port,
+-                              strict=self.strict)
++        return HTTPConnection(**self._connection_kwargs())
+ 
+     def _get_conn(self, timeout=None):
+         """
+@@ -537,13 +542,9 @@ class HTTPSConnectionPool(HTTPConnectionPool):
+                 raise SSLError("Can't connect to HTTPS URL because the SSL "
+                                "module is not available.")
+ 
+-            return HTTPSConnection(host=self.host,
+-                                   port=self.port,
+-                                   strict=self.strict)
++            return HTTPSConnection(**self._connection_kwargs())
+ 
+-        connection = VerifiedHTTPSConnection(host=self.host,
+-                                             port=self.port,
+-                                             strict=self.strict)
++        connection = VerifiedHTTPSConnection(**self._connection_kwargs())
+         connection.set_cert(key_file=self.key_file, cert_file=self.cert_file,
+                             cert_reqs=self.cert_reqs, ca_certs=self.ca_certs)
+ 
+diff --git a/requests/utils.py b/requests/utils.py
+index 0abfde2..9a56651 100644
+--- a/requests/utils.py
++++ b/requests/utils.py
+@@ -357,12 +357,24 @@ def stream_decompress(iterator, mode='gzip'):
+ 
+     zlib_mode = 16 + zlib.MAX_WBITS if mode == 'gzip' else -zlib.MAX_WBITS
+     dec = zlib.decompressobj(zlib_mode)
++    # Raw chunks read before the decompressor has produced any output. If the
++    # body turns out not to be compressed at all (mislabelled), these are
++    # part of the body and must be passed through.
++    pending = []
++    produced = False
+     try:
+         for chunk in iterator:
++            if not produced:
++                pending.append(chunk)
+             rv = dec.decompress(chunk)
+             if rv:
++                produced = True
++                pending = []
+                 yield rv
+     except zlib.error:
++        if not produced:
++            for chunk in pending:
++                yield chunk
+         for chunk in iterator:
+             yield chunk
+     else:
+diff --git a/test_requests.py b/test_requests.py
+index c974e98..4ec83cd 100644
+--- a/test_requests.py
++++ b/test_requests.py
+@@ -3,6 +3,8 @@
+ 
+ """Tests for Requests."""
+ 
++import gzip
++import io
+ import json
+ import os
+ import unittest
+@@ -231,6 +233,40 @@ class RequestsTestCase(unittest.TestCase):
+         r = requests.get(httpbin('gzip'))
+         r.content.decode('ascii')
+ 
++    def _response(self, body, encoding):
++        r = requests.Response()
++        r.status_code = 200
++        r.headers = {'content-encoding': encoding}
++        r.raw = io.BytesIO(body)
++        return r
++
++    def test_mislabelled_gzip_small_body_is_kept(self):
++        body = b'{"ok": true}'
++        for encoding in ('gzip', 'deflate'):
++            self.assertEqual(self._response(body, encoding).content, body)
++
++    def test_mislabelled_gzip_large_body_is_kept(self):
++        body = b'{"items": [' + b', '.join(
++            [b'{"id": %d}' % i for i in range(8000)]) + b']}'
++        self.assertTrue(len(body) > 10 * 1024)
++        for encoding in ('gzip', 'deflate'):
++            self.assertEqual(self._response(body, encoding).content, body)
++
++    def test_real_gzip_body_is_decoded(self):
++        body = b'{"items": [' + b', '.join(
++            [b'{"id": %d}' % i for i in range(8000)]) + b']}'
++        buf = io.BytesIO()
++        f = gzip.GzipFile(fileobj=buf, mode='wb')
++        f.write(body)
++        f.close()
++        r = self._response(buf.getvalue(), 'gzip')
++        self.assertEqual(r.content, body)
++
++    def test_stream_decompress_passes_through_plain_chunks(self):
++        from requests.utils import stream_decompress
++        self.assertEqual(
++            list(stream_decompress(iter([b'abc', b'def']))), [b'abc', b'def'])
++
+     def test_unicode_get(self):
+         url = httpbin('/get')
+         requests.get(url, params={'foo': 'føø'})
+@@ -245,6 +281,24 @@ class RequestsTestCase(unittest.TestCase):
+         self.assertEqual(r.status_code, 200)
+         self.assertEqual(r.url, httpbin('get?test=foo&test=baz'))
+ 
++    def test_no_content_length_on_bodiless_get_and_head(self):
++        for method in ('GET', 'HEAD', 'get'):
++            req = requests.Request(method, 'http://example.com').prepare()
++            self.assertTrue('Content-Length' not in req.headers)
++            req = requests.Request(method, 'http://example.com',
++                                   auth=('a', 'b')).prepare()
++            self.assertTrue('Content-Length' not in req.headers)
++
++    def test_content_length_on_post(self):
++        req = requests.Request('POST', 'http://example.com').prepare()
++        self.assertEqual(req.headers['Content-Length'], '0')
++        req = requests.Request('POST', 'http://example.com',
++                               auth=('a', 'b')).prepare()
++        self.assertEqual(req.headers['Content-Length'], '0')
++        req = requests.Request('POST', 'http://example.com',
++                               data='abc').prepare()
++        self.assertEqual(req.headers['Content-Length'], '3')
++
+     def test_different_encodings_dont_break_post(self):
+         r = requests.post(httpbin('post'),
+                           data={'stuff': json.dumps({'a': 123})},
+@@ -278,6 +332,92 @@ class RequestsTestCase(unittest.TestCase):
+         url = 'https://api.github.com/users/kennethreitz/repos?page=1&per_page=10'
+         r = requests.head(url=url)
+         self.assertEqual(r.links['next']['rel'], 'next')
++    def test_connection_pool_opens_connection(self):
++        """Pools must build stdlib connections on Python versions that
++        dropped the ``strict`` argument (3.4+)."""
++        from requests.packages.urllib3.connectionpool import (
++            HTTPConnectionPool, HTTPSConnectionPool)
++
++        self.assertTrue(HTTPConnectionPool('localhost', 80)._new_conn())
++        self.assertTrue(HTTPSConnectionPool('localhost', 443)._new_conn())
++
++    def _local_server(self):
++        import threading
++        try:
++            from http.server import BaseHTTPRequestHandler, HTTPServer
++            from socketserver import ThreadingMixIn
++        except ImportError:  # Python 2
++            from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
++            from SocketServer import ThreadingMixIn
++
++        class Handler(BaseHTTPRequestHandler):
++            protocol_version = 'HTTP/1.1'
++
++            def do_GET(self):
++                body = b'hello world' * 1000
++                self.send_response(200)
++                self.send_header('Content-Length', str(len(body)))
++                self.end_headers()
++                self.wfile.write(body)
++
++            def log_message(self, *args):
++                pass
++
++        class Server(ThreadingMixIn, HTTPServer):
++            daemon_threads = True
++
++        server = Server(('127.0.0.1', 0), Handler)
++        thread = threading.Thread(target=server.serve_forever)
++        thread.daemon = True
++        thread.start()
++        return server, 'http://127.0.0.1:%d/' % server.server_address[1]
++
++    def test_simple_api_closes_connections(self):
++        """requests.get() must not leave its keep-alive socket open until
++        the garbage collector happens to run."""
++        import gc
++        import socket
++
++        server, url = self._local_server()
++        port = server.server_address[1]
++
++        def open_sockets():
++            # Client-side sockets connected to our server.
++            found = []
++            for o in gc.get_objects():
++                if isinstance(o, socket.socket) and o.fileno() != -1:
++                    try:
++                        if o.getpeername()[1] == port:
++                            found.append(o)
++                    except (socket.error, IndexError):
++                        pass
++            return found
++
++        gc.collect()
++        gc.disable()
++        try:
++            before = len(open_sockets())
++            for _ in range(5):
++                r = requests.get(url)
++                self.assertEqual(r.status_code, 200)
++            leaked = len(open_sockets()) - before
++        finally:
++            gc.enable()
++            server.shutdown()
++            server.server_close()
++        self.assertEqual(leaked, 0)
++
++    def test_simple_api_stream_still_readable(self):
++        server, url = self._local_server()
++        try:
++            r = requests.get(url, stream=True)
++            chunks = list(r.iter_content(1024))
++            self.assertEqual(b''.join(chunks), b'hello world' * 1000)
++            r = requests.get(url, stream=True)
++            self.assertEqual(r.content, b'hello world' * 1000)
++        finally:
++            server.shutdown()
++            server.server_close()
+ 
+ 
+ if __name__ == '__main__':

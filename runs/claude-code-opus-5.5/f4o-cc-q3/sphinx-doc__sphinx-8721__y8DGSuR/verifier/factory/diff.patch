@@ -1,0 +1,127 @@
+diff --git a/sphinx/builders/gettext.py b/sphinx/builders/gettext.py
+index 60c5036f9..75c95c0bc 100755
+--- a/sphinx/builders/gettext.py
++++ b/sphinx/builders/gettext.py
+@@ -86,7 +86,7 @@ class Catalog:
+         if msg not in self.metadata:  # faster lookup in hash
+             self.messages.append(msg)
+             self.metadata[msg] = []
+-            self.metadata[msg].append((origin.source, origin.line, origin.uid))  # type: ignore
++        self.metadata[msg].append((origin.source, origin.line, origin.uid))  # type: ignore
+ 
+     def __iter__(self) -> Generator[Message, None, None]:
+         for message in self.messages:
+diff --git a/sphinx/ext/viewcode.py b/sphinx/ext/viewcode.py
+index a7d52a91c..c2bcee4f5 100755
+--- a/sphinx/ext/viewcode.py
++++ b/sphinx/ext/viewcode.py
+@@ -182,6 +182,10 @@ def collect_pages(app: Sphinx) -> Generator[Tuple[str, Dict[str, Any], str], Non
+     env = app.builder.env
+     if not hasattr(env, '_viewcode_modules'):
+         return
++    if app.builder.name == "singlehtml":
++        return
++    if app.builder.name.startswith("epub") and not env.config.viewcode_enable_epub:
++        return
+     highlighter = app.builder.highlighter  # type: ignore
+     urito = app.builder.get_relative_uri
+ 
+diff --git a/sphinx/search/nl.py b/sphinx/search/nl.py
+index 5cd47f3f5..f98cdf8ad 100755
+--- a/sphinx/search/nl.py
++++ b/sphinx/search/nl.py
+@@ -136,4 +136,4 @@ class SearchDutch(SearchLanguage):
+         self.stemmer = snowballstemmer.stemmer('dutch')
+ 
+     def stem(self, word: str) -> str:
+-        return self.stemmer.stemWord(word).lower()
++        return self.stemmer.stemWord(word.lower())
+diff --git a/tests/test_build_gettext.py b/tests/test_build_gettext.py
+index 92ec384b5..accc6e4a2 100755
+--- a/tests/test_build_gettext.py
++++ b/tests/test_build_gettext.py
+@@ -192,3 +192,18 @@ def test_build_single_pot(app):
+          'msgid "Generated section".*'),
+         result,
+         flags=re.S)
++
++
++def test_catalog_keeps_all_locations_of_duplicate_message():
++    from sphinx.builders.gettext import Catalog, MsgOrigin
++
++    catalog = Catalog()
++    catalog.add('hello', MsgOrigin('/path/a.rst', 1))
++    catalog.add('hello', MsgOrigin('/path/b.rst', 2))
++    catalog.add('world', MsgOrigin('/path/a.rst', 3))
++
++    messages = list(catalog)
++    assert [m.text for m in messages] == ['hello', 'world']
++    assert messages[0].locations == [('/path/a.rst', 1), ('/path/b.rst', 2)]
++    assert len(messages[0].uuids) == 2
++    assert messages[1].locations == [('/path/a.rst', 3)]
+diff --git a/tests/test_ext_viewcode.py b/tests/test_ext_viewcode.py
+index 79864095b..6a117289a 100755
+--- a/tests/test_ext_viewcode.py
++++ b/tests/test_ext_viewcode.py
+@@ -12,6 +12,8 @@ import re
+ 
+ import pytest
+ 
++from sphinx.ext.viewcode import collect_pages
++
+ 
+ @pytest.mark.sphinx(testroot='ext-viewcode')
+ def test_viewcode(app, status, warning):
+@@ -49,6 +51,36 @@ def test_viewcode(app, status, warning):
+             '<span>    &quot;&quot;&quot;</span></div>\n') in result
+ 
+ 
++@pytest.mark.sphinx('epub', testroot='ext-viewcode')
++def test_viewcode_epub_default(app, status, warning):
++    app.builder.build_all()
++
++    assert not (app.outdir / '_modules/spam/mod1.xhtml').exists()
++
++
++@pytest.mark.sphinx('epub', testroot='ext-viewcode',
++                    confoverrides={'viewcode_enable_epub': True})
++def test_viewcode_epub_enabled(app, status, warning):
++    app.builder.build_all()
++
++    assert (app.outdir / '_modules/spam/mod1.xhtml').exists()
++
++
++@pytest.mark.sphinx(testroot='ext-viewcode')
++def test_viewcode_epub_after_html(app, status, warning):
++    # "make html epub": the epub build reuses the environment populated by html
++    app.builder.build_all()
++    assert (app.outdir / '_modules/spam/mod1.html').exists()
++
++    from sphinx.builders.epub3 import Epub3Builder
++    epub_builder = Epub3Builder(app)
++    epub_builder.set_environment(app.env)
++    epub_builder.init()
++    app.builder = epub_builder
++    assert app.env._viewcode_modules
++    assert list(collect_pages(app)) == []
++
++
+ @pytest.mark.sphinx(testroot='ext-viewcode', tags=['test_linkcode'])
+ def test_linkcode(app, status, warning):
+     app.builder.build(['objects'])
+diff --git a/tests/test_search.py b/tests/test_search.py
+index 1ceb6d55b..6c3a62c83 100755
+--- a/tests/test_search.py
++++ b/tests/test_search.py
+@@ -262,3 +262,11 @@ def test_nosearch(app):
+     assert 'latex' not in index['terms']
+     assert 'zfs' in index['terms']
+     assert index['terms']['zfs'] == 0  # zfs on nosearch.rst is not registered to index
++
++
++def test_dutch_stemmer_is_case_insensitive():
++    from sphinx.search.nl import SearchDutch
++
++    lang = SearchDutch({})
++    assert lang.stem('HANDLEIDINGEN') == lang.stem('handleidingen') == 'handleid'
++    assert lang.stem('Handleidingen') == 'handleid'

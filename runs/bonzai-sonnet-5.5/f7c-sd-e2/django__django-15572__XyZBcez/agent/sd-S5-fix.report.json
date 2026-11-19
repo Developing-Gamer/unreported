@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 51833,
+ "finalText": "`Q(a) & (Q(b) | Q(c))` now keeps the OR group nested, so the saved search for active customers with email or SMS enabled should match customers with only one enabled again. The fix is uncommitted in the working tree, and the PR text is in `.factory/pr-S5.md`. I did not run a real model query against customer data.\n\n`Node.add` in `django/utils/tree.py` decided whether to merge a child group using `len(self) == 1`, which flattened the OR group into the AND parent. I changed it to `len(data) == 1`, which is what its own comment describes, and removed the stale comment sentence.\n\nI added two regression tests to `tests/queries/test_q.py`, one for an OR group inside an AND and one for an AND group inside an OR. Before the fix, the AND-inside-OR test failed with `AssertionError('3 != 2')`.\n\n`queries.test_q` and `utils_tests.test_tree` now pass (37 tests, serial run), including `test_deconstruct_or`. The wider run (queries, utils_tests, expressions, lookup, or_lookups, null_queries) passes except `utils_tests.test_dateparse` `test_parse_date` and `test_parse_time`. Those two fail the same way on the base commit.\n\nThe working tree also holds uncommitted changes to the Oracle creation code and the template autoreloader, matching the open PRs #1000 and #1001. They are unrelated to this fix, and neither PR touches `django/utils/tree.py`.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"command\": \"cd tests && PYTHONPATH=/testbed python runtests.py queries.test_q utils_tests.test_tree --parallel 1\", \"passed\": true},\n    {\"command\": \"cd tests && PYTHONPATH=/testbed python runtests.py queries utils_tests expressions lookup or_lookups null_queries --parallel 1\", \"passed\": false, \"alsoOnBase\": true, \"note\": \"only utils_tests.test_dateparse test_parse_date/test_parse_time fail, identically on base\"}\n  ],\n  \"visual\": false,\n  \"reproduction\": \"In a shell, build Q(a=1) & (Q(b=2) | Q(c=3)); before the fix the OR group is flattened into a, b and c all required (3 children instead of 2).\",\n  \"reproductionTest\": {\n    \"path\": \"tests/queries/test_q.py\",\n    \"command\": \"cd tests && PYTHONPATH=/testbed python runtests.py queries.test_q utils_tests.test_tree\",\n    \"signature\": \"AssertionError('3 != 2')\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 12,
+  "inputTokens": {
+   "avg": 23277.583333333332,
+   "max": 27587
+  },
+  "mainUsage": {
+   "inputTokens": 279331,
+   "cachedInputTokens": 265632,
+   "outputTokens": 5001
+  },
+  "cacheHitPercent": 95.09578242300353,
+  "wallSeconds": 50.21600008010864,
+  "tools": {
+   "read": 5,
+   "edit": 5,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 5
+  },
+  "reads": 5,
+  "edits": 5,
+  "runs": 5,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 4,
+  "editOperations": 5,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1373699,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1373699
+}

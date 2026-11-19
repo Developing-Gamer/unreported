@@ -1,0 +1,13 @@
+diff --git a/src/_pytest/nodes.py b/src/_pytest/nodes.py
+index e6dee1547..2c14c2d5f 100644
+--- a/src/_pytest/nodes.py
++++ b/src/_pytest/nodes.py
+@@ -195,7 +195,7 @@ class Node:
+         if append:
+             self.own_markers.append(marker_.mark)
+         else:
+-            self.own_markers.insert(0, marker_.mark)
++            self.own_markers.insert(1, marker_.mark)
+ 
+     def iter_markers(self, name=None):
+         """

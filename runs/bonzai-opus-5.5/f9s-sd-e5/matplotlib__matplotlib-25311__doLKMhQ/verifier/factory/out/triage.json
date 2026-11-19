@@ -1,0 +1,42 @@
+[
+  {
+    "source": "S1",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: In older matplotlib, Colormap.__call__ wrote the special under/over/bad indices (N, N+1, N+2 = 256, 257, 258 for 256-color maps) into the input array while it still had the caller's dtype, so uint8 in"
+  },
+  {
+    "source": "S2",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: When computing data limits for a patch, Axes._update_patch_limits iterated the patch path with default simplification, so long paths such as a 100-bin step histogram outline (>128 vertices) were simpl"
+  },
+  {
+    "source": "S3",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The OOMKilled error comes from the `export-job` service's export/worker.py and export/csv_writer.py. Neither file exists in this repository (Matplotlib, a charting library), and git history has never "
+  },
+  {
+    "source": "S4",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: supxlabel places its text at y (default 0.01) in figure coordinates, exactly as documented. Without a layout engine, the plots' bottom edge sits at rcParams figure.subplot.bottom = 0.11 of the figure "
+  },
+  {
+    "source": "S5",
+    "decision": "fix",
+    "reason": "parse_fontconfig_pattern catches pyparsing's ParseException and, when the pattern has no ':', returns {'family': [pattern]} instead of raising ValueError. A malformed pattern such as 'Sans-abc' is acc"
+  },
+  {
+    "source": "S6",
+    "decision": "skip",
+    "reason": "Self-Driving verdict needsEvidence: No defect found: matplotlib smooths RGB images through the same resampling code as single-channel images, and every smoothing filter produced smooth output for RGB in probes and in the existing tests."
+  },
+  {
+    "source": "S7",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: Figure.__getstate__ stores mpl.__version__ in the pickle and Figure.__setstate__ warns when it differs from the running version. The events show figures pickled with dev build 3.8.0.dev442+g970355a1e5"
+  },
+  {
+    "source": "S8",
+    "decision": "fix",
+    "reason": "DraggableBase.__init__ stores the figure canvas as an instance attribute (self.canvas = self.ref_artist.figure.canvas). Legend._draggable / Annotation._draggable keep this helper, so pickling a figure"
+  }
+]

@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 75858,
+ "finalText": "An empty string returned by `pytest_make_parametrize_id` is now used as the test id. `if hook_id:` in `_idval` (`src/_pytest/python.py`) is now `if hook_id is not None:`. Nothing is committed, pushed or opened as a PR, per the benchmark note.\n\n- **Reproduction:** the new test `test_pytest_make_parametrize_id_empty_string` fails on the old code, where it collected `test_func[1-2]` and `test_func[3-4]`. With the fix it collects `test_func[-2]` and `test_func[-4]`.\n- **Checks:** all of `testing/python/metafunc.py` passes with the fix (99 passed, 1 xfailed), run with the testbed's Python 3.9. The default `python` here is 3.11, which can't run this old pytest.\n- **Other uncommitted changes:** the working tree also holds the conftest-path change set from open PR #1000, which I left alone. Its `python.py` diff was this same `hook_id` line, so the fix was already in the tree when I started. I temporarily reverted it to show the test failing, then restored it. I did not treat #1000 as covering this issue, because its description is about conftest imports on Windows.\n- **Changelog number:** `changelog/5806.bugfix.rst` uses 5806 as a guess. Rename it to the real issue number.\n\nThe PR title and description are in `.factory/pr-S4.md`.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"visual\": false,\n  \"checks\": [\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest testing/python/metafunc.py -q\", \"passed\": true, \"detail\": \"99 passed, 1 xfailed\"}\n  ],\n  \"reproductionSteps\": \"Add a conftest with pytest_make_parametrize_id returning '' for argname 'x', parametrize 'x,y' with [(1,2),(3,4)], run pytest --collect-only -q: before the fix it lists test_func[1-2] and test_func[3-4]; after the fix test_func[-2] and test_func[-4].\",\n  \"reproductionTest\": {\n    \"path\": \"testing/python/metafunc.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest testing/python/metafunc.py -q -k make_parametrize_id\",\n    \"signature\": \"Failed: nomatch: '*test_func[[]-2[]]' (collected test_func[1-2], test_func[3-4])\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 18,
+  "inputTokens": {
+   "avg": 30851.222222222223,
+   "max": 39046
+  },
+  "mainUsage": {
+   "inputTokens": 555322,
+   "cachedInputTokens": 530152,
+   "outputTokens": 7164
+  },
+  "cacheHitPercent": 95.46749453470238,
+  "wallSeconds": 74.73900008201599,
+  "tools": {
+   "read": 9,
+   "edit": 6,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 4
+  },
+  "reads": 9,
+  "edits": 6,
+  "runs": 4,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 3,
+  "editOperations": 3,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.2405754,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.2405754
+}

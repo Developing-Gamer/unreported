@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 93093,
+ "finalText": "The cause is in seaborn's own code. It asks pandas for a setting by an old name, `mode.use_inf_as_null`, which pandas 2.0 removed, so plots crash before they are drawn. The fix is to rename the setting in three places. I only read code and ran checks in a throwaway copy; nothing in the repository was changed.\n\n**Cause:** Before drawing, seaborn briefly turns on a pandas setting so that infinite values count as missing. pandas 2.0 only accepts the current name, `mode.use_inf_as_na`, so it raises the `OptionError` seen in Sentry. The old name appears in three places:\n- [plot.py](file:///testbed/seaborn/_core/plot.py) line 1478: hit by every `so.Plot(...).plot()` call with at least one layer. This is the line in the Sentry stack.\n- [_oldcore.py](file:///testbed/seaborn/_oldcore.py) line 1119: hit by classic functions such as `histplot`.\n- [categorical.py](file:///testbed/seaborn/categorical.py) line 1793: hit by `boxenplot`.\n\n**Checks I ran** (testbed Python with pandas 2.0.0):\n- `so.Plot(x=[1,2,3], y=[1,2,3]).add(so.Dot()).plot()` raised exactly the error in the Sentry event.\n- `sns.histplot(x=[1,2,np.inf])` and `sns.boxenplot(x=[1.,2,3,4])` raised the same error.\n- The existing tests in `tests/_core/test_plot.py` fail at the first plotting test, `TestLayerAddition::test_without_data` (16 passed before it stopped).\n- pandas 2.0 lists only `mode.use_inf_as_na` as a registered option, and switching to that name works.\n\n**Not deliberate:** no comment, test or release note chooses the old name. The project still allows any pandas from 0.25 up, so a normal install can pick up 2.0.\n\n**Impact:** 447 events and 56 users in the last 7 days. These users can't draw the affected charts at all; the only workaround is downgrading pandas.\n\n**Fix:** use `mode.use_inf_as_na` in all three places. That name has existed since pandas 0.21, so it works across every pandas version the project supports. pandas 2.1 deprecates this setting too, so the longer-lasting fix is to replace infinite values with NaN directly and not use the setting at all.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Plots crash on pandas 2.0 due to removed option name\",\n  \"cause\": \"Seaborn enters pd.option_context(\\\"mode.use_inf_as_null\\\", True) to treat inf as missing before dropping rows. pandas 2.0 removed the long-deprecated 'mode.use_inf_as_null' alias (only 'mode.use_inf_as_na' remains), so entering the context raises OptionError and the plot fails. The same stale name is used in the objects interface (Plot._setup_split_generator), the classic core (_oldcore comp_data) and boxenplot.\",\n  \"files\": [\n    {\"path\": \"seaborn/_core/plot.py\", \"why\": \"split_generator line 1478 uses the removed option; this is the Sentry stack frame and breaks every layered Plot.plot()\"},\n    {\"path\": \"seaborn/_oldcore.py\", \"why\": \"line 1119 uses the same removed option; breaks histplot and other classic functions\"},\n    {\"path\": \"seaborn/categorical.py\", \"why\": \"line 1793 uses the same removed option; breaks boxenplot\"}\n  ],\n  \"plan\": [\n    \"Replace 'mode.use_inf_as_null' with 'mode.use_inf_as_na' in the three call sites (valid since pandas 0.21; the project requires pandas>=0.25)\",\n    \"Better: drop the option_context entirely and replace +/-inf with NaN explicitly before dropna/notna/isnull, since pandas 2.1 also deprecates use_inf_as_na\",\n    \"Add a regression test plotting data containing inf with the objects Plot and with histplot\"\n  ],\n  \"verification\": [\n    \"With pandas 2.0, run so.Plot(x=[1,2,3], y=[1,2,3]).add(so.Dot()).plot() and confirm it renders\",\n    \"Run sns.histplot(x=[1,2,np.inf]) and sns.boxenplot(x=[1.,2,3,4]) and confirm no OptionError\",\n    \"Run pytest tests/_core/test_plot.py tests/test_distributions.py tests/test_categorical.py and confirm they pass\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"low\",\n  \"risk\": \"low\",\n  \"confidence\": 0.95,\n  \"fixType\": \"dependency\",\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"The objects-interface split generator enters a pandas option context using the option name that pandas 2.0 removed.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"seaborn/_core/plot.py:1478\", \"quote\": \"with pd.option_context(\\\"mode.use_inf_as_null\\\", True):\"},\n      {\"type\": \"query\", \"ref\": \"probe:python\", \"quote\": \"pandas._config.config.OptionError: \\\"No such keys(s): 'mode.use_inf_as_null'\\\"\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"rootCause\", \"text\": \"The installed pandas 2.0.0 registers only 'mode.use_inf_as_na', so the old alias cannot be resolved.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:python\", \"quote\": \"['display.max_info_rows', 'display.max_info_columns', 'mode.use_inf_as_na']\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"impact\", \"text\": \"The same stale option name also breaks classic functions such as histplot and boxenplot.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"seaborn/_oldcore.py:1119\", \"quote\": \"with pd.option_context('mode.use_inf_as_null', True):\"},\n      {\"type\": \"code\", \"ref\": \"seaborn/categorical.py:1793\", \"quote\": \"with pd.option_context('mode.use_inf_as_null', True):\"},\n      {\"type\": \"query\", \"ref\": \"probe:python\", \"quote\": \"histplot OptionError \\\"No such keys(s): 'mode.use_inf_as_null'\\\"\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"impact\", \"text\": \"The existing Plot test suite fails at its first plotting test under pandas 2.0.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:pytest\", \"quote\": \"FAILED tests/_core/test_plot.py::TestLayerAddition::test_without_data - panda...\"}\n    ]},\n    {\"id\": \"c5\", \"role\": \"impact\", \"text\": \"Production shows 447 events affecting 56 users in 7 days, all from this crash in Plot.plot.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s1\", \"quote\": \"events: 447 in the last 7 days, users affected: 56\"}\n    ]},\n    {\"id\": \"c6\", \"role\": \"trigger\", \"text\": \"The package declares an unbounded pandas minimum, so installs pick up pandas 2.0 where the alias is gone.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"pyproject.toml:27\", \"quote\": \"\\\"pandas>=0.25\\\",\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"Bad or unusual user data triggers the error\", \"why\": \"A plain list of three finite numbers reproduces it; the failure happens on entering the option context, before data is examined.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:python\", \"quote\": \"pandas._config.config.OptionError: \\\"No such keys(s): 'mode.use_inf_as_null'\\\"\"}\n    ]},\n    {\"hypothesis\": \"The fix needs a pandas upper pin rather than a code change\", \"why\": \"The replacement name 'mode.use_inf_as_na' works on the installed pandas 2.0, so a code rename fixes it without restricting versions.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:python\", \"quote\": \"['display.max_info_rows', 'display.max_info_columns', 'mode.use_inf_as_na']\"}\n    ]}\n  ],\n  \"intendedBehavior\": \"With pandas 2.0 installed, so.Plot(x=[1,2,3], y=[1,2,3]).add(so.Dot()).plot() renders without raising and rows with infinite values are dropped as missing.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"No comment, test or changelog entry chooses the old option name; it is a deprecated pandas alias that pandas 2.0 removed, and the project still allows pandas>=0.25 with no upper bound.\"},\n  \"plain\": {\n    \"headline\": \"Charts fail to draw for people on the newest pandas because seaborn asks for a pandas setting under a name pandas no longer accepts.\",\n    \"happened\": \"Before drawing, seaborn briefly turns on a pandas setting that treats infinite numbers as missing. It asks for that setting by an old name. The newest pandas removed that old name, so pandas refuses and the chart is never drawn.\",\n    \"matters\": \"Anyone with the newest pandas gets an error on nearly every chart from the newer plotting style, and on some classic charts like histograms, with no workaround except downgrading.\",\n    \"fix\": \"Ask pandas for the setting by its current name, or skip the setting and swap infinite numbers for missing values directly before drawing.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 6,
+  "inputTokens": {
+   "avg": 14935.5,
+   "max": 19344
+  },
+  "mainUsage": {
+   "inputTokens": 89613,
+   "cachedInputTokens": 77279,
+   "outputTokens": 8283
+  },
+  "cacheHitPercent": 86.2363719549619,
+  "wallSeconds": 92.60599994659424,
+  "tools": {
+   "read": 2,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 4
+  },
+  "reads": 2,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.24276980000000004,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.24276980000000004
+}

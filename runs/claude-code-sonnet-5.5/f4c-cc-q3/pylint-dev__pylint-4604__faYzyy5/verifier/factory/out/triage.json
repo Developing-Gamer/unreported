@@ -1,0 +1,8 @@
+[
+{"source":"S1","decision":"fix","reason":"pyreverse used `ignore_list or (\"CVS\",)`, so an empty --ignore still silently excluded a package named CVS."},
+{"source":"S2","decision":"skip","reason":"Nothing in this checkout imports IS_PYPY from pylint.constants; the importer is external code, not a defect in this repository."},
+{"source":"S3","decision":"skip","reason":"OOMKilled export worker (export/worker.py) is an unrelated service, not code in this repository."},
+{"source":"S4","decision":"skip","reason":"Describes tag-group/comparison-hint filtering that does not correspond to anything in this repository and lacks detail to act on."},
+{"source":"S5","decision":"skip","reason":"'fstr' was never a valid logging-format-style choice (only old/new); 2.4.2 merely failed to validate it, so rejecting it is intended behaviour."},
+{"source":"S6","decision":"fix","reason":"Variables checker ignored top-level Attribute nodes in type comments, so `# type: abc.ABC` did not mark `abc` as used."}
+]

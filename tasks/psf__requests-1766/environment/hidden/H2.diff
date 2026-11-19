@@ -1,0 +1,22 @@
+diff --git a/requests/packages/urllib3/response.py b/requests/packages/urllib3/response.py
+index 6a1fe1a..87d8ffb 100644
+--- a/requests/packages/urllib3/response.py
++++ b/requests/packages/urllib3/response.py
+@@ -192,8 +192,6 @@ class HTTPResponse(io.IOBase):
+                     self._fp.close()
+                     flush_decoder = True
+ 
+-            self._fp_bytes_read += len(data)
+-
+             try:
+                 if decode_content and self._decoder:
+                     data = self._decoder.decompress(data)
+@@ -207,6 +205,8 @@ class HTTPResponse(io.IOBase):
+                 buf = self._decoder.decompress(binary_type())
+                 data += buf + self._decoder.flush()
+ 
++            self._fp_bytes_read += len(data)
++
+             if cache_content:
+                 self._body = data
+ 

@@ -1,0 +1,27 @@
+[
+  {
+    "source": "S1",
+    "decision": "fix",
+    "reason": "Both legend-building paths format numeric legend entries with matplotlib's ScalarFormatter, which moves a shared multiplicative exponent or additive offset out of each label and into a separate offset"
+  },
+  {
+    "source": "S2",
+    "decision": "fix",
+    "reason": "Dodge.__call__ multiplies the dodged widths by (1 - gap) before computing the per-bar offsets, so offsets are derived from the shrunken widths. Bars are re-packed edge-to-edge around the group center "
+  },
+  {
+    "source": "S3",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: The reporter ran seaborn 0.11.2 (Colab default), where pointplot had no errorbar parameter and silently swallowed unknown kwargs, so errorbar='sd' was ignored and the default 95% bootstrap CI was draw"
+  },
+  {
+    "source": "S4",
+    "decision": "fix",
+    "reason": "resolve_color in seaborn/_marks/base.py treats colour arrays differently from single colours. When the colour array already has four channels (RGBA), it calls mpl.colors.to_rgba_array(color, alpha), w"
+  },
+  {
+    "source": "S5",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The error comes from a separate production service, webhook-relay (relay/deliver.py, post_webhook), which timed out after 30 s waiting for api.github.com. The repository at /testbed is the seaborn cha"
+  }
+]

@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 175598,
+ "finalText": "The fix is in the working tree, uncommitted, with the PR text at `/testbed/.factory/pr-S3.md`. A unicode HTTP method is now converted to a native string. That stops Python 2 from implicitly decoding the binary multipart body as ASCII.\n\nI ran everything on Python 2.7.18 from `/opt/miniconda3/envs/testbed/bin/python`, because the system `python` is 3.11 and cannot import this old requests.\n\n- **Cause:** The investigation was right. `Session.request` and `PreparedRequest.prepare_method` only called `.upper()` on the method, so `u'POST'` stayed `unicode` on Python 2. httplib then joins that with the binary body and fails to decode it.\n- **Change:** The upper-cased method now goes through `to_native_string` in `requests/sessions.py` and `requests/models.py`.\n- **Reproduction:** The new test `test_unicode_method_name` in `test_requests.py` fails before the fix and passes after. It fails on the type assertion (`prep.method` is not a `str`), not with `UnicodeDecodeError`. It only builds prepared requests, so it never sends one. I did not reproduce the traceback itself.\n- **Full suite:** Everything passes except `test_mixed_case_scheme_acceptable`, which fails with an SSL certificate verification error. The base commit fails the same way (86 passed, 1 failed).\n- **Not done:** No commit, push or pull request, as the benchmark note says.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"checks\": [\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest test_requests.py -q -k test_unicode_method_name\", \"passed\": true},\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest test_requests.py -q\", \"passed\": false, \"alsoOnBase\": true, \"note\": \"only test_mixed_case_scheme_acceptable fails (SSL certificate verify failed), same on base\"}\n  ],\n  \"visual\": false,\n  \"reproduction\": \"On Python 2.7 build requests.Request(method=u'POST', url=..., files={u'file': open(f,'rb')}).prepare() and check type(prep.method): it is unicode instead of str. Sending such a request makes httplib join the unicode head with the binary body, which raises UnicodeDecodeError.\",\n  \"reproductionTest\": {\n    \"path\": \"test_requests.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest test_requests.py -q -k test_unicode_method_name\",\n    \"signature\": \"AssertionError: assert False  (isinstance(prep.method, builtin_str) is False for u'POST' on Python 2.7)\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 13,
+  "inputTokens": {
+   "avg": 24025.153846153848,
+   "max": 28353
+  },
+  "mainUsage": {
+   "inputTokens": 312327,
+   "cachedInputTokens": 297860,
+   "outputTokens": 5479
+  },
+  "cacheHitPercent": 95.36799572243194,
+  "wallSeconds": 173.52699995040894,
+  "tools": {
+   "read": 4,
+   "edit": 3,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 1,
+   "subagent": 0,
+   "other": 8
+  },
+  "reads": 4,
+  "edits": 3,
+  "runs": 8,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 1,
+  "editOperations": 2,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1505145,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1505145
+}

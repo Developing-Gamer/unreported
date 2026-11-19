@@ -1,0 +1,32 @@
+[
+  {
+    "source": "S1",
+    "decision": "fix",
+    "reason": "DateFormat.o() in django/utils/dateformat.py is documented as the ISO-8601 week-numbering year matching W, but it returns self.data.year (the calendar year). W uses isocalendar(), so for days around N"
+  },
+  {
+    "source": "S2",
+    "decision": "fix",
+    "reason": "server_error() in django/views/defaults.py now calls template.render() inside the `try: ... except TemplateDoesNotExist` block that is meant only to detect a missing 500.html. When the branded 500.htm"
+  },
+  {
+    "source": "S3",
+    "decision": "fix",
+    "reason": "QuerySet.values()/values_list() record the result shape only on the QuerySet (_iterable_class = ValuesIterable), not on the Query that people pickle. When a pickled Query is assigned to a fresh querys"
+  },
+  {
+    "source": "S4",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: In Django 3.0.0\u20133.0.2, Choices classes were callable and lacked do_not_call_in_templates, so the template engine called them with no arguments and the lookup failed. ChoicesMeta.__new__ now sets cls.d"
+  },
+  {
+    "source": "S5",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: In older Django releases, parse_bits checked a supplied keyword only against params and unhandled_kwargs, which leaves out keyword-only arguments that have defaults. So `greeting='hi'` was reported as"
+  },
+  {
+    "source": "S6",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The TimeoutError comes from the webhook-relay service's relay/deliver.py post_webhook, which waits up to 30 s for api.github.com through aiohttp. That code is not in this repository (Django), which ha"
+  }
+]

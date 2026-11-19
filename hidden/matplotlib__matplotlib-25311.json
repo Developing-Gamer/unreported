@@ -1,0 +1,46 @@
+{
+ "task": "matplotlib__matplotlib-25311",
+ "kept": [
+  {
+   "path": "lib/matplotlib/_fontconfig_pattern.py",
+   "category": "swallowed error (an exception caught and ignored, or an error path that returns a default)",
+   "defect_patch": "diff --git a/lib/matplotlib/_fontconfig_pattern.py b/lib/matplotlib/_fontconfig_pattern.py\nindex d3933b9f39..b94a1760d3 100755\n--- a/lib/matplotlib/_fontconfig_pattern.py\n+++ b/lib/matplotlib/_fontconfig_pattern.py\n@@ -87,6 +87,8 @@ def parse_fontconfig_pattern(pattern):\n     try:\n         parse = parser.parseString(pattern)\n     except ParseException as err:\n+        if \":\" not in pattern:\n+            return {\"family\": [pattern]}\n         # explain becomes a plain method on pyparsing 3 (err.explain(0)).\n         raise ValueError(\"\\n\" + ParseException.explain(err, 0)) from None\n     parser.resetCache()\n",
+   "test_code": "import pytest\n\nfrom matplotlib._fontconfig_pattern import parse_fontconfig_pattern\n\n\n@pytest.mark.parametrize(\"pattern\", [\n    \"DejaVu Sans-12.5.4\",\n    \"DejaVu Sans-\",\n])\ndef test_malformed_font_size_is_rejected(pattern):\n    error = None\n    try:\n        parse_fontconfig_pattern(pattern)\n    except ValueError as exc:\n        error = exc\n    assert error is not None, f\"Invalid font pattern was accepted: {pattern!r}\"\n",
+   "signal": {
+    "kind": "user",
+    "source": "Chart export support inbox",
+    "text": "A couple of saved chart styles now export with the default-looking font and size instead of reporting that the font setting is invalid."
+   },
+   "summary": "Malformed fontconfig patterns without colons are silently accepted as literal font families instead of raising ValueError."
+  },
+  {
+   "path": "lib/mpl_toolkits/axes_grid1/axes_rgb.py",
+   "category": "swallowed error (an exception caught and ignored, or an error path that returns a default)",
+   "defect_patch": "diff --git a/lib/mpl_toolkits/axes_grid1/axes_rgb.py b/lib/mpl_toolkits/axes_grid1/axes_rgb.py\nindex f0672b7a8b..2a20cd3205 100755\n--- a/lib/mpl_toolkits/axes_grid1/axes_rgb.py\n+++ b/lib/mpl_toolkits/axes_grid1/axes_rgb.py\n@@ -139,8 +139,12 @@ class RGBAxes:\n         G[:, :, 1] = g\n         B = np.zeros_like(RGB)\n         B[:, :, 2] = b\n-        im_rgb = self.RGB.imshow(RGB, **kwargs)\n-        im_r = self.R.imshow(R, **kwargs)\n-        im_g = self.G.imshow(G, **kwargs)\n-        im_b = self.B.imshow(B, **kwargs)\n-        return im_rgb, im_r, im_g, im_b\n+        images = []\n+        for ax, data in zip(\n+                [self.RGB, self.R, self.G, self.B], [RGB, R, G, B]):\n+            try:\n+                image = ax.imshow(data, **kwargs)\n+            except ValueError:\n+                image = ax.imshow(data)\n+            images.append(image)\n+        return tuple(images)\n",
+   "test_code": "import numpy as np\nfrom matplotlib.figure import Figure\nfrom mpl_toolkits.axes_grid1.axes_rgb import RGBAxes\n\n\ndef test_invalid_interpolation_is_not_silently_ignored():\n    fig = Figure(figsize=(3, 3))\n    panels = RGBAxes(fig, [0.1, 0.1, 0.8, 0.8])\n    channel = np.linspace(0, 1, 16).reshape(4, 4)\n\n    error = None\n    try:\n        panels.imshow_rgb(channel, channel, channel, interpolation=\"cubic\")\n    except ValueError as exc:\n        error = exc\n\n    assert error is not None, \"Invalid interpolation must raise rather than render with defaults\"\n    assert \"interpolation\" in str(error)\n",
+   "signal": {
+    "kind": "user",
+    "source": "image-review support channel",
+    "text": "The RGB previews look jagged with the new smoothing preset, even though all preview jobs show as successful."
+   },
+   "summary": "The image-rendering loop swallows ValueError and retries without keyword arguments, silently replacing invalid plotting settings with defaults."
+  }
+ ],
+ "rejected": [
+  {
+   "path": "galleries/tutorials/intermediate/imshow_extent.py",
+   "category": "silent wrong result (a value or output that is subtly wrong, no exception)",
+   "defect_patch": "--- a/galleries/tutorials/intermediate/imshow_extent.py\n+++ b/galleries/tutorials/intermediate/imshow_extent.py\n@@ -69,7 +69,7 @@ def get_color(index, data, cmap):\n     val = {\n         \"[0, 0]\": data[0, 0],\n         \"[0, N']\": data[0, -1],\n-        \"[M', 0]\": data[-1, 0],\n+        \"[M', 0]\": data[0, -1],\n         \"[M', N']\": data[-1, -1],\n     }[index]\n     return cmap(val / data.max())\n",
+   "test_code": "from pathlib import Path\nimport runpy\n\nimport matplotlib\nmatplotlib.use('Agg')\nimport matplotlib.pyplot as plt\nimport numpy as np\n\n\ndef test_corner_annotation_color_matches_image_pixel(monkeypatch):\n    relative_path = Path('galleries/tutorials/intermediate/imshow_extent.py')\n    module_path = next(\n        parent / relative_path\n        for parent in Path(__file__).resolve().parents\n        if (parent / relative_path).is_file()\n    )\n    monkeypatch.setattr(plt, 'show', lambda: None)\n\n    try:\n        tutorial = runpy.run_path(str(module_path))\n        fig, ax = plt.subplots()\n        data = np.array([[0., 2., 4.], [6., 8., 10.]])\n        tutorial['plot_imshow_with_labels'](\n            ax, data, (-0.5, 2.5, -0.5, 1.5), 'lower', None, None\n        )\n        label = next(\n            text for text in ax.texts if text.get_text() == \"[M', 0]\"\n        )\n        expected_color = ax.images[0].to_rgba(data[-1, 0])\n        np.testing.assert_allclose(\n            label.get_bbox_patch().get_facecolor(),\n            expected_color,\n            err_msg='Corner annotation background must match its image pixel',\n        )\n    finally:\n        plt.close('all')\n",
+   "signal": {
+    "kind": "user",
+    "source": "Documentation feedback",
+    "text": "One corner tag has a background shade that doesn't match the image cell underneath it, though the other three still blend in."
+   },
+   "summary": "The last-row, first-column annotation takes its background color from the first-row, last-column value.",
+   "reject": "test does not separate defect from original",
+   "on_defect": "est/capture.py:880: RuntimeError\n=========================== short test summary info ============================\nFAILED ../tmp/test_hidden_problem.py::test_corner_annotation_color_matches_image_pixel\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed in 1.64s\n",
+   "on_clean": "est/capture.py:880: RuntimeError\n=========================== short test summary info ============================\nFAILED ../tmp/test_hidden_problem.py::test_corner_annotation_color_matches_image_pixel\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed in 0.24s\n"
+  }
+ ]
+}

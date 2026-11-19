@@ -1,0 +1,30 @@
+{
+ "task": "django__django-15572",
+ "kept": [
+  {
+   "path": "django/db/backends/oracle/creation.py",
+   "category": "silent wrong result (a value or output that is subtly wrong, no exception)",
+   "defect_patch": "diff --git a/django/db/backends/oracle/creation.py b/django/db/backends/oracle/creation.py\nindex df773bff8c..50b36463f3 100644\n--- a/django/db/backends/oracle/creation.py\n+++ b/django/db/backends/oracle/creation.py\n@@ -460,5 +460,5 @@ class DatabaseCreation(BaseDatabaseCreation):\n             settings_dict[\"PORT\"],\n             settings_dict[\"ENGINE\"],\n             settings_dict[\"NAME\"],\n-            self._test_database_user(),\n+            settings_dict[\"USER\"],\n         )\n",
+   "test_code": "from types import SimpleNamespace\n\nfrom django.db.backends.oracle.creation import DatabaseCreation\n\n\ndef test_distinct_test_users_have_distinct_database_signatures():\n    def make_creation(alias, test_user):\n        return DatabaseCreation(\n            SimpleNamespace(\n                alias=alias,\n                settings_dict={\n                    \"ENGINE\": \"django.db.backends.oracle\",\n                    \"HOST\": \"localhost\",\n                    \"PORT\": \"1521\",\n                    \"NAME\": \"ORCL\",\n                    \"USER\": \"app_admin\",\n                    \"PASSWORD\": \"unused\",\n                    \"TEST\": {\"USER\": test_user},\n                },\n            )\n        )\n\n    primary = make_creation(\"default\", \"test_primary\")\n    reporting = make_creation(\"reporting\", \"test_reporting\")\n\n    assert primary.test_db_signature() != reporting.test_db_signature(), (\n        \"Explicitly different Oracle test users must identify separate test databases.\"\n    )\n",
+   "signal": {
+    "kind": "user",
+    "source": "Oracle CI support channel",
+    "text": "The reporting alias can now see fixtures inserted through the default alias during tests, even though we configured separate test schemas for them."
+   },
+   "summary": "Oracle test database signatures use the main connection user instead of the configured test user, incorrectly grouping distinct test schemas that share main connection credentials."
+  },
+  {
+   "path": "django/utils/tree.py",
+   "category": "silent wrong result (a value or output that is subtly wrong, no exception)",
+   "defect_patch": "diff --git a/django/utils/tree.py b/django/utils/tree.py\nindex f67c90eae4..c416125b74 100644\n--- a/django/utils/tree.py\n+++ b/django/utils/tree.py\n@@ -104,7 +104,7 @@ class Node:\n         elif (\n             isinstance(data, Node)\n             and not data.negated\n-            and (data.connector == conn_type or len(data) == 1)\n+            and (data.connector == conn_type or len(self) == 1)\n         ):\n             # We can squash the other node's children directly into this node.\n             # We are just doing (AB)(CD) == (ABCD) here, with the addition that\n",
+   "test_code": "from django.utils.tree import Node\n\n\ndef _matches(expression, values):\n    if not isinstance(expression, Node):\n        return values[expression]\n    children = [_matches(child, values) for child in expression.children]\n    result = all(children) if expression.connector == \"AND\" else any(children)\n    return not result if expression.negated else result\n\n\ndef test_adding_or_group_to_single_condition_preserves_alternatives():\n    criteria = Node(children=[\"active\"], connector=\"AND\")\n    contact_options = Node(\n        children=[\"email_enabled\", \"sms_enabled\"], connector=\"OR\"\n    )\n    criteria.add(contact_options, \"AND\")\n\n    assert _matches(\n        criteria,\n        {\"active\": True, \"email_enabled\": True, \"sms_enabled\": False},\n    )\n    assert _matches(\n        criteria,\n        {\"active\": True, \"email_enabled\": False, \"sms_enabled\": True},\n    )\n    assert not _matches(\n        criteria,\n        {\"active\": False, \"email_enabled\": True, \"sms_enabled\": True},\n    )\n",
+   "signal": {
+    "kind": "user",
+    "source": "Customer support",
+    "text": "The saved search for active customers with email or SMS enabled now only shows customers who have both enabled. Customers with just one contact option are missing."
+   },
+   "summary": "The squash condition checks the receiving node's child count instead of the incoming node's, allowing mixed-connector groups to be flattened and changing boolean results."
+  }
+ ],
+ "rejected": []
+}

@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 66575,
+ "finalText": "Enum members used as parameter defaults now render as `MyEnum.ValueA` instead of `<MyEnum.ValueA: 1>`. I did not build the reporter's example project; the check is the unit test and the existing suites.\n\nThe cause was as the investigation said. `object_description` in `sphinx/util/inspect.py` fell back to `repr()` for Enum members, and `stringify_signature` uses it for every parameter default. I added an `enum.Enum` branch that returns `ClassName.member_name`.\n\n- **Tests:**\n  - **New test:** `test_enum_description` in `tests/test_util_inspect.py` checks that `object_description(MyEnum.a) == \"MyEnum.a\"` and that the signature ends with `= MyEnum.a)`. It failed before the fix and passes after.\n  - **Wider run:** `tests/test_util_inspect.py`, `tests/test_ext_autodoc.py`, `tests/test_ext_autodoc_configs.py` and `tests/test_domain_py.py` give 181 passed.\n  - **Interpreter:** I used `/opt/miniconda3/envs/testbed/bin/python`, because the default `python` has no pytest.\n- **Changelog:** I added a `CHANGES` entry under \"Bugs fixed\". It has no issue number because the evidence gave none.\n- **Working tree:** nothing is committed or pushed, per the benchmark note. The PR title and description are in `.factory/pr-S3.md`.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"checks\": [\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest tests/test_util_inspect.py tests/test_ext_autodoc.py tests/test_ext_autodoc_configs.py tests/test_domain_py.py -q\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"reproduction\": \"Call sphinx.util.inspect.object_description on an enum.Enum member, or stringify_signature on a function whose parameter default is an Enum member. Before the fix it returns '<MyEnum.a: 1>'.\",\n  \"reproductionTest\": {\n    \"path\": \"tests/test_util_inspect.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest tests/test_util_inspect.py -k enum_description -q\",\n    \"signature\": \"FAILED tests/test_util_inspect.py::test_enum_description - AssertionError\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 14,
+  "inputTokens": {
+   "avg": 23179.928571428572,
+   "max": 27338
+  },
+  "mainUsage": {
+   "inputTokens": 324519,
+   "cachedInputTokens": 311065,
+   "outputTokens": 4766
+  },
+  "cacheHitPercent": 95.85417186667037,
+  "wallSeconds": 64.1159999370575,
+  "tools": {
+   "read": 8,
+   "edit": 6,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 4
+  },
+  "reads": 8,
+  "edits": 6,
+  "runs": 4,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 5,
+  "editOperations": 6,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.143492,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.143492
+}

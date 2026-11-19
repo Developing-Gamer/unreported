@@ -1,0 +1,13 @@
+diff --git a/xarray/backends/plugins.py b/xarray/backends/plugins.py
+index 0a9ffcbd..f460005e 100644
+--- a/xarray/backends/plugins.py
++++ b/xarray/backends/plugins.py
+@@ -78,7 +78,7 @@ def set_missing_parameters(backend_entrypoints):
+ 
+ def sort_backends(backend_entrypoints):
+     ordered_backends_entrypoints = {}
+-    for be_name in STANDARD_BACKENDS_ORDER:
++    for be_name in sorted(STANDARD_BACKENDS_ORDER):
+         if backend_entrypoints.get(be_name, None) is not None:
+             ordered_backends_entrypoints[be_name] = backend_entrypoints.pop(be_name)
+     ordered_backends_entrypoints.update(

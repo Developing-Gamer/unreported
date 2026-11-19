@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 285131,
+ "finalText": "The `git status` output shows edits I did not make, in `densearith.py`, `orthopolys.py` and four test files (`test_densetools.py`, `test_orthopolys.py`, `test_polytools.py`, plus `orthopolys.py` itself). They appear to belong to the open PRs #1000 and #1001. They were in the working tree before this task, and the `partfrac.py` fix does not depend on them. I left them untouched rather than revert work that isn't mine.\n\nMy change is only these two files:\n- `sympy/polys/partfrac.py`: the handler now does `raise PolynomialError(msg)` for commutative input.\n- `sympy/polys/tests/test_partfrac.py`: the new test `test_apart_non_polynomial`.\n\nThe PR text is in `.factory/pr-S6.md`. I ran the checks above and they pass.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"command\": \"python bin/test sympy/polys/tests/test_partfrac.py\", \"passed\": true},\n    {\"command\": \"python bin/test sympy/polys/tests/test_partfrac.py sympy/integrals/tests/test_rationaltools.py sympy/integrals/tests/test_integrals.py sympy/series sympy/simplify/tests/test_simplify.py sympy/core/tests/test_expr.py sympy/solvers/tests/test_ode.py\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"reproductionSteps\": [\n    \"In sympy, run apart(1/(sin(x) + 1), x) on the starting commit\",\n    \"Observe it returns 1/(sin(x) + 1) with no error instead of raising PolynomialError\"\n  ],\n  \"reproductionTest\": {\n    \"path\": \"sympy/polys/tests/test_partfrac.py\",\n    \"command\": \"python bin/test sympy/polys/tests/test_partfrac.py\",\n    \"signature\": \"sympy.testing.pytest.Failed: DID NOT RAISE\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 20,
+  "inputTokens": {
+   "avg": 26271.05,
+   "max": 33121
+  },
+  "mainUsage": {
+   "inputTokens": 525421,
+   "cachedInputTokens": 506172,
+   "outputTokens": 5596
+  },
+  "cacheHitPercent": 96.33646161839744,
+  "wallSeconds": 283.13499999046326,
+  "tools": {
+   "read": 12,
+   "edit": 5,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 7,
+   "subagent": 0,
+   "other": 2
+  },
+  "reads": 12,
+  "edits": 5,
+  "runs": 2,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 4,
+  "editOperations": 5,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.2052949,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.2052949
+}

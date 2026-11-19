@@ -1,0 +1,9 @@
+[
+  {"source": "S1", "decision": "skip", "reason": "Already fixed: CountVectorizer._check_vocabulary now validates a user-provided vocabulary, so get_feature_names_out() works without fit (verified: CountVectorizer(vocabulary=['a','b']).get_feature_names_out() returns ['a','b'])."},
+  {"source": "S2", "decision": "fix", "reason": "sklearn.svm.l1_min_c took abs() of the signed max of Y @ bias, which underestimates the intercept term for imbalanced multiclass targets (every class row is negative) and returns a C several times too large, while binary targets (one row) are unaffected."},
+  {"source": "S3", "decision": "skip", "reason": "Already fixed: base.clone treats estimator classes (isinstance(estimator, type)) as plain parameters, and clone(StandardScaler(with_mean=StandardScaler)) succeeds in this checkout."},
+  {"source": "S4", "decision": "skip", "reason": "A network timeout in an external webhook-relay service talking to api.github.com has nothing to do with this repository's code."},
+  {"source": "S5", "decision": "fix", "reason": "roc_curve set the leading sentinel threshold to thresholds[0] + 1, which exceeds 1 for probability estimates; it is now np.inf."},
+  {"source": "S6", "decision": "fix", "reason": "VarianceThreshold computed the unbiased (ddof=1) variance for dense input but the population (ddof=0) variance for sparse input, so small dense batches had inflated variances and could select an extra binary indicator feature."},
+  {"source": "S7", "decision": "skip", "reason": "Not a defect: min_samples_split is documented as a count of samples, and weighted constraints are provided separately through min_weight_fraction_leaf; changing it would be a behaviour change, not a bug fix."}
+]

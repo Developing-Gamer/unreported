@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 45690,
+ "finalText": "The cause is in this repository. I confirmed it by reading the code only, because the probe's Python environments don't have numpy, so I could not run the reporter's script.\n\n**Cause:** the helper that makes a legend or annotation draggable stores the live figure canvas as a plain attribute (`self.canvas = self.ref_artist.figure.canvas`, `offsetbox.py` line 1508). The legend keeps that helper as `_draggable` (set in `set_draggable`, `legend.py` line 1197), so the helper is part of the pickled figure. Pickle then tries to serialize the GUI canvas (`FigureCanvasQTAgg`), which fails with `TypeError`. With no draggable legend the attribute is `None`, which is why pickling works once the `set_draggable` line is removed. Draggable annotations use the same base class, so they fail the same way. This was an oversight: the helper already connects its callbacks with `_connect_picklable`, so picklability was meant to work.\n\n**Fix:**\n1. In `DraggableBase`, replace the stored canvas with a property that reads it from the figure: `canvas = property(lambda self: self.ref_artist.figure.canvas)`. Add a comment saying it is a property to keep the helper picklable.\n2. Check that nothing else on the helper blocks pickling. The callback ids are plain integers and the blit background only exists during a drag. Add a `__getstate__` that drops transient drag state only if one of these turns out to matter.\n3. Add a test in `test_pickle.py` that makes a legend and an annotation draggable, pickles and unpickles the figure, and checks that it round-trips. No existing test covers this.\n\n**Verification:** run the reporter's script and confirm `pickle.dumps(fig)` succeeds. Then run the new test plus the existing `test_pickle.py` and the draggable tests in `test_legend.py`.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Figures with a draggable legend can't be pickled\",\n  \"cause\": \"Making a legend or annotation draggable creates a helper object that stores the figure canvas as a plain attribute. A figure is pickled together with its legend, and the legend holds that helper. So pickle tries to serialize the GUI canvas (e.g. FigureCanvasQTAgg), which can't be pickled, and raises TypeError.\",\n  \"files\": [\n    {\"path\": \"lib/matplotlib/offsetbox.py\", \"why\": \"DraggableBase.__init__ stores self.canvas as an instance attribute; make it a property.\"},\n    {\"path\": \"lib/matplotlib/legend.py\", \"why\": \"Legend keeps the helper in self._draggable, so it is part of the pickled figure.\"},\n    {\"path\": \"lib/matplotlib/tests/test_pickle.py\", \"why\": \"Add a test that pickles a figure with a draggable legend and annotation.\"}\n  ],\n  \"plan\": [\n    \"Replace the canvas attribute in DraggableBase with canvas = property(lambda self: self.ref_artist.figure.canvas), with a comment that it is a property to keep the helper picklable.\",\n    \"Check that no other state on the helper blocks pickling, and drop transient drag state in __getstate__ only if needed.\",\n    \"Add a pickle round-trip test for a draggable legend and a draggable annotation.\"\n  ],\n  \"verification\": [\n    \"Run the reporter's script: pickle.dumps(fig) should succeed.\",\n    \"Run the new test, test_pickle.py and the draggable tests in test_legend.py.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"likely\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.85,\n  \"intendedBehavior\": \"A figure whose legend or annotation was made draggable can be pickled and unpickled without error.\",\n  \"intent\": {\"deliberate\": false, \"note\": \"The unpicklable canvas attribute is an oversight; the helper already connects its callbacks with _connect_picklable.\"},\n  \"fixType\": \"error\",\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"DraggableBase stores the live canvas on the instance, so pickling the helper pulls in the unpicklable GUI canvas.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"lib/matplotlib/offsetbox.py:1508\", \"quote\": \"self.canvas = self.ref_artist.figure.canvas\"}]},\n    {\"id\": \"c2\", \"text\": \"The Legend keeps the helper as _draggable, so it becomes part of the pickled figure.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"lib/matplotlib/legend.py:1197\", \"quote\": \"if self._draggable is None:\"}]},\n    {\"id\": \"c3\", \"text\": \"The callbacks are already connected picklably, which shows picklability was intended.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"lib/matplotlib/offsetbox.py:1511\", \"quote\": \"self.canvas.callbacks._connect_picklable(\"}]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"The callback registry is what blocks pickling.\", \"why\": \"The helper connects its callbacks with _connect_picklable, so they are designed to survive pickling. The canvas attribute is the unpicklable part.\", \"citations\": [{\"type\": \"code\", \"ref\": \"lib/matplotlib/offsetbox.py:1511\", \"quote\": \"self.canvas.callbacks._connect_picklable(\"}]}\n  ],\n  \"plain\": {\n    \"headline\": \"Saving a chart with a draggable legend fails because the legend's drag helper holds onto the on-screen window.\",\n    \"happened\": \"When a legend or annotation is made draggable, it keeps a reference to the window it is drawn in. Saving the figure tries to save that window too, and the window can't be saved, so it errors. The same happens for draggable annotations.\",\n    \"matters\": \"Anyone who makes a legend or annotation draggable and then tries to save or copy the figure hits the error.\",\n    \"fix\": \"Have the drag helper look up the window from the figure when it needs it instead of keeping its own reference, and add a test for it.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 7,
+  "inputTokens": {
+   "avg": 14909,
+   "max": 18241
+  },
+  "mainUsage": {
+   "inputTokens": 104363,
+   "cachedInputTokens": 93130,
+   "outputTokens": 5342
+  },
+  "cacheHitPercent": 89.23660684342151,
+  "wallSeconds": 44.91100001335144,
+  "tools": {
+   "read": 6,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 2
+  },
+  "reads": 6,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.10011950000000001,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.10011950000000001
+}

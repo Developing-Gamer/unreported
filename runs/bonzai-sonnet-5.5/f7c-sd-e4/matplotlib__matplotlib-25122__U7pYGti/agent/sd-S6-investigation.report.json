@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 55018,
+ "finalText": "The reported problem is already fixed in this checkout, which is tagged v3.6.0. Setting a gid on an `AnnotationBbox` now reaches the SVG output. I did not run it: the probe environment has no numpy, so this rests on reading the code and the existing test.\n\n- **Fix:** `AnnotationBbox.draw` in `lib/matplotlib/offsetbox.py` (line 1462) calls `renderer.open_group(..., gid=self.get_gid())`. The SVG backend (`backend_svg.py`, line 665) writes that as `<g id=gid>`.\n- **Test:** `test_annotationbbox_gid` in `lib/matplotlib/tests/test_backend_svg.py` asserts `<g id=\"a test for issue 20044\">` appears in the saved SVG.\n- **Where the gid lands:** it goes on the wrapping `<g>` element around the annotation, not on the `<image>` element inside it. A user looking for the id on the image itself would not find it there.\n- **What the reporter should do:** upgrade to 3.6.0 or later, and look for the gid on that wrapping group.\n- **Fixing commit:** the repository history has only the snapshot commit `cbf0f79fa3`, so I could not name the original fixing commit or pull request. I recorded the snapshot as `fixedIn`.\n\n```json\n{\n  \"verdict\": \"covered\",\n  \"title\": \"AnnotationBbox gid now reaches the SVG output\",\n  \"cause\": \"Older versions of AnnotationBbox.draw never called open_group with the artist's gid, so set_gid had no effect in SVG output. The current code opens a group with the gid before drawing the arrow, patch and offsetbox. The SVG backend writes it as <g id=gid>. A regression test covers it.\",\n  \"files\": [\n    {\"path\": \"lib/matplotlib/offsetbox.py\", \"why\": \"AnnotationBbox.draw calls renderer.open_group(..., gid=self.get_gid()) and close_group around its drawing.\"},\n    {\"path\": \"lib/matplotlib/backends/backend_svg.py\", \"why\": \"open_group writes <g id=gid> when a gid is given.\"},\n    {\"path\": \"lib/matplotlib/tests/test_backend_svg.py\", \"why\": \"test_annotationbbox_gid asserts the gid appears in the SVG.\"}\n  ],\n  \"plan\": [\n    \"No code change needed.\",\n    \"Tell the reporter to upgrade to 3.6.0 or later.\",\n    \"Tell them the gid is on the wrapping <g> element, not on the <image> element inside it.\"\n  ],\n  \"verification\": [\n    \"Run test_annotationbbox_gid in lib/matplotlib/tests/test_backend_svg.py.\",\n    \"Save an AnnotationBbox with set_gid('x') to SVG and check that the output contains <g id=\\\"x\\\">.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"likely\",\n  \"effort\": \"none\",\n  \"risk\": \"none\",\n  \"confidence\": 0.8,\n  \"fixedIn\": {\"commit\": \"cbf0f79fa3\", \"release\": \"v3.6.0\"},\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"AnnotationBbox.draw passes its gid to the renderer's group.\", \"role\": \"rootCause\",\n     \"citations\": [{\"type\": \"code\", \"ref\": \"lib/matplotlib/offsetbox.py:1462\", \"quote\": \"renderer.open_group(self.__class__.__name__, gid=self.get_gid())\"}]},\n    {\"id\": \"c2\", \"text\": \"The SVG backend writes a supplied gid as the group's id.\", \"role\": \"other\",\n     \"citations\": [{\"type\": \"code\", \"ref\": \"lib/matplotlib/backends/backend_svg.py:665\", \"quote\": \"self.writer.start('g', id=gid)\"}]},\n    {\"id\": \"c3\", \"text\": \"A test asserts the gid appears in the SVG for an AnnotationBbox.\", \"role\": \"other\",\n     \"citations\": [{\"type\": \"code\", \"ref\": \"lib/matplotlib/tests/test_backend_svg.py:642\", \"quote\": \"expected = '<g id=\\\"a test for issue 20044\\\">'\"}]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"The gid is still dropped for AnnotationBbox in the current code.\",\n     \"why\": \"draw opens a group with the gid, and the SVG backend writes it as the group's id.\",\n     \"citations\": [{\"type\": \"code\", \"ref\": \"lib/matplotlib/offsetbox.py:1462\", \"quote\": \"renderer.open_group(self.__class__.__name__, gid=self.get_gid())\"}]}\n  ],\n  \"intendedBehavior\": \"Calling set_gid on an AnnotationBbox and saving to SVG yields a <g> element with that id wrapping the annotation, including its image.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"The missing gid was an oversight that has since been fixed. The test names issue 20044.\"},\n  \"fixType\": \"silentFailure\",\n  \"plain\": {\n    \"headline\": \"Image labels set on annotation boxes were missing from saved SVG files, and current versions already include them.\",\n    \"happened\": \"A user set an identifier on an annotation box holding an image and saved the figure as SVG. The identifier was not in the file. Newer code now wraps the annotation in an element carrying that identifier, and a test checks it.\",\n    \"matters\": \"This affected anyone who tags annotation images to find them later in SVG output.\",\n    \"fix\": \"Upgrade to 3.6.0 or later. Look for the identifier on the wrapping group element, not on the image element.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 11,
+  "inputTokens": {
+   "avg": 16505.636363636364,
+   "max": 21401
+  },
+  "mainUsage": {
+   "inputTokens": 181562,
+   "cachedInputTokens": 167161,
+   "outputTokens": 6534
+  },
+  "cacheHitPercent": 92.06827419834546,
+  "wallSeconds": 52.501999855041504,
+  "tools": {
+   "read": 12,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 2
+  },
+  "reads": 12,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 5,
+   "readFileIgnoringRange": 5
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.13476169999999998,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.13476169999999998
+}

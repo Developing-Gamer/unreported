@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 155314,
+ "finalText": "pytest no longer imports an `__init__.py` during collection unless it matches `python_files`. The fix is in the working tree, uncommitted, and the PR text is at `.factory/pr-S1.md`.\n\n**Cause:** the 5.2.3 fix for #5830 added `self._mount_obj_if_needed()` at the start of `Package.collect()`. That call imports `__init__.py` before the `python_files` check. I removed it in `src/_pytest/python.py`. Files that match `python_files` are still imported through the existing `Module(init_module, self)` branch, and `Package.setup()` still imports lazily when it needs `setup_module`.\n\n**Trade-off:** this undoes the #5830 behaviour, where a `pytestmark = skip` in a non-test `__init__.py` skipped the package's tests. That can't be kept without importing the file during collection, which is the bug. I deleted `test_skip_package` from `testing/test_skipping.py` because it tested that behaviour.\n\nI added a regression test, `test_collect_does_not_import_non_test_init_files` in `testing/test_collection.py`, and a changelog entry, `changelog/6194.bugfix.rst`. The 6194 in the filename is my guess at the issue number, from memory of the upstream fix. The evidence doesn't give one, so please check it.\n\n**Verification:**\n- The new test fails on the starting commit with `ERROR collecting foobar/__init__.py \u2026 AssertionError`, and passes after the fix.\n- I ran `testing/test_collection.py`, `testing/python/collect.py`, `testing/test_skipping.py`, `testing/python/fixtures.py` and `testing/acceptance_test.py` before and after the change. The same 16 tests fail in both runs, so none come from this change.\n- I ran everything with `/opt/miniconda3/envs/testbed/bin/python`, since the default Python 3.11 can't run this pytest version.\n- I did not run the tox repro from the issue.\n\n```json\n{\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"name\": \"pytest testing/test_collection.py -k non_test_init\", \"passed\": true},\n    {\"name\": \"pytest testing/test_collection.py testing/python/collect.py testing/test_skipping.py testing/python/fixtures.py testing/acceptance_test.py\", \"passed\": false, \"alsoOnBase\": true, \"note\": \"same 16 environment-related failures before and after the change\"}\n  ],\n  \"visual\": false,\n  \"reproductionSteps\": [\n    \"Create foobar/__init__.py containing 'assert False' and a passing test_ok.py\",\n    \"Run pytest: on 5.2.3 it reports 'ERROR collecting foobar/__init__.py' and is interrupted; after the fix 1 passed\"\n  ],\n  \"reproductionTest\": {\n    \"path\": \"testing/test_collection.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest testing/test_collection.py -k non_test_init -q -p no:cacheprovider\",\n    \"signature\": \"ERROR collecting foobar/__init__.py: AssertionError (collected 1 item / 1 errors)\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 20,
+  "inputTokens": {
+   "avg": 28526.05,
+   "max": 35646
+  },
+  "mainUsage": {
+   "inputTokens": 570521,
+   "cachedInputTokens": 548747,
+   "outputTokens": 8092
+  },
+  "cacheHitPercent": 96.18348842549179,
+  "wallSeconds": 154.92899990081787,
+  "tools": {
+   "read": 19,
+   "edit": 6,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 1,
+   "subagent": 0,
+   "other": 4
+  },
+  "reads": 19,
+  "edits": 6,
+  "runs": 4,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 3,
+   "readFileIgnoringRange": 2
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 6,
+  "editOperations": 6,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.2450824,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.2450824
+}

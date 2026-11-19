@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 112129,
+ "finalText": "Iterating over a `DataArrayRolling` now respects `center=True`, so the windows match what `.mean()` gives. The full `xarray/tests/test_rolling.py` run passed (1806 passed, 32 skipped, 4 xpassed). The change is uncommitted in the working tree, and the PR text is in `.factory/pr-S4.md`.\n\nThe investigation's cause was right: `__iter__` in `xarray/core/rolling.py` always built trailing windows and never read `center`. The fix uses an offset of `(window + 1) // 2` when centered, and the early windows are clamped at 0 with `np.maximum(stops - window, 0)`. That differs from the investigation's `starts[: window - offset] = 0` plan, but gives the same result.\n\nI added `test_rolling_iter_center` in `xarray/tests/test_rolling.py`. It runs windows 2\u20135, `center` True and False, and `min_periods` None and 1, and compares the mean of each iterated window to `rolling(...).mean()`. On the starting commit the six cases with `center=True` and window 3\u20135 failed. After the fix all of them pass.\n\nI also added a bug-fix line to `doc/whats-new.rst`. It cites `:issue:6739`, which I guessed from the discussion number (#6738), so check it.\n\nThe tests need `/opt/miniconda3/envs/testbed/bin/python`; the default `python` has no pytest. The `command` strings in the report below use plain `python`, so they won't run as written unless you substitute that interpreter.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"visual\": false,\n  \"checks\": [\n    {\"command\": \"python -m pytest xarray/tests/test_rolling.py -k rolling_iter -q\", \"passed\": true},\n    {\"command\": \"python -m pytest xarray/tests/test_rolling.py -q\", \"passed\": true}\n  ],\n  \"reproductionSteps\": \"Iterate `for label, w in da.rolling(x=3, center=True)` and compare w.mean() to da.rolling(x=3, center=True).mean(); they differ because windows are trailing.\",\n  \"reproductionTest\": {\n    \"path\": \"xarray/tests/test_rolling.py\",\n    \"command\": \"python -m pytest xarray/tests/test_rolling.py -k rolling_iter -q\",\n    \"signature\": \"AssertionError: Left and right DataArray objects are not close (test_rolling_iter_center[...-True])\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 16,
+  "inputTokens": {
+   "avg": 22814.1875,
+   "max": 26767
+  },
+  "mainUsage": {
+   "inputTokens": 365027,
+   "cachedInputTokens": 352140,
+   "outputTokens": 5337
+  },
+  "cacheHitPercent": 96.4695762231287,
+  "wallSeconds": 110.59599995613098,
+  "tools": {
+   "read": 5,
+   "edit": 5,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 2,
+   "subagent": 0,
+   "other": 4
+  },
+  "reads": 5,
+  "edits": 5,
+  "runs": 4,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 5,
+  "editOperations": 5,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.15599749999999998,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.15599749999999998
+}

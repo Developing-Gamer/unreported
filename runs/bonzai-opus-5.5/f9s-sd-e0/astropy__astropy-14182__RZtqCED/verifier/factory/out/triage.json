@@ -1,0 +1,37 @@
+[
+  {
+    "source": "S1",
+    "decision": "fix",
+    "reason": "The RST writer subclasses FixedWidth but its __init__ takes no arguments and calls super().__init__(delimiter_pad=None, bookend=False) without header_rows, so passing header_rows raises TypeError. Its"
+  },
+  {
+    "source": "S2",
+    "decision": "fix",
+    "reason": "The required-column check in BaseTimeSeries._check_required_columns now tests set(required_columns).issubset(self.colnames), which only checks that the columns exist, not that they are the first colum"
+  },
+  {
+    "source": "S3",
+    "decision": "skip",
+    "reason": "Self-Driving fix found it already covered or could not fix it."
+  },
+  {
+    "source": "S4",
+    "decision": "fix",
+    "reason": "When each ASCII reader class is defined, MetaBaseReader.__init__ adds the class docstring to the read/write function help text with inspect.cleandoc(cls.__doc__). Under python -OO docstrings are strip"
+  },
+  {
+    "source": "S5",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: In the 3.1 development cycle, PR #7647 (an import-time speed-up) made minversion compare versions with distutils LooseVersion, which raises TypeError when comparing a number with a text part such as '"
+  },
+  {
+    "source": "S6",
+    "decision": "fix",
+    "reason": "NDArrayShapeMethods.squeeze in astropy/utils/shapes.py wraps self._apply('squeeze', ...) in `try/except ValueError: return self`. When asked to squeeze an axis whose length is not 1, numpy raises Valu"
+  },
+  {
+    "source": "S7",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The crash happened in the export-job service's own code (export/worker.py run \u2192 export/csv_writer.py flush), and Kubernetes killed the pod at its 512Mi limit. Neither file nor any export service exist"
+  }
+]

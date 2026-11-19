@@ -1,0 +1,27 @@
+diff --git a/testing/logging/test_fixture.py b/testing/logging/test_fixture.py
+index bcb20de58..dece1103f 100644
+--- a/testing/logging/test_fixture.py
++++ b/testing/logging/test_fixture.py
+@@ -151,6 +151,22 @@ def test_clear(caplog):
+     assert not caplog.text
+ 
+ 
++def test_clear_for_call_stage(caplog, logging_during_setup_and_teardown):
++    logger.info("a_call_log")
++    assert [x.message for x in caplog.get_records("call")] == ["a_call_log"]
++    assert [x.message for x in caplog.get_records("setup")] == ["a_setup_log"]
++    assert set(caplog.records) == set(caplog.get_records("call"))
++
++    caplog.clear()
++
++    assert caplog.get_records("call") == []
++    assert [x.message for x in caplog.get_records("setup")] == ["a_setup_log"]
++    logger.info("a_second_call_log")
++    assert [x.message for x in caplog.get_records("call")] == ["a_second_call_log"]
++    assert [x.message for x in caplog.records] == ["a_second_call_log"]
++    assert caplog.get_records("call") == caplog.records
++
++
+ @pytest.fixture
+ def logging_during_setup_and_teardown(caplog):
+     caplog.set_level("INFO")

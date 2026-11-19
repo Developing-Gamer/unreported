@@ -1,0 +1,27 @@
+[
+  {
+    "source": "S1",
+    "decision": "fix",
+    "reason": "In SecureCookieSessionInterface.save_session, the branch for an empty session (for example after session.clear() on logout) deletes the cookie and returns before the code that adds `Vary: Cookie`. Res"
+  },
+  {
+    "source": "S2",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The error comes from a separate service called webhook-relay. It happened in relay/deliver.py, which waited 30 s for api.github.com to answer through aiohttp. This repository is the Flask framework so"
+  },
+  {
+    "source": "S3",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: Nothing in this repository defines or emits a requests_in_progress metric. Flask only starts a request context and sends request_started/request_finished when a real WSGI request is dispatched. CLI co"
+  },
+  {
+    "source": "S4",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: Flask 2.2 changed the default session expiry time to a timezone-aware UTC datetime. The change is recorded in the changelog (PR 4645). The reporter's stack (freezegun, pendulum and SQLAlchemy on MySQL"
+  },
+  {
+    "source": "S5",
+    "decision": "fix",
+    "reason": "Blueprint.__init__ only rejects names that contain a dot. An empty string is accepted, so name='' creates a blueprint with an empty registered name. Per #4944, routing and endpoint handling then misbe"
+  }
+]

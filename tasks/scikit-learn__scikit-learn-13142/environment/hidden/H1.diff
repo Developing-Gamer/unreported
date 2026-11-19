@@ -1,0 +1,13 @@
+diff --git a/sklearn/linear_model/bayes.py b/sklearn/linear_model/bayes.py
+index e0f59d624..fd01b4441 100755
+--- a/sklearn/linear_model/bayes.py
++++ b/sklearn/linear_model/bayes.py
+@@ -295,7 +295,7 @@ class BayesianRidge(LinearModel, RegressorMixin):
+             return y_mean
+         else:
+             if self.normalize:
+-                X = (X - self.X_offset_) / self.X_scale_
++                X = X / self.X_scale_
+             sigmas_squared_data = (np.dot(X, self.sigma_) * X).sum(axis=1)
+             y_std = np.sqrt(sigmas_squared_data + (1. / self.alpha_))
+             return y_mean, y_std

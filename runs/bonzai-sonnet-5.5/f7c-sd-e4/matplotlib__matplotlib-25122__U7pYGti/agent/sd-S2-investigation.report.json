@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 48512,
+ "finalText": "The code at v3.6.0 no longer has this problem, so I'm calling it covered. I'm recalling from memory that the fix landed upstream in 3.5.0. The repository history is a single snapshot commit, so I can't give a SHA or pull request number. I read the code but could not run anything: the probe sandbox has no numpy, so matplotlib won't import.\n\n- **Cause in 3.4:** date tick labels under `text.usetex=True` were not wrapped in math mode with protected separators, so the spacing between date and time parts looked wrong.\n- **Current code:** `_wrap_in_tex` in `lib/matplotlib/dates.py` (lines 611\u2013621) now puts `-` and `:` in braces and turns spaces into `\\;`. `DateFormatter`, `AutoDateFormatter` and `ConciseDateFormatter` all pass labels through it.\n- **Tests:** `test_date_formatter_usetex` in `test_dates.py` asserts the corrected labels, for example `$\\mathdefault{01\\;00{:}%02d}$` for a 10-minute range like the reporter's.\n\n```json\n{\n  \"verdict\": \"covered\",\n  \"title\": \"Datetime axis spacing with usetex already fixed\",\n  \"cause\": \"In 3.4, date tick labels under text.usetex were not wrapped in math mode with protected separators, so spacing between date and time parts looked wrong. At v3.6.0, _wrap_in_tex braces '-' and ':' and turns spaces into '\\\\;'. DateFormatter, AutoDateFormatter and ConciseDateFormatter all route through it, and tests assert the output. The reporter's version predates this.\",\n  \"files\": [\n    {\"path\": \"lib/matplotlib/dates.py\", \"why\": \"_wrap_in_tex and the usetex plumbing in DateFormatter, AutoDateFormatter and ConciseDateFormatter already implement the fix\"},\n    {\"path\": \"lib/matplotlib/tests/test_dates.py\", \"why\": \"test_date_formatter_usetex and test_concise_formatter_usetex assert the corrected labels\"}\n  ],\n  \"plan\": [\"No change needed; upgrade to 3.5 or later.\"],\n  \"verification\": [\"Run test_date_formatter_usetex and test_concise_formatter_usetex, then the reporter's script on 3.6 and compare with the 3.3 output.\"],\n  \"userFacing\": true,\n  \"certainty\": \"likely\",\n  \"effort\": \"none\",\n  \"risk\": \"none\",\n  \"confidence\": 0.7,\n  \"fixedIn\": {\"release\": \"3.5.0\", \"commit\": \"not identifiable: history is a single snapshot commit\"},\n  \"intendedBehavior\": \"With text.usetex=True, datetime tick labels render with protected separators (e.g. 00{:}01{:}30 and \\\\; for spaces) so spacing matches non-TeX output.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"Behaviour was a 3.4 regression; the current code and tests in test_dates.py (test_date_formatter_usetex) show the intended output.\"},\n  \"fixType\": \"frustration\",\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"The current code wraps date labels in TeX math mode with braced separators and \\\\; spaces, which is the fix for the 3.4 spacing problem.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"lib/matplotlib/dates.py:615\", \"quote\": \"# Braces ensure symbols are not spaced like binary operators.\"}]},\n    {\"id\": \"c2\", \"text\": \"A test asserts the corrected usetex label output.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"lib/matplotlib/tests/test_dates.py:346\", \"quote\": \"[r'$\\\\mathdefault{01\\\\;00{:}%02d}$' % minu for minu in range(0, 11)]),\"}]}\n  ],\n  \"ruledOut\": [\n    {\"why\": \"AutoDateFormatter ignoring usetex: it passes self._usetex to DateFormatter.\", \"citations\": [{\"type\": \"code\", \"ref\": \"lib/matplotlib/dates.py:989\", \"quote\": \"self._formatter = DateFormatter(fmt, self._tz, usetex=self._usetex)\"}]}\n  ],\n  \"plain\": {\n    \"headline\": \"Date labels on charts looked badly spaced when TeX text rendering was on, in an older version.\",\n    \"happened\": \"In version 3.4, times like 00:01:30 were drawn with odd gaps when TeX text rendering was on. Later versions wrap these labels so the colons, dashes and spaces are spaced correctly. The current code includes that fix and tests for it.\",\n    \"matters\": \"It affected anyone plotting dates with TeX rendering on 3.4.\",\n    \"fix\": \"Nothing to change; upgrade to 3.5 or later.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 7,
+  "inputTokens": {
+   "avg": 15412.857142857143,
+   "max": 19620
+  },
+  "mainUsage": {
+   "inputTokens": 107890,
+   "cachedInputTokens": 95278,
+   "outputTokens": 5158
+  },
+  "cacheHitPercent": 88.31031606265641,
+  "wallSeconds": 47.62599992752075,
+  "tools": {
+   "read": 4,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 2
+  },
+  "reads": 4,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 2,
+   "readFile": 2,
+   "shell": 0,
+   "sameFile": 3,
+   "readFileIgnoringRange": 3
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.10215660000000001,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.10215660000000001
+}

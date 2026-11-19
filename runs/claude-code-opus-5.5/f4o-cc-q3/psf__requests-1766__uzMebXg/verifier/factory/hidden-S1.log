@@ -1,0 +1,70 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+__________ test_tell_counts_wire_bytes_for_decoded_responses[gzip-31] __________
+
+encoding = 'gzip', wbits = 31
+
+    @pytest.mark.parametrize('encoding,wbits', [
+        ('gzip', 16 + zlib.MAX_WBITS),
+        ('deflate', zlib.MAX_WBITS),
+    ])
+    def test_tell_counts_wire_bytes_for_decoded_responses(encoding, wbits):
+        payload = b'order_id,status\n' + b'12345,complete\n' * 1000
+        compressor = zlib.compressobj(wbits=wbits)
+        encoded = compressor.compress(payload) + compressor.flush()
+        response = HTTPResponse(
+            body=io.BytesIO(encoded),
+            headers={'content-encoding': encoding},
+            preload_content=False,
+        )
+        try:
+            assert response.tell() == 0
+            assert response.read() == payload
+>           assert response.tell() == len(encoded)
+E           AssertionError: assert 15016 == 98
+E            +  where 15016 = <bound method HTTPResponse.tell of <requests.packages.urllib3.response.HTTPResponse object at 0x78b05e9a2a90>>()
+E            +    where <bound method HTTPResponse.tell of <requests.packages.urllib3.response.HTTPResponse object at 0x78b05e9a2a90>> = <requests.packages.urllib3.response.HTTPResponse object at 0x78b05e9a2a90>.tell
+E            +  and   98 = len(b'\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\x03\xed\xc7\xbb\r\x80 \x14\x00\xc0\xdeYh\xfc\xcdc\x8cP\x98h0\xf0\xdc\xdf\x05\x1...xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xff\xfd\x00=g\x9d\x88\xa8:\x00\x00')
+
+/tmp/test_hidden_S1.py:25: AssertionError
+________ test_tell_counts_wire_bytes_for_decoded_responses[deflate-15] _________
+
+encoding = 'deflate', wbits = 15
+
+    @pytest.mark.parametrize('encoding,wbits', [
+        ('gzip', 16 + zlib.MAX_WBITS),
+        ('deflate', zlib.MAX_WBITS),
+    ])
+    def test_tell_counts_wire_bytes_for_decoded_responses(encoding, wbits):
+        payload = b'order_id,status\n' + b'12345,complete\n' * 1000
+        compressor = zlib.compressobj(wbits=wbits)
+        encoded = compressor.compress(payload) + compressor.flush()
+        response = HTTPResponse(
+            body=io.BytesIO(encoded),
+            headers={'content-encoding': encoding},
+            preload_content=False,
+        )
+        try:
+            assert response.tell() == 0
+            assert response.read() == payload
+>           assert response.tell() == len(encoded)
+E           AssertionError: assert 15016 == 86
+E            +  where 15016 = <bound method HTTPResponse.tell of <requests.packages.urllib3.response.HTTPResponse object at 0x78b05e992460>>()
+E            +    where <bound method HTTPResponse.tell of <requests.packages.urllib3.response.HTTPResponse object at 0x78b05e992460>> = <requests.packages.urllib3.response.HTTPResponse object at 0x78b05e992460>.tell
+E            +  and   86 = len(b'x\x9c\xed\xc7\xbb\r\x80 \x14\x00\xc0\xdeYh\xfc\xcdc\x8cP\x98h0\xf0\xdc\xdf\x05\x1c\xe1\xae\xbb\xdari\xdb\x99S\x8f=\x...\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xff\xfd\x009K\xd1\xd2')
+
+/tmp/test_hidden_S1.py:25: AssertionError
+=============================== warnings summary ===============================
+requests/packages/urllib3/_collections.py:7
+  /testbed/requests/packages/urllib3/_collections.py:7: DeprecationWarning: Using or importing the ABCs from 'collections' instead of from 'collections.abc' is deprecated since Python 3.3, and in 3.10 it will stop working
+    from collections import MutableMapping
+
+requests/sessions.py:12
+  /testbed/requests/sessions.py:12: DeprecationWarning: Using or importing the ABCs from 'collections' instead of from 'collections.abc' is deprecated since Python 3.3, and in 3.10 it will stop working
+    from collections import Mapping
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED ../tmp/test_hidden_S1.py::test_tell_counts_wire_bytes_for_decoded_responses[gzip-31]
+FAILED ../tmp/test_hidden_S1.py::test_tell_counts_wire_bytes_for_decoded_responses[deflate-15]
+2 failed, 2 warnings in 0.03s

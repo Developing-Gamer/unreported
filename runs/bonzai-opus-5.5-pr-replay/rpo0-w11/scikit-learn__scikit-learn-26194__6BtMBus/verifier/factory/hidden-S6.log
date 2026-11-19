@@ -1,0 +1,36 @@
+F.                                                                       [100%]
+=================================== FAILURES ===================================
+___________ test_variance_threshold_uses_population_variance[False] ____________
+
+use_sparse = False
+
+    @pytest.mark.parametrize("use_sparse", [False, True])
+    def test_variance_threshold_uses_population_variance(use_sparse):
+        X = np.array([[0, 0], [0, 2], [0, 0], [1, 2]], dtype=float)
+        data = sparse.csr_matrix(X) if use_sparse else X
+    
+        selector = VarianceThreshold(threshold=0.2).fit(data)
+    
+>       np.testing.assert_array_equal(selector.get_support(), [False, True])
+
+/tmp/test_hidden_S6.py:15: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+args = (<built-in function eq>, array([ True,  True]), [False, True])
+kwds = {'err_msg': '', 'header': 'Arrays are not equal', 'strict': False, 'verbose': True}
+
+    @wraps(func)
+    def inner(*args, **kwds):
+        with self._recreate_cm():
+>           return func(*args, **kwds)
+E           AssertionError: 
+E           Arrays are not equal
+E           
+E           Mismatched elements: 1 / 2 (50%)
+E            x: array([ True,  True])
+E            y: array([False,  True])
+
+/opt/miniconda3/envs/testbed/lib/python3.9/contextlib.py:79: AssertionError
+=========================== short test summary info ============================
+FAILED ../tmp/test_hidden_S6.py::test_variance_threshold_uses_population_variance[False]
+1 failed, 1 passed in 1.15s

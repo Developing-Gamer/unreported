@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 60912,
+ "finalText": "`BayesianRidge.predict(return_std=True)` now centres and scales `X` the same way `fit` did, so the predictive std is no longer inflated. I re-ran `pytest sklearn/linear_model/tests/test_bayes.py` and all 12 tests pass.\n\nThe working tree also shows changes in `sklearn/decomposition/truncated_svd.py`, `sklearn/mixture/base.py` and `sklearn/mixture/tests/test_gaussian_mixture.py`. Those are not mine. They match the two open PRs, so I left them alone.\n\n**Cause.** `sigma_` is estimated on data centred by `X_offset_` and scaled by `X_scale_`, but `predict` never subtracted `X_offset_`. The mean prediction uses `coef_` and `intercept_`, which is why point forecasts and RMSE stayed the same while interval widths jumped. The `normalize=False` case with `fit_intercept=True` had the same bug, because `fit` also centres there. The fix in `sklearn/linear_model/bayes.py` therefore always computes `(X - X_offset_) / X_scale_`. I did that rather than the investigation's narrower change to the `normalize=True` branch, since the narrower change still failed my `normalize=False` comparison.\n\n**Test.** `test_bayesian_ridge_return_std_normalize` fits on features with large non-zero means. It asserts the std stays below 0.2 and matches the `normalize=False` fit. Before the fix the std was about 0.97 and the test failed on the first assertion. I did not re-run the probe script from the investigation. I ran pytest with `/opt/miniconda3/envs/testbed/bin/python`, because the default `python` has no built sklearn.\n\nI also added a changelog entry to `doc/whats_new/v0.20.rst` and wrote the PR text to `/testbed/.factory/pr-S3.md`. Nothing is committed. `ARDRegression.fit` still does not store `X_offset_` and `X_scale_`; I left that for a separate change.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest sklearn/linear_model/tests/test_bayes.py -q\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"reproductionSteps\": \"Fit BayesianRidge(normalize=True) on features with large non-zero means (e.g. randn + [50,100,-80]); predict(X, return_std=True) returns std ~0.97 instead of ~0.1 (noise sd).\",\n  \"reproductionTest\": {\n    \"path\": \"sklearn/linear_model/tests/test_bayes.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest sklearn/linear_model/tests/test_bayes.py -q\",\n    \"signature\": \"AssertionError: Arrays are not less-ordered ... Max absolute difference: 0.78633863 (std_norm ~0.97 vs < 0.2)\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 16,
+  "inputTokens": {
+   "avg": 26121.375,
+   "max": 32545
+  },
+  "mainUsage": {
+   "inputTokens": 417942,
+   "cachedInputTokens": 399277,
+   "outputTokens": 6447
+  },
+  "cacheHitPercent": 95.53406932062343,
+  "wallSeconds": 60.28800010681152,
+  "tools": {
+   "read": 10,
+   "edit": 4,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 5
+  },
+  "reads": 10,
+  "edits": 4,
+  "runs": 5,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 2,
+   "readFileIgnoringRange": 2
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 1,
+  "editOperations": 2,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.19096990000000003,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.19096990000000003
+}

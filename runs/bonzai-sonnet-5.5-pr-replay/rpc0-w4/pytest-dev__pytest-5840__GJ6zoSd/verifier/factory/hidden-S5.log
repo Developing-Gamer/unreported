@@ -1,0 +1,43 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+_______ test_wildcard_completion_preserves_extension_boundary[test_?.py] _______
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-0/test_wildcard_completion_prese0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f9099f4db20>
+pattern = 'test_?.py'
+
+    @pytest.mark.parametrize("pattern", ["test_?.py", "test_*.py"])
+    def test_wildcard_completion_preserves_extension_boundary(tmp_path, monkeypatch, pattern):
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "test_a.py").write_text("")
+        (tmp_path / "test_a.py.bak").write_text("")
+    
+>       assert FastFilesCompleter()(pattern) == ["test_a.py"]
+E       AssertionError: assert ['test_a.py', 'test_a.py.bak'] == ['test_a.py']
+E         Left contains one more item: 'test_a.py.bak'
+E         Full diff:
+E         - ['test_a.py', 'test_a.py.bak']
+E         + ['test_a.py']
+
+/tmp/test_hidden_S5.py:12: AssertionError
+_______ test_wildcard_completion_preserves_extension_boundary[test_*.py] _______
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-0/test_wildcard_completion_prese1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f9099f4d0a0>
+pattern = 'test_*.py'
+
+    @pytest.mark.parametrize("pattern", ["test_?.py", "test_*.py"])
+    def test_wildcard_completion_preserves_extension_boundary(tmp_path, monkeypatch, pattern):
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "test_a.py").write_text("")
+        (tmp_path / "test_a.py.bak").write_text("")
+    
+>       assert FastFilesCompleter()(pattern) == ["test_a.py"]
+E       AssertionError: assert ['test_a.py', 'test_a.py.bak'] == ['test_a.py']
+E         Left contains one more item: 'test_a.py.bak'
+E         Full diff:
+E         - ['test_a.py', 'test_a.py.bak']
+E         + ['test_a.py']
+
+/tmp/test_hidden_S5.py:12: AssertionError
+2 failed in 0.04s

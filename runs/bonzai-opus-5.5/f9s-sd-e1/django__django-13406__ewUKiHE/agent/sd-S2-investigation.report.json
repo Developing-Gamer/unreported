@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 143716,
+ "finalText": "The plain \"Server Error (500)\" page comes from this repository. The built-in 500 error handler shows it when the branded error page exists but hits a missing piece while it is being drawn. The fix is to move one line back to where released Django 3.2 has it.\n\n**Cause:** In the 500 error handler (`django/views/defaults.py`, lines 87\u201397), drawing `500.html` (`template.render()`, line 89) now sits inside the check that is only meant to catch a site with no `500.html`. If the branded page exists but something it includes is missing (for example `{% include \"partials/footer.html\" %}`), that error is treated as \"no branded page\". The visitor gets the generic `<h1>Server Error (500)</h1>` page, and the real template error is never raised or logged.\n\n**How I know:**\n- **Comparison with Django 3.2:** in released Django 3.2, the handler draws the page after the check. The 400 and 403 handlers in the same file still do it that way. The docs describe the generic message as the fallback for when there is no `500.html`. No changelog entry or comment explains the move, so I treat it as a regression rather than a deliberate change.\n- **Reproduction in a throwaway copy:** a branded `500.html` that includes a missing partial got the generic page from this code. Django 3.2's version raised `TemplateDoesNotExist: partials/footer.html` instead.\n- **Existing tests:** `view_tests.tests.test_defaults` and `handlers` all pass (39 tests). None of them covers an error raised while drawing `500.html`, which is why this got through.\n\n**Limits:** I had no monitoring data, so I don't know what is broken in the customer's own branded 500 page. My guess is a missing included piece on some servers, which would explain \"sometimes\". Even after the fix, those visitors won't see the branded page until the team repairs the template. The fix stops the problem from being hidden: the error will show up in the logs pointing at the exact missing file. No open pull request covers this, and I changed no files.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Broken branded 500 page silently replaced by plain page\",\n  \"cause\": \"server_error() in django/views/defaults.py now calls template.render() inside the `try: ... except TemplateDoesNotExist` block that is meant only to detect a missing 500.html. When the branded 500.html exists but raises TemplateDoesNotExist while rendering (e.g. an {% include %} of a missing partial), the handler swallows it and returns the generic 'Server Error (500)' fallback instead of letting the error be raised and logged. Released Django 3.2 renders outside the try, as the 400/403 handlers in this file still do.\",\n  \"files\": [\n    {\"path\": \"django/views/defaults.py\", \"why\": \"server_error() wraps template.render() in the TemplateDoesNotExist fallback (line 89), so render-time template errors are mistaken for a missing 500.html.\"},\n    {\"path\": \"tests/view_tests/tests/test_defaults.py\", \"why\": \"No test covers a 500.html whose rendering raises TemplateDoesNotExist; add a regression test here.\"}\n  ],\n  \"plan\": [\n    \"In server_error(), keep only loader.get_template(template_name) inside the try/except TemplateDoesNotExist.\",\n    \"Move `return HttpResponseServerError(template.render())` after the except block, matching bad_request() and permission_denied().\",\n    \"Add a test with a 500.html that includes a missing template and assert TemplateDoesNotExist is raised rather than the generic fallback being returned.\"\n  ],\n  \"verification\": [\n    \"New test: server_error() with a 500.html containing {% include 'missing.html' %} raises TemplateDoesNotExist (fails on the current code, which returns the generic page).\",\n    \"Existing view_tests.tests.test_defaults and handlers suites still pass (39 tests passed before the change).\",\n    \"With a valid branded 500.html, server_error() still returns its content with status 500.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.8,\n  \"fixType\": \"silentFailure\",\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"server_error() renders the 500 template inside the try block whose except branch returns the generic 'Server Error (500)' page.\", \"role\": \"rootCause\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"django/views/defaults.py:89\", \"quote\": \"return HttpResponseServerError(template.render())\"},\n      {\"type\": \"code\", \"ref\": \"django/views/defaults.py:95\", \"quote\": \"ERROR_PAGE_TEMPLATE % {'title': 'Server Error (500)', 'details': ''},\"}\n    ]},\n    {\"id\": \"c2\", \"text\": \"With a branded 500.html that includes a missing partial, this code returns the generic page while released Django 3.2 raises TemplateDoesNotExist for the partial.\", \"role\": \"rootCause\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:python server_error repro\", \"quote\": \"<title>Server Error (500)</title>\\\\n</head>\\\\n<body>\\\\n  <h1>Server Error (500)</h1>\"},\n      {\"type\": \"query\", \"ref\": \"probe:python server_error repro\", \"quote\": \"upstream 3.2 raises TemplateDoesNotExist partials/footer.html\"}\n    ]},\n    {\"id\": \"c3\", \"text\": \"The documented contract is that the generic message is the fallback for when no 500.html exists, not for when it exists but fails to render.\", \"role\": \"other\", \"citations\": [\n      {\"type\": \"doc\", \"ref\": \"docs/ref/views.txt\", \"quote\": \"\\\"Server Error\\\" message or loads and renders the template ``500.html`` if you\"}\n    ]},\n    {\"id\": \"c4\", \"text\": \"The sibling 400 and 403 handlers in the same file render outside the try block, showing the intended pattern.\", \"role\": \"other\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"django/views/defaults.py:119\", \"quote\": \"return HttpResponseBadRequest(template.render())\"}\n    ]},\n    {\"id\": \"c5\", \"text\": \"Visitors who hit an internal error get the unbranded 'Server Error (500)' page, and the broken branded template is never reported, so the team cannot see why.\", \"role\": \"impact\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s2\", \"quote\": \"internal-error responses sometimes show only \u201cServer Error (500)\u201d instead of our usual branded page.\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"Changes in the cached template loader or loader.get_template cause 500.html to be reported as missing.\", \"why\": \"Compared with released Django 3.2, loader.py is unchanged and cached.py differs only by a get_dirs helper unrelated to lookup.\", \"citations\": [{\"type\": \"code\", \"ref\": \"django/template/loaders/cached.py:55\", \"quote\": \"self.get_template_cache[key] = copy_exception(e) if self.engine.debug else TemplateDoesNotExist\"}]},\n    {\"hypothesis\": \"The 500 handler lookup (resolve_error_handler / handle_uncaught_exception) chooses the wrong view.\", \"why\": \"Both match released Django and correctly resolve handler500 from the urlconf.\", \"citations\": [{\"type\": \"code\", \"ref\": \"django/urls/resolvers.py:611\", \"quote\": \"callback = getattr(self.urlconf_module, 'handler%s' % view_type, None)\"}]},\n    {\"hypothesis\": \"An existing test already fails, showing a broader regression.\", \"why\": \"view_tests.tests.test_defaults and handlers pass (39 tests OK); none covers a render-time error in 500.html.\", \"citations\": [{\"type\": \"query\", \"ref\": \"probe:runtests\", \"quote\": \"Ran 39 tests in 0.996s\\n\\nOK\"}]}\n  ],\n  \"intendedBehavior\": \"server_error() returns the generic 'Server Error (500)' page only when 500.html does not exist; if 500.html exists but raises TemplateDoesNotExist while rendering, that error propagates instead of being replaced by the generic page.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"The docs present the generic message as the fallback for when 500.html hasn't been created, and the 400/403 handlers in the same file render outside the try. Released Django 3.2 also renders after the except block. The move into the try has no changelog or comment behind it.\"},\n  \"plain\": {\n    \"headline\": \"People who hit a server error see a bare 'Server Error (500)' page because a fault in the branded error page is mistaken for having no branded page.\",\n    \"happened\": \"When something breaks, the site tries to show its branded error page. If that page exists but one of its parts is missing, the site now acts as if the branded page doesn't exist. It quietly shows the plain built-in message and records nothing about the broken page.\",\n    \"matters\": \"Every visitor who hits an error while the branded page is broken sees the plain page, and the team never learns that the branded page itself is broken.\",\n    \"fix\": \"Only fall back to the plain page when the branded page is really missing, and let any other fault in the branded page show up as an error the team can see and fix.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 14,
+  "inputTokens": {
+   "avg": 20164.071428571428,
+   "max": 28715
+  },
+  "mainUsage": {
+   "inputTokens": 282297,
+   "cachedInputTokens": 260576,
+   "outputTokens": 10903
+  },
+  "cacheHitPercent": 92.30562138457014,
+  "wallSeconds": 143.54699993133545,
+  "tools": {
+   "read": 6,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 7
+  },
+  "reads": 6,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.3570592,
+   "partial": false,
+   "estimated": true
+  }
+ },
+ "costUsd": 0.3570592
+}

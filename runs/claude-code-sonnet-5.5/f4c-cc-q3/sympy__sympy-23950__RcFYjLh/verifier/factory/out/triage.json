@@ -1,0 +1,10 @@
+[
+{"source":"S1","decision":"skip","reason":"Production chat message about a forecasting service's cohort density, with no connection to code in this sympy repository."},
+{"source":"S2","decision":"skip","reason":"PythonCodePrinter already has _print_Indexed in this checkout; pycode(p[0]) returns 'p[0]'."},
+{"source":"S3","decision":"skip","reason":"Could not reproduce: subs({1: 1.0}) on the real-symbol sinh/cosh/tanh Piecewise expression succeeds even after clear_cache()."},
+{"source":"S4","decision":"skip","reason":"Optical calculator is not part of this repository and the report names no sympy code."},
+{"source":"S5","decision":"skip","reason":"Kubernetes OOMKilled in an export-job worker is an infrastructure/application problem outside this repository."},
+{"source":"S6","decision":"fix","reason":"Contains.as_set raised NotImplementedError instead of returning the Set, so Piecewise with a Contains condition could not use it."},
+{"source":"S7","decision":"fix","reason":"The NotImplementedError at sympy/sets/contains.py as_set is the same defect as S6."},
+{"source":"S8","decision":"skip","reason":"A design suggestion about what frac(oo) should return rather than a clear defect; the AccumBounds(0, 1) result is a deliberate choice."}
+]

@@ -1,0 +1,9 @@
+[
+ {"source":"S1","decision":"skip","reason":"Already implemented: :private-members: accepts arguments (members_option and private_members filtering exist in autodoc)."},
+ {"source":"S2","decision":"fix","reason":"Catalog.add in the gettext builder only recorded the first location of a message because the append was indented inside the 'new message' branch."},
+ {"source":"S3","decision":"skip","reason":"Timeout talking to api.github.com from an external webhook-relay service; not code in this repository."},
+ {"source":"S4","decision":"skip","reason":"Already fixed: _parse_annotation handles ast.Tuple with no elements without calling pop()."},
+ {"source":"S5","decision":"skip","reason":"The failure comes from latexmk/xindy under WSL, which is outside Sphinx's code, and the request is not specific enough to act on."},
+ {"source":"S6","decision":"fix","reason":"viewcode collect_pages did not check the builder, so epub module pages were written when the env was populated by a prior html build."},
+ {"source":"S7","decision":"fix","reason":"SearchDutch.stem stemmed before lowercasing, so all-caps words produced different index terms than lowercase ones."}
+]

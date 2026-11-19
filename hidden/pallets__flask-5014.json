@@ -1,0 +1,30 @@
+{
+ "task": "pallets__flask-5014",
+ "kept": [
+  {
+   "path": "src/flask/globals.py",
+   "category": "silent wrong result (a value or output that is subtly wrong, no exception)",
+   "defect_patch": "diff --git a/src/flask/globals.py b/src/flask/globals.py\nindex e00a0c10..4ca258c7 100644\n--- a/src/flask/globals.py\n+++ b/src/flask/globals.py\n@@ -89,6 +89,6 @@ def __getattr__(name: str) -> t.Any:\n             DeprecationWarning,\n             stacklevel=2,\n         )\n-        return __request_ctx_stack\n+        return __app_ctx_stack\n \n     raise AttributeError(name)\n",
+   "test_code": "import warnings\n\nimport flask.globals as flask_globals\nfrom flask import Flask, has_request_context\n\n\ndef test_legacy_request_stack_is_empty_in_app_only_context():\n    app = Flask(__name__)\n\n    with app.app_context():\n        assert not has_request_context()\n\n        with warnings.catch_warnings():\n            warnings.simplefilter(\"ignore\", DeprecationWarning)\n            request_active = flask_globals._request_ctx_stack.top is not None\n\n        assert request_active is False\n",
+   "signal": {
+    "kind": "metric",
+    "source": "scheduled-worker-dashboard",
+    "text": "CLI-only workers report requests_in_progress=1 throughout scheduled jobs, despite having no HTTP listener or incoming traffic."
+   },
+   "summary": "The deprecated request-context stack accessor returns the application-context stack, making app-only contexts falsely appear to have an active request."
+  },
+  {
+   "path": "src/flask/ctx.py",
+   "category": "silent wrong result (a value or output that is subtly wrong, no exception)",
+   "defect_patch": "diff --git a/src/flask/ctx.py b/src/flask/ctx.py\nindex c79c26dc..1f0c0313 100644\n--- a/src/flask/ctx.py\n+++ b/src/flask/ctx.py\n@@ -370,7 +370,7 @@ class RequestContext:\n         # This allows a custom open_session method to use the request context.\n         # Only open a new session if this is the first time the request was\n         # pushed, otherwise stream_with_context loses the session.\n-        if self.session is None:\n+        if not self.session:\n             session_interface = self.app.session_interface\n             self.session = session_interface.open_session(self.app, self.request)\n \n",
+   "test_code": "from flask import Flask, session, stream_with_context\n\n\ndef test_cleared_session_stays_empty_in_streamed_response():\n    app = Flask(__name__)\n    app.config.update(TESTING=True, SECRET_KEY=\"streaming-session-test\")\n\n    @app.route(\"/sign-in\")\n    def sign_in():\n        session[\"user\"] = \"alice\"\n        return \"signed in\"\n\n    @app.route(\"/sign-out\")\n    def sign_out():\n        session.clear()\n\n        @stream_with_context\n        def generate():\n            yield session.get(\"user\", \"anonymous\")\n\n        return app.response_class(generate(), mimetype=\"text/plain\")\n\n    client = app.test_client()\n    assert client.get(\"/sign-in\").status_code == 200\n\n    response = client.get(\"/sign-out\", buffered=True)\n    assert response.status_code == 200\n    assert response.get_data(as_text=True) == \"anonymous\"\n",
+   "signal": {
+    "kind": "user",
+    "source": "account-support",
+    "text": "After signing out, the live account page still shows my username, and refreshing leaves me signed in."
+   },
+   "summary": "A truthiness check reloads an intentionally cleared session when the request context is pushed again for streaming, restoring stale session data from the incoming cookie."
+  }
+ ],
+ "rejected": []
+}

@@ -1,0 +1,10 @@
+[
+  {"source": "S1", "decision": "skip", "reason": "Vague report about a custom user-supplied font's right-aligned labels with no version, backend, font, or reproduction to identify a defect in this code."},
+  {"source": "S2", "decision": "skip", "reason": "Already fixed in this checkout: dates._wrap_in_tex now wraps labels in {\\fontfamily{\\familydefault}\\selectfont ...} instead of math mode, restoring the 3.3-style spacing."},
+  {"source": "S3", "decision": "skip", "reason": "Unspecific report of tiny connector gaps in exported diagrams with no code, tool, or backend identified, so there is nothing actionable in this repository."},
+  {"source": "S4", "decision": "skip", "reason": "Connection-refused error from a billing service talking to api.stripe.com via requests, which is unrelated to this repository."},
+  {"source": "S5", "decision": "skip", "reason": "Already fixed: Legend accepts any FigureBase parent and SubFigure.legend() works in this checkout."},
+  {"source": "S6", "decision": "skip", "reason": "Not a defect: AutoDateLocator puts ticks on calendar dates (e.g. day-of-month), so the grid spacing varies with month length by design; a fixed-interval locator gives even spacing."},
+  {"source": "S7", "decision": "fix", "reason": "Production ConversionError from StrCategoryConverter treating empty data as deprecated numeric passthrough; same root cause as S8."},
+  {"source": "S8", "decision": "fix", "reason": "Reproduced: plotting empty data on a categorical axis emits a MatplotlibDeprecationWarning (a ConversionError under -W error) because all() over an empty array is True."}
+]

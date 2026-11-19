@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 50483,
+ "finalText": "The work matches the request. `Blueprint(\"\")` now raises `ValueError(\"'name' may not be empty.\")`, and the PR text is at `/testbed/.factory/pr-S5.md`. Nothing is committed or pushed, as the benchmark note required.\n\nThe new test `test_empty_name_not_allowed` failed on the base commit with \"DID NOT RAISE\" and passes with the fix. The full suite has 11 failures from werkzeug DeprecationWarnings in this environment. The base commit has the same 11, so they are not from this change.\n\nThe check is in `src/flask/blueprints.py`, next to the existing dot check. I also added the test in `tests/test_blueprints.py` and an entry in `CHANGES.rst`.\n\n`src/flask/sessions.py` and `tests/test_basic.py` also show as modified in the working tree. I did not touch them. They look like the open `Vary: Cookie` pull request (#1000), which does not cover this issue.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"name\": \"python -m pytest tests/test_blueprints.py -k empty_name\", \"passed\": true},\n    {\"name\": \"python -m pytest tests\", \"passed\": false, \"alsoOnBase\": true, \"note\": \"11 pre-existing werkzeug DeprecationWarning failures, identical on base\"}\n  ],\n  \"visual\": false,\n  \"reproductionSteps\": [\"Run flask.Blueprint('', __name__); before the fix it is accepted without error\"],\n  \"reproductionTest\": {\n    \"path\": \"tests/test_blueprints.py\",\n    \"command\": \"python -m pytest tests/test_blueprints.py -k empty_name\",\n    \"signature\": \"Failed: DID NOT RAISE <class 'ValueError'>\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 11,
+  "inputTokens": {
+   "avg": 21700.636363636364,
+   "max": 25523
+  },
+  "mainUsage": {
+   "inputTokens": 238707,
+   "cachedInputTokens": 227076,
+   "outputTokens": 4302
+  },
+  "cacheHitPercent": 95.12749940303385,
+  "wallSeconds": 49.71599984169006,
+  "tools": {
+   "read": 6,
+   "edit": 5,
+   "test": 0,
+   "verify": 0,
+   "git": 1,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 5
+  },
+  "reads": 6,
+  "edits": 5,
+  "runs": 6,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 5,
+  "editOperations": 5,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1174997,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1174997
+}

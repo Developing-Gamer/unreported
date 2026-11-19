@@ -1,0 +1,859 @@
+[
+ {
+  "job": "rpc0-w0",
+  "task": "django__django-12039",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 1,
+  "wontfix_acted": [],
+  "wontfix_total": 0,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 15,
+    "tests": 15,
+    "description": 15,
+    "total": 100,
+    "rationale": "The focused change fixes both rendering paths by adding a separator only for nonempty suffixes, producing the correct spacing for descending columns and opclasses while preserving behavior when suffixes are absent. The regression tests fail on the old rendering and cover both reported cases plus mixed ordering with opclasses, and the description accurately explains the change and reports verification with skips noted."
+   },
+   "total": 100.0,
+   "missed": false
+  },
+  "system": "bonzai-sonnet-5.5-pr-replay"
+ },
+ {
+  "job": "rpc0-w0",
+  "task": "pylint-dev__pylint-4604",
+  "resolved": false,
+  "verified": true,
+  "triage_written": true,
+  "detected": false,
+  "false_positives": [],
+  "decoys_checked": 2,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": null,
+   "claude": null,
+   "total": 0,
+   "missed": true
+  },
+  "regraded": "verifier could not download the swebench grader; graded locally with the same parser",
+  "system": "bonzai-sonnet-5.5-pr-replay"
+ },
+ {
+  "job": "rpc0-w1",
+  "task": "django__django-13406",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 3,
+  "wontfix_acted": [],
+  "wontfix_total": 0,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 15,
+    "tests": 15,
+    "description": 14,
+    "total": 99,
+    "rationale": "The focused setter change matches the reference fix: it selects dictionary iteration instead of constructing malformed model instances, and the regression test checks the exact grouped result after a pickle round trip. The description accurately explains the cause and the values_list() shape limitation, but overstates the symptom by claiming that accessing any field raises the error when the report demonstrates it for the primary key."
+   },
+   "total": 99.0,
+   "missed": false
+  },
+  "system": "bonzai-sonnet-5.5-pr-replay"
+ },
+ {
+  "job": "rpc0-w1",
+  "task": "pylint-dev__pylint-4661",
+  "resolved": false,
+  "verified": true,
+  "triage_written": true,
+  "detected": false,
+  "false_positives": [],
+  "decoys_checked": 2,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": null,
+   "claude": null,
+   "total": 0,
+   "missed": true
+  },
+  "regraded": "verifier could not download the swebench grader; graded locally with the same parser",
+  "system": "bonzai-sonnet-5.5-pr-replay"
+ },
+ {
+  "job": "rpc0-w10",
+  "task": "astropy__astropy-14539",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 2,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 15,
+    "tests": 15,
+    "description": 15,
+    "total": 100,
+    "rationale": "The PR correctly identifies that Q-format columns bypassed the per-row comparison for variable-length arrays, and the focused fix routes both P and Q columns through that path while treating unequal row shapes as differences. The tests reproduce the reported QD self-comparison and check that real differences are still detected in both formats, and the description clearly explains the cause, the change, and the reported verification."
+   },
+   "total": 100.0,
+   "missed": false
+  },
+  "regraded": "verifier could not download the swebench grader; graded locally with the same parser",
+  "system": "bonzai-sonnet-5.5-pr-replay"
+ },
+ {
+  "job": "rpc0-w10",
+  "task": "psf__requests-1724",
+  "resolved": false,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 1,
+  "wontfix_acted": [],
+  "wontfix_total": 0,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 12,
+    "tests": 11,
+    "description": 14,
+    "total": 92,
+    "rationale": "The PR correctly identifies Python 2\u2019s implicit ASCII decoding of the binary body and prevents it by normalizing the method to a native string, though doing so in both layers is redundant. The tests catch the method-type regression but do not exercise a binary upload through the public send path, and the otherwise clear description omits the second added test."
+   },
+   "total": 92.0,
+   "missed": false
+  },
+  "system": "bonzai-sonnet-5.5-pr-replay"
+ },
+ {
+  "job": "rpc0-w11",
+  "task": "psf__requests-1766",
+  "resolved": false,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 1,
+  "wontfix_acted": [],
+  "wontfix_total": 0,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 0,
+    "fix": 0,
+    "scope": 0,
+    "tests": 0,
+    "description": 2,
+    "total": 2,
+    "rationale": "The PR does not address the unquoted Digest Auth qop directive; the shown diff only removes CA-bundle content, and the Sentry stack trace does not establish that a missing ISRG Root X1 caused the TLS failures. The description clearly explains its hypothesis, but the diff shows neither the claimed replacement bundle nor any regression tests, so the reported verification is unsupported."
+   },
+   "total": 2.0,
+   "missed": false
+  },
+  "system": "bonzai-sonnet-5.5-pr-replay"
+ },
+ {
+  "job": "rpc0-w11",
+  "task": "scikit-learn__scikit-learn-26194",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 2,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 15,
+    "tests": 15,
+    "description": 12,
+    "total": 97,
+    "rationale": "The PR correctly identifies `max(y_score) + 1` as the source of the misleading cutoff and replaces it with an explicit `np.inf` sentinel, preserving the ROC origin and all score-derived thresholds in a focused change with a regression test. The description explains the sentinel and compatibility impact, but its claim that the old cutoff always exceeds 1 overlooks all-zero scores, and the new documentation incorrectly implies that the sentinel itself lies within the probability range."
+   },
+   "total": 97.0,
+   "missed": false
+  },
+  "system": "bonzai-sonnet-5.5-pr-replay"
+ },
+ {
+  "job": "rpc0-w12",
+  "task": "pydata__xarray-3677",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 2,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 15,
+    "tests": 15,
+    "description": 15,
+    "total": 100,
+    "rationale": "Dataset.merge passed a DataArray into code that expected a mapping; converting it to a Dataset before either merge branch matches the top-level API and preserves the usual error for unnamed arrays. The diff is focused, the regression test covers the reported failure and both overwrite cases, and the description accurately explains the change and reports the verification command and result."
+   },
+   "total": 100.0,
+   "missed": false
+  },
+  "system": "bonzai-sonnet-5.5-pr-replay"
+ },
+ {
+  "job": "rpc0-w12",
+  "task": "sphinx-doc__sphinx-8721",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 2,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 15,
+    "tests": 15,
+    "description": 15,
+    "total": 100,
+    "rationale": "The PR correctly identifies that EPUB's page collector can reuse module data cached by HTML and applies the existing builder guards at collection time without changing HTML or opt-in EPUB behavior. The focused tests cover the HTML-to-EPUB regression and the opt-in case, and the description accurately explains the change and reports the pre-existing test failure."
+   },
+   "total": 100.0,
+   "missed": false
+  },
+  "system": "bonzai-sonnet-5.5-pr-replay"
+ },
+ {
+  "job": "rpc0-w13",
+  "task": "pydata__xarray-4687",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 3,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 29,
+    "fix": 18,
+    "scope": 15,
+    "tests": 11,
+    "description": 12,
+    "total": 85,
+    "rationale": "The focused patch correctly identifies the missing `keep_attrs` control and adds a tested opt-in that preserves `x`'s top-level attributes without changing the default. But `keep_attrs=True` still lets `apply_ufunc` take Dataset variable and coordinate attributes from the condition, a gap the tests miss and the description does not disclose."
+   },
+   "total": 85.0,
+   "missed": false
+  },
+  "system": "bonzai-sonnet-5.5-pr-replay"
+ },
+ {
+  "job": "rpc0-w13",
+  "task": "sphinx-doc__sphinx-9281",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 3,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 15,
+    "tests": 15,
+    "description": 15,
+    "total": 100,
+    "rationale": "The PR correctly traces the unwanted output to the generic repr() fallback and adds a focused Enum case that renders named members as ClassName.member without changing the handling of non-Enum defaults. The regression test checks both the formatter and the resulting signature, and the description accurately explains the change and reports the targeted test results."
+   },
+   "total": 100.0,
+   "missed": false
+  },
+  "regraded": "verifier could not download the swebench grader; graded locally with the same parser",
+  "system": "bonzai-sonnet-5.5-pr-replay"
+ },
+ {
+  "job": "rpc0-w14",
+  "task": "pydata__xarray-6744",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 3,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 15,
+    "tests": 15,
+    "description": 15,
+    "total": 100,
+    "rationale": "The iterator used trailing slice bounds regardless of `center`; the new offset aligns centered windows with rolling reductions while preserving uncentered behavior and minimum-period handling. The patch is focused, the regression test covers odd and even window sizes with both centering settings and two minimum-period settings, and the description accurately explains the change and reports verification."
+   },
+   "total": 100.0,
+   "missed": false
+  },
+  "system": "bonzai-sonnet-5.5-pr-replay"
+ },
+ {
+  "job": "rpc0-w2",
+  "task": "django__django-15572",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 1,
+  "wontfix_acted": [],
+  "wontfix_total": 0,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 15,
+    "tests": 15,
+    "description": 15,
+    "total": 100,
+    "rationale": "The PR correctly identifies that normalizing an empty template directory turns it into the working directory, causing unrelated file changes to be treated as template changes, and fixes both directory sources without changing how valid paths are handled. The focused regression test checks that the working directory is excluded and an unrelated change is not consumed, and the description accurately explains the patch and reports before-and-after verification."
+   },
+   "total": 100.0,
+   "missed": false
+  },
+  "system": "bonzai-sonnet-5.5-pr-replay"
+ },
+ {
+  "job": "rpc0-w2",
+  "task": "pylint-dev__pylint-6386",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 2,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 27,
+    "fix": 18,
+    "scope": 15,
+    "tests": 12,
+    "description": 12,
+    "total": 84,
+    "rationale": "The focused change correctly routes `-v` through the same preprocessing as `--verbose`, and the regression test covers both positions relative to the filename. The help text still incorrectly shows a `VERBOSE` value and has no regression test, while the verification summary blurs the distinct pre-fix outcomes of a missing argument and a swallowed filename."
+   },
+   "total": 84.0,
+   "missed": false
+  },
+  "regraded": "verifier could not download the swebench grader; graded locally with the same parser",
+  "system": "bonzai-sonnet-5.5-pr-replay"
+ },
+ {
+  "job": "rpc0-w3",
+  "task": "matplotlib__matplotlib-22719",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 3,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 15,
+    "tests": 15,
+    "description": 15,
+    "total": 100,
+    "rationale": "The PR correctly identifies that `all()` returns true on empty input and adds a focused early return that preserves the empty float result without changing nonempty conversion behavior. The regression test treats deprecation warnings as errors and covers both plotting and direct axis conversion, while the description accurately explains the failure, fix, and reported verification."
+   },
+   "total": 100.0,
+   "missed": false
+  },
+  "system": "bonzai-sonnet-5.5-pr-replay"
+ },
+ {
+  "job": "rpc0-w3",
+  "task": "pytest-dev__pytest-10051",
+  "resolved": false,
+  "verified": true,
+  "triage_written": true,
+  "detected": false,
+  "false_positives": [],
+  "decoys_checked": 2,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": null,
+   "claude": null,
+   "total": 0,
+   "missed": true
+  },
+  "system": "bonzai-sonnet-5.5-pr-replay"
+ },
+ {
+  "job": "rpc0-w4",
+  "task": "matplotlib__matplotlib-25122",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 2,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 15,
+    "tests": 15,
+    "description": 15,
+    "total": 100,
+    "rationale": "The PR correctly identifies that summing absolute window coefficients discards cancellation from negative lobes, and it makes a focused correction in all three affected spectral modes. The flat-top regression test checks unit DC amplitude or power in each mode, and the description accurately explains the change and reports the verification command and result."
+   },
+   "total": 100.0,
+   "missed": false
+  },
+  "system": "bonzai-sonnet-5.5-pr-replay"
+ },
+ {
+  "job": "rpc0-w4",
+  "task": "pytest-dev__pytest-5840",
+  "resolved": false,
+  "verified": false,
+  "triage_written": true,
+  "detected": false,
+  "false_positives": [],
+  "decoys_checked": 2,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": null,
+   "claude": null,
+   "total": 0,
+   "missed": true
+  },
+  "system": "bonzai-sonnet-5.5-pr-replay"
+ },
+ {
+  "job": "rpc0-w5",
+  "task": "matplotlib__matplotlib-25311",
+  "resolved": false,
+  "verified": true,
+  "triage_written": true,
+  "detected": false,
+  "false_positives": [],
+  "decoys_checked": 3,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": null,
+   "claude": null,
+   "total": 0,
+   "missed": true
+  },
+  "system": "bonzai-sonnet-5.5-pr-replay"
+ },
+ {
+  "job": "rpc0-w5",
+  "task": "pytest-dev__pytest-6197",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 2,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 21,
+    "scope": 15,
+    "tests": 15,
+    "description": 13,
+    "total": 94,
+    "rationale": "The PR correctly identifies the eager import in Package.collect(), removes it with a focused change, and adds a regression test that reproduces the reported failure. The description explains the change and verification clearly, but overstates when packages can be imported and misses that collectors bypassing Module.collect(), such as doctest collectors, can now reach marker selection before their package marks are loaded."
+   },
+   "total": 94.0,
+   "missed": false
+  },
+  "system": "bonzai-sonnet-5.5-pr-replay"
+ },
+ {
+  "job": "rpc0-w6",
+  "task": "mwaskom__seaborn-3069",
+  "resolved": false,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 2,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 16,
+    "fix": 12,
+    "scope": 14,
+    "tests": 8,
+    "description": 11,
+    "total": 61,
+    "rationale": "The PR correctly identifies the removed pandas option behind S1, replaces it with explicit infinity handling at three related call sites, and adds regression coverage for the crash. The description and verification summary are clear for S1, but the PR neither addresses nor tests S2\u2019s requested nominal-axis limits, grid suppression, or y-axis inversion."
+   },
+   "total": 61.0,
+   "missed": false
+  },
+  "system": "bonzai-sonnet-5.5-pr-replay"
+ },
+ {
+  "job": "rpc0-w6",
+  "task": "scikit-learn__scikit-learn-13142",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 2,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 15,
+    "tests": 15,
+    "description": 15,
+    "total": 100,
+    "rationale": "The PR correctly identifies that the final E-step used the last initialization\u2019s parameters and fixes the mismatch by moving it after the best parameters are restored. The patch is focused, the seeded regression test directly compares fit_predict and predict with n_init=5, and the description accurately explains the change and reports how it was verified."
+   },
+   "total": 100.0,
+   "missed": false
+  },
+  "system": "bonzai-sonnet-5.5-pr-replay"
+ },
+ {
+  "job": "rpc0-w7",
+  "task": "mwaskom__seaborn-3187",
+  "resolved": false,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 2,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 15,
+    "scope": 15,
+    "tests": 11,
+    "description": 11,
+    "total": 82,
+    "rationale": "The focused patch correctly prevents ScalarFormatter from putting a multiplier or offset into text the objects legend never displays, and the new regression test checks that the labels match their numeric values. The fix and test leave scatterplot untouched, and the description incorrectly treats that explicitly reported case as out of scope."
+   },
+   "total": 82.0,
+   "missed": false
+  },
+  "system": "bonzai-sonnet-5.5-pr-replay"
+ },
+ {
+  "job": "rpc0-w7",
+  "task": "sympy__sympy-20428",
+  "resolved": false,
+  "verified": true,
+  "triage_written": true,
+  "detected": false,
+  "false_positives": [],
+  "decoys_checked": 4,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": null,
+   "claude": null,
+   "total": 0,
+   "missed": true
+  },
+  "system": "bonzai-sonnet-5.5-pr-replay"
+ },
+ {
+  "job": "rpc0-w8",
+  "task": "pallets__flask-5014",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 2,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 15,
+    "tests": 15,
+    "description": 14,
+    "total": 99,
+    "rationale": "The constructor now rejects empty names with ValueError while preserving the existing dotted-name check, and the focused regression test would fail before the fix and pass afterward. The description matches the diff and reports a useful comparison with the base commit, but that comparison does not establish that newer dependencies caused the full-suite failures."
+   },
+   "total": 99.0,
+   "missed": false
+  },
+  "system": "bonzai-sonnet-5.5-pr-replay"
+ },
+ {
+  "job": "rpc0-w8",
+  "task": "sympy__sympy-23950",
+  "resolved": false,
+  "verified": true,
+  "triage_written": true,
+  "detected": false,
+  "false_positives": [],
+  "decoys_checked": 2,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": null,
+   "claude": null,
+   "total": 0,
+   "missed": true
+  },
+  "system": "bonzai-sonnet-5.5-pr-replay"
+ },
+ {
+  "job": "rpc0-w9",
+  "task": "astropy__astropy-14182",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 2,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 14,
+    "tests": 15,
+    "description": 14,
+    "total": 98,
+    "rationale": "The patch fixes the rejected keyword and adjusts the border and data positions to account for extra header rows without changing the default layout. The focused regression test checks exact output and round-trips names, units, and values; the description matches the diff, though the changelog filename is explicitly provisional."
+   },
+   "total": 98.0,
+   "missed": false
+  },
+  "regraded": "verifier could not download the swebench grader; graded locally with the same parser",
+  "system": "bonzai-sonnet-5.5-pr-replay"
+ },
+ {
+  "job": "rpc0-w9",
+  "task": "psf__requests-1142",
+  "resolved": false,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 2,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 15,
+    "fix": 13,
+    "scope": 15,
+    "tests": 8,
+    "description": 13,
+    "total": 64,
+    "rationale": "The focused patch addresses the S2 failure by omitting the obsolete `strict` argument on Python 3.4+ and adds a network-free regression test for HTTP and HTTPS connection creation. It neither fixes nor tests the S4 issue of an automatically added `Content-Length` header on bodyless GET requests, and the otherwise accurate description overstates the evidence that every first request failed."
+   },
+   "total": 64.0,
+   "missed": false
+  },
+  "regraded": "verifier could not download the swebench grader; graded locally with the same parser",
+  "system": "bonzai-sonnet-5.5-pr-replay"
+ },
+ {
+  "job": "rpc0-x0",
+  "task": "pytest-dev__pytest-10051",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 2,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 15,
+    "tests": 15,
+    "description": 15,
+    "total": 100,
+    "rationale": "The focused fix clears the shared records list in place and still resets the captured text, while leaving phase resets unchanged so earlier phases retain their records. The regression test checks that call records are cleared, new records appear in both views, and setup records survive; the description accurately explains the change and reports before-and-after verification."
+   },
+   "total": 100.0,
+   "missed": false
+  },
+  "system": "bonzai-sonnet-5.5-pr-replay"
+ },
+ {
+  "job": "rpc0-x1",
+  "task": "pytest-dev__pytest-5840",
+  "resolved": false,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 2,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 14,
+    "tests": 15,
+    "description": 15,
+    "total": 99,
+    "rationale": "The fix preserves path casing for traversal and imports while retaining normalized cache keys and cutoff comparisons, though it does repeat some realpath resolution. The regression test reproduces the old failure by forcing lowercase normalization, and the description accurately explains the change and discloses that it was not tested on Windows."
+   },
+   "total": 99.0,
+   "missed": false
+  },
+  "system": "bonzai-sonnet-5.5-pr-replay"
+ }
+]

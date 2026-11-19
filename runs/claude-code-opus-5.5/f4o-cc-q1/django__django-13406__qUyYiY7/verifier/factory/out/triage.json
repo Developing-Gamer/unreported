@@ -1,0 +1,8 @@
+[
+  {"source": "S1", "decision": "fix", "reason": "DateFormat.o() returned the calendar year instead of the ISO-8601 week-numbering year, so dates such as 2021-01-01 were labeled 2021-53 instead of 2020-53."},
+  {"source": "S2", "decision": "skip", "reason": "Django's server_error view correctly falls back to the plain 'Server Error (500)' page only when 500.html cannot be found, which points to a deployment/template configuration problem rather than a defect in this code."},
+  {"source": "S3", "decision": "fix", "reason": "The QuerySet.query setter did not restore ValuesIterable when given a pickled values()/values_list() query, so model instances were built from dict-shaped rows."},
+  {"source": "S4", "decision": "skip", "reason": "Already fixed: ChoicesMeta sets do_not_call_in_templates = True on enumeration types (django/db/models/enums.py)."},
+  {"source": "S5", "decision": "skip", "reason": "Already fixed: parse_bits() accepts keyword-only arguments that have defaults and raises the 'multiple values' error for duplicate keyword arguments."},
+  {"source": "S6", "decision": "skip", "reason": "A network timeout to api.github.com in an external webhook-relay service is not related to this repository's code."}
+]

@@ -1,0 +1,30 @@
+{
+ "task": "pylint-dev__pylint-4661",
+ "kept": [
+  {
+   "path": "pylint/testutils/lint_module_test.py",
+   "category": "silent wrong result (a value or output that is subtly wrong, no exception)",
+   "defect_patch": "diff --git a/pylint/testutils/lint_module_test.py b/pylint/testutils/lint_module_test.py\nindex 8f24daf8..3f11f746 100644\n--- a/pylint/testutils/lint_module_test.py\n+++ b/pylint/testutils/lint_module_test.py\n@@ -128,8 +128,7 @@ class LintModuleTest:\n         \"\"\"Takes two multisets and compares them.\n \n         A multiset is a dict with the cardinality of the key as the value.\"\"\"\n-        missing = expected_entries.copy()\n-        missing.subtract(actual_entries)\n+        missing = expected_entries - actual_entries\n         unexpected = {}\n         for key, value in list(missing.items()):\n             if value <= 0:\n",
+   "test_code": "from collections import Counter\n\nfrom pylint.testutils.lint_module_test import LintModuleTest\n\n\ndef test_multiset_difference_preserves_unexpected_message_counts():\n    expected = Counter({\n        (12, \"unused-import\"): 1,\n        (18, \"undefined-variable\"): 1,\n    })\n    actual = Counter({\n        (12, \"unused-import\"): 3,\n        (23, \"unused-variable\"): 1,\n    })\n\n    missing, unexpected = LintModuleTest.multiset_difference(expected, actual)\n\n    assert missing == Counter({(18, \"undefined-variable\"): 1})\n    assert unexpected == {\n        (12, \"unused-import\"): 2,\n        (23, \"unused-variable\"): 1,\n    }\n",
+   "signal": {
+    "kind": "user",
+    "source": "maintainer-ci-support",
+    "text": "The CI summary says the warnings do not match, but the details only list missing warnings. Extra warnings are visible in the verbose output but absent from the mismatch summary."
+   },
+   "summary": "Using Counter subtraction instead of in-place subtraction discards negative counts, silently omitting all unexpected messages from mismatch diagnostics."
+  },
+  {
+   "path": "pylint/extensions/docparams.py",
+   "category": "silent wrong result (a value or output that is subtly wrong, no exception)",
+   "defect_patch": "diff --git a/pylint/extensions/docparams.py b/pylint/extensions/docparams.py\nindex 4344444f..341e04df 100644\n--- a/pylint/extensions/docparams.py\n+++ b/pylint/extensions/docparams.py\n@@ -304,7 +304,7 @@ class DocstringParameterChecker(BaseChecker):\n         found_excs_full_names = doc.exceptions()\n \n         # Extract just the class name, e.g. \"error\" from \"re.error\"\n-        found_excs_class_names = {exc.split(\".\")[-1] for exc in found_excs_full_names}\n+        found_excs_class_names = {exc.split(\".\", 1)[-1] for exc in found_excs_full_names}\n         missing_excs = expected_excs - found_excs_class_names\n         self._add_raise_message(missing_excs, func_node)\n \n",
+   "test_code": "import astroid\nimport pytest\n\nfrom pylint.extensions.docparams import DocstringParameterChecker\nfrom pylint.testutils import CheckerTestCase\n\n\nclass TestQualifiedRaisesDocumentation(CheckerTestCase):\n    CHECKER_CLASS = DocstringParameterChecker\n\n    @pytest.mark.parametrize(\n        \"documented_name\",\n        [\"ValueError\", \"errors.ValueError\", \"acme.errors.ValueError\"],\n    )\n    def test_documented_exception_class_is_recognized(self, documented_name):\n        node = astroid.extract_node(\n            f'''\ndef validate():\n    \"\"\"Validate the payload.\n\n    :raises {documented_name}: If the payload is invalid.\n    \"\"\"\n    raise ValueError(\"invalid payload\")  #@\n'''\n        )\n        with self.assertNoMessages():\n            self.checker.visit_raise(node)\n",
+   "signal": {
+    "kind": "user",
+    "source": "developer-support",
+    "text": "A few API methods now get a '\"ValueError\" not documented as being raised' warning even though the exception is still listed in their docstrings."
+   },
+   "summary": "Limiting exception-name splitting to one dot leaves deeply qualified names partially qualified, causing spurious missing-raises-doc warnings."
+  }
+ ],
+ "rejected": []
+}

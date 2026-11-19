@@ -1,0 +1,163 @@
+diff --git a/CHANGES b/CHANGES
+index bc9dfa335..30582f973 100755
+--- a/CHANGES
++++ b/CHANGES
+@@ -51,6 +51,8 @@ Bugs fixed
+   class
+ * #8592: autodoc: ``:meta public:`` does not effect to variables
+ * #8594: autodoc: empty __all__ attribute is ignored
++* #8609: viewcode: module pages are created for epub even if
++  :confval:`viewcode_enable_epub` is False when building after the html builder
+ * #8315: autodoc: Failed to resolve struct.Struct type annotation
+ * #8652: autodoc: All variable comments in the module are ignored if the module
+   contains invalid type comments
+diff --git a/sphinx/builders/gettext.py b/sphinx/builders/gettext.py
+index 60c5036f9..75c95c0bc 100755
+--- a/sphinx/builders/gettext.py
++++ b/sphinx/builders/gettext.py
+@@ -86,7 +86,7 @@ class Catalog:
+         if msg not in self.metadata:  # faster lookup in hash
+             self.messages.append(msg)
+             self.metadata[msg] = []
+-            self.metadata[msg].append((origin.source, origin.line, origin.uid))  # type: ignore
++        self.metadata[msg].append((origin.source, origin.line, origin.uid))  # type: ignore
+ 
+     def __iter__(self) -> Generator[Message, None, None]:
+         for message in self.messages:
+diff --git a/sphinx/ext/viewcode.py b/sphinx/ext/viewcode.py
+index a7d52a91c..2bc05c2cc 100755
+--- a/sphinx/ext/viewcode.py
++++ b/sphinx/ext/viewcode.py
+@@ -19,6 +19,7 @@ from docutils.nodes import Element, Node
+ import sphinx
+ from sphinx import addnodes
+ from sphinx.application import Sphinx
++from sphinx.builders import Builder
+ from sphinx.builders.html import StandaloneHTMLBuilder
+ from sphinx.environment import BuildEnvironment
+ from sphinx.locale import _, __
+@@ -50,13 +51,20 @@ def _get_full_modname(app: Sphinx, modname: str, attribute: str) -> Optional[str
+         return None
+ 
+ 
++def is_supported_builder(builder: Builder) -> bool:
++    """Check whether viewcode should generate source pages for *builder*."""
++    if builder.name == 'singlehtml':
++        return False
++    if builder.name.startswith('epub') and not builder.config.viewcode_enable_epub:
++        return False
++    return True
++
++
+ def doctree_read(app: Sphinx, doctree: Node) -> None:
+     env = app.builder.env
+     if not hasattr(env, '_viewcode_modules'):
+         env._viewcode_modules = {}  # type: ignore
+-    if app.builder.name == "singlehtml":
+-        return
+-    if app.builder.name.startswith("epub") and not env.config.viewcode_enable_epub:
++    if not is_supported_builder(app.builder):
+         return
+ 
+     def has_tag(modname: str, fullname: str, docname: str, refname: str) -> bool:
+@@ -182,6 +190,8 @@ def collect_pages(app: Sphinx) -> Generator[Tuple[str, Dict[str, Any], str], Non
+     env = app.builder.env
+     if not hasattr(env, '_viewcode_modules'):
+         return
++    if not is_supported_builder(app.builder):
++        return
+     highlighter = app.builder.highlighter  # type: ignore
+     urito = app.builder.get_relative_uri
+ 
+diff --git a/sphinx/search/nl.py b/sphinx/search/nl.py
+index 5cd47f3f5..f98cdf8ad 100755
+--- a/sphinx/search/nl.py
++++ b/sphinx/search/nl.py
+@@ -136,4 +136,4 @@ class SearchDutch(SearchLanguage):
+         self.stemmer = snowballstemmer.stemmer('dutch')
+ 
+     def stem(self, word: str) -> str:
+-        return self.stemmer.stemWord(word).lower()
++        return self.stemmer.stemWord(word.lower())
+diff --git a/tests/test_build_gettext.py b/tests/test_build_gettext.py
+index 92ec384b5..af7cf6b4b 100755
+--- a/tests/test_build_gettext.py
++++ b/tests/test_build_gettext.py
+@@ -192,3 +192,17 @@ def test_build_single_pot(app):
+          'msgid "Generated section".*'),
+         result,
+         flags=re.S)
++
++
++def test_catalog_keeps_all_locations_of_repeated_message():
++    from sphinx.builders.gettext import Catalog, MsgOrigin
++
++    catalog = Catalog()
++    catalog.add('Hello', MsgOrigin('/p/a.rst', 3))
++    catalog.add('Hello', MsgOrigin('/p/b.rst', 7))
++
++    messages = list(catalog)
++    assert len(messages) == 1
++    assert messages[0].text == 'Hello'
++    assert messages[0].locations == [('/p/a.rst', 3), ('/p/b.rst', 7)]
++    assert len(set(messages[0].uuids)) == 2
+diff --git a/tests/test_ext_viewcode.py b/tests/test_ext_viewcode.py
+index 79864095b..6f3226978 100755
+--- a/tests/test_ext_viewcode.py
++++ b/tests/test_ext_viewcode.py
+@@ -102,3 +102,25 @@ def test_local_source_files(app, status, warning):
+ 
+     assert result.count('href="_modules/not_a_package/submodule.html#not_a_package.submodule.Class3.class_attr"') == 1
+     assert result.count('This is the class attribute class_attr') == 1
++
++
++@pytest.mark.sphinx('html', testroot='ext-viewcode')
++def test_viewcode_epub_disabled_after_html(app, status, warning, make_app):
++    # build html first; its pickled environment holds the collected module data
++    app.builder.build_all()
++    assert (app.outdir / '_modules/spam/mod1.html').exists()
++
++    # epub build reuses the environment (and doctrees) of the html build
++    epub_app = make_app('epub', srcdir=app.srcdir)
++    epub_app.builder.build_all()
++    assert not (epub_app.outdir / '_modules').exists()
++
++
++@pytest.mark.sphinx('html', testroot='ext-viewcode')
++def test_viewcode_epub_enabled_after_html(app, status, warning, make_app):
++    app.builder.build_all()
++
++    epub_app = make_app('epub', srcdir=app.srcdir,
++                        confoverrides={'viewcode_enable_epub': True})
++    epub_app.builder.build_all()
++    assert (epub_app.outdir / '_modules/spam/mod1.xhtml').exists()
+diff --git a/tests/test_search.py b/tests/test_search.py
+index 1ceb6d55b..3bcd9a69c 100755
+--- a/tests/test_search.py
++++ b/tests/test_search.py
+@@ -110,6 +110,25 @@ def test_stemmer(app, status, warning):
+     assert is_registered_term(searchindex, 'intern')
+ 
+ 
++def test_dutch_stemmer_is_case_insensitive():
++    from sphinx.search.nl import SearchDutch
++    lang = SearchDutch({})
++    assert lang.stem('werken') == 'werk'
++    assert lang.stem('Werken') == 'werk'
++    assert lang.stem('WERKEN') == 'werk'
++    assert lang.stem('HANDLEIDINGEN') == lang.stem('handleidingen')
++
++
++def test_IndexBuilder_dutch_uppercase_title():
++    env = DummyEnvironment('1.0', {'dummy': DummyDomain([])})
++    doc = utils.new_document(b'test data', settings)
++    doc['file'] = 'dummy'
++    parser.parse('WERKEN\n======\n\ntekst\n', doc)
++    index = IndexBuilder(env, 'nl', {}, None)
++    index.feed('docname', 'filename', 'title', doc)
++    assert index._title_mapping == {'werk': {'docname'}}
++
++
+ @pytest.mark.sphinx(testroot='search')
+ def test_term_in_heading_and_section(app, status, warning):
+     searchindex = (app.outdir / 'searchindex.js').read_text()

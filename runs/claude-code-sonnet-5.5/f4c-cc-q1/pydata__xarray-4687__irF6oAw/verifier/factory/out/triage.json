@@ -1,0 +1,9 @@
+[
+{"source":"S1","decision":"skip","reason":"to_unstacked_dataset roundtrip for single-dim variables already works in this checkout."},
+{"source":"S2","decision":"fix","reason":"plugins.sort_backends sorted STANDARD_BACKENDS_ORDER alphabetically, so h5netcdf was preferred over netcdf4."},
+{"source":"S3","decision":"fix","reason":"xr.where had no way to keep attrs; added keep_attrs (honoring the global option, True keeps x's attrs)."},
+{"source":"S4","decision":"skip","reason":"DataArray.quantile already honors keep_attrs in this checkout."},
+{"source":"S5","decision":"skip","reason":"Decoding variables with time-unit 'units' attrs to timedelta is the documented decode_timedelta default; no defect in repo code evident."},
+{"source":"S6","decision":"skip","reason":"expand_dims returns a documented read-only broadcast view; forcing writeable on it is unsafe numpy behavior, not a library bug."},
+{"source":"S7","decision":"skip","reason":"Stripe connection error in an unrelated billing service, not this repository."}
+]

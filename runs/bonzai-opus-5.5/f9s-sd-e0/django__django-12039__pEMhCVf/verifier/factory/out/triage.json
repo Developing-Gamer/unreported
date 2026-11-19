@@ -1,0 +1,32 @@
+[
+  {
+    "source": "S1",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The OOMKilled error comes from the export-job service's export/worker.py run and export/csv_writer.py flush. Neither file, nor any nightly CSV export code, exists in this repository, which is the Djan"
+  },
+  {
+    "source": "S2",
+    "decision": "fix",
+    "reason": "When `showmigrations --plan` is given app labels, show_plan builds the full dependency-ordered plan for those apps' latest migrations but then drops every migration whose app wasn't named (`migration["
+  },
+  {
+    "source": "S3",
+    "decision": "fix",
+    "reason": "BaseEngine.template_dirs prepends the installed apps' template folders to the configured DIRS (`get_app_template_dirs(self.app_dirname) + template_dirs`), so the Jinja2 and TemplateStrings backends fi"
+  },
+  {
+    "source": "S4",
+    "decision": "fix",
+    "reason": "Columns.__str__ joins the quoted column name directly to its suffix (self.quote_name(column) + self.col_suffixes[idx]), so a descending index renders as \"name\"DESC. IndexColumns.__str__ (PostgreSQL op"
+  },
+  {
+    "source": "S5",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: In Django 1.11 (the version the reporter links), the MySQL, SQLite and Oracle date and extract lookups converted stored datetimes from a hard-coded 'UTC', ignoring DATABASES['...']['TIME_ZONE']. The c"
+  },
+  {
+    "source": "S6",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: In Django 2.2.1, RelatedFieldListFilter passed an empty ordering tuple to Field.get_choices, which called order_by(*()) and so cleared the related model's Meta.ordering; RelatedOnlyFieldListFilter pas"
+  }
+]

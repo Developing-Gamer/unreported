@@ -1,0 +1,136 @@
+diff --git a/xarray/core/dask_array_ops.py b/xarray/core/dask_array_ops.py
+index a1fa7a47..37f261cc 100644
+--- a/xarray/core/dask_array_ops.py
++++ b/xarray/core/dask_array_ops.py
+@@ -66,7 +66,7 @@ def rolling_window(a, axis, window, center, fill_value):
+         if pad_size < depth[axis]:
+             # overlapping requires each chunk larger than depth. If pad_size is
+             # smaller than the depth, we enlarge this and truncate it later.
+-            drop_size = depth[axis] - pad_size + 1
++            drop_size = depth[axis] - pad_size
+             pad_size = depth[axis]
+         shape = list(a.shape)
+         shape[axis] = pad_size
+diff --git a/xarray/core/dataset.py b/xarray/core/dataset.py
+index ac0a923d..d597ec8c 100644
+--- a/xarray/core/dataset.py
++++ b/xarray/core/dataset.py
+@@ -3604,6 +3604,7 @@ class Dataset(Mapping, ImplementsDatasetReduce, DataWithCoords):
+             If any variables conflict (see ``compat``).
+         """
+         _check_inplace(inplace)
++        other = other.to_dataset() if isinstance(other, xr.DataArray) else other
+         merge_result = dataset_merge_method(
+             self,
+             other,
+diff --git a/xarray/core/extensions.py b/xarray/core/extensions.py
+index 16bbc645..79abbcce 100644
+--- a/xarray/core/extensions.py
++++ b/xarray/core/extensions.py
+@@ -35,7 +35,10 @@ class _CachedAccessor:
+         try:
+             accessor_obj = self._accessor(obj)
+         except AttributeError:
+-            accessor_obj = None
++            # __getattr__ on data object will swallow any AttributeErrors
++            # raised when initializing the accessor, so we need to raise as
++            # something else (GH933):
++            raise RuntimeError("error initializing %r accessor." % self._name)
+ 
+         cache[self._name] = accessor_obj
+         return accessor_obj
+diff --git a/xarray/core/variable.py b/xarray/core/variable.py
+index 0a9d0767..bbcadf67 100644
+--- a/xarray/core/variable.py
++++ b/xarray/core/variable.py
+@@ -182,7 +182,9 @@ def as_compatible_data(data, fastpath=False):
+         # can't use fastpath (yet) for scalars
+         return _maybe_wrap_data(data)
+ 
+-    if isinstance(data, Variable):
++    from .dataarray import DataArray
++
++    if isinstance(data, (Variable, DataArray)):
+         return data.data
+ 
+     if isinstance(data, NON_NUMPY_SUPPORTED_ARRAY_TYPES):
+@@ -198,8 +200,10 @@ def as_compatible_data(data, fastpath=False):
+     if isinstance(data, timedelta):
+         data = np.timedelta64(getattr(data, "value", data), "ns")
+ 
+-    # we don't want nested self-described arrays
+-    data = getattr(data, "values", data)
++    # we don't want nested self-described arrays; only unwrap pandas objects
++    # so arbitrary objects with a ``values`` attribute can be stored as-is
++    if isinstance(data, (pd.Series, pd.DataFrame)):
++        data = data.values
+ 
+     if isinstance(data, np.ma.MaskedArray):
+         mask = np.ma.getmaskarray(data)
+diff --git a/xarray/tests/test_duck_array_ops.py b/xarray/tests/test_duck_array_ops.py
+index aee7bbd6..cf33242c 100644
+--- a/xarray/tests/test_duck_array_ops.py
++++ b/xarray/tests/test_duck_array_ops.py
+@@ -494,7 +494,7 @@ def test_isnull_with_dask():
+ 
+ @pytest.mark.skipif(not has_dask, reason="This is for dask.")
+ @pytest.mark.parametrize("axis", [0, -1])
+-@pytest.mark.parametrize("window", [3, 8, 11])
++@pytest.mark.parametrize("window", [3, 4, 8, 11])
+ @pytest.mark.parametrize("center", [True, False])
+ def test_dask_rolling(axis, window, center):
+     import dask.array as da
+diff --git a/xarray/tests/test_extensions.py b/xarray/tests/test_extensions.py
+index 5af0f6d8..ea4856d1 100644
+--- a/xarray/tests/test_extensions.py
++++ b/xarray/tests/test_extensions.py
+@@ -86,3 +86,10 @@ class TestAccessor:
+ 
+         with raises_regex(RuntimeError, "error initializing"):
+             xr.Dataset().stupid_accessor
++
++        # the failure must not be cached as None on the object (repeat access
++        # should raise again rather than silently returning None)
++        ds = xr.Dataset()
++        for _ in range(2):
++            with raises_regex(RuntimeError, "error initializing"):
++                ds.stupid_accessor
+diff --git a/xarray/tests/test_merge.py b/xarray/tests/test_merge.py
+index c1e6c7a5..e598994a 100644
+--- a/xarray/tests/test_merge.py
++++ b/xarray/tests/test_merge.py
+@@ -253,3 +253,9 @@ class TestMergeMethod:
+         with pytest.raises(xr.MergeError):
+             ds3 = xr.Dataset({"a": ("y", [2, 3]), "y": [1, 2]})
+             ds1.merge(ds3, compat="no_conflicts")
++
++    def test_merge_dataarray(self):
++        ds = xr.Dataset({"a": 0})
++        da = xr.DataArray(data=1, name="b")
++
++        assert ds.merge(da).identical(xr.merge([ds, da]))
+diff --git a/xarray/tests/test_variable.py b/xarray/tests/test_variable.py
+index 62fde920..f0416990 100644
+--- a/xarray/tests/test_variable.py
++++ b/xarray/tests/test_variable.py
+@@ -1712,6 +1712,20 @@ class TestVariable(VariableSubclassobjects):
+         v[dict(x=[True, False], y=[False, True, False])] = 1
+         assert v[0, 1] == 1
+ 
++    def test_setitem_object_with_values_attribute(self):
++        # GH1863: objects with a ``values`` attribute should be stored as-is
++        class HasValues:
++            values = 5
++
++        obj = HasValues()
++        v = Variable(["x"], np.array([None], dtype=object))
++        v[0] = obj
++        assert v.values[0] is obj
++
++        v = Variable(["x"], np.array([None], dtype=object))
++        v[0] = set()
++        assert v.values[0] == set()
++
+     def test_setitem_fancy(self):
+         # assignment which should work as np.ndarray does
+         def assert_assigned_2d(array, key_x, key_y, values):

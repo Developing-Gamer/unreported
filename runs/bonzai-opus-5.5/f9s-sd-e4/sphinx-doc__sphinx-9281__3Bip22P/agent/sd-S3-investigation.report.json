@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 77490,
+ "finalText": "I rechecked the report against the request and changed one thing. One \"ruled out\" citation quoted text across two lines, which might not match line by line, so it now quotes only line 461. Nothing else needed changing.\n\n**Verdict: fixable.** The bug is in this repository. When a function's default value is an Enum member, the generated docs show Python's raw form `<MyEnum.ValueA: 10>` instead of `MyEnum.ValueA`. The issue cut off before saying what it currently looks like, but the probe shows that ugly form.\n\n**Cause.** The signature builder writes each default value using a helper that formats values for docs (`stringify_signature` calls `object_description(param.default)`, `sphinx/util/inspect.py:743`). That helper has special cases for dicts, sets and frozensets. Everything else falls through to plain `repr()` at line 461, and there is no case for Enum. Nothing in the code, tests or changelog says this output was chosen on purpose.\n\n**What I ran (probe, throwaway copy, testbed Python env):**\n- With the issue's own example, the current code gives the signature `(e: __main__.MyEnum = <MyEnum.ValueA: 10>) -> None`.\n- The existing `tests/test_util_inspect.py` passes (38 tests), so no current test covers Enum defaults.\n- I then added two lines just before the `repr()` fallback that return `ClassName.member` for Enum values. The signature became `(e: __main__.MyEnum = MyEnum.ValueA) -> None`, which is what the reporter expected. Those tests plus the two autodoc test files passed (134 tests).\n\nI didn't change any files in the repository. The test patch lived only in the throwaway copy.\n\n**What a fix takes:** those two lines in `object_description`, a test asserting `MyEnum.ValueA`, and a changelog entry. Effort and risk are low.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Enum default values shown in raw <Enum.X: 1> form\",\n  \"cause\": \"stringify_signature writes every parameter default via object_description(), which special-cases only dict, set and frozenset and otherwise falls back to repr(). Python's repr() of an Enum member is '<MyEnum.ValueA: 10>', so autodoc signatures show that raw form instead of 'MyEnum.ValueA'.\",\n  \"files\": [\n    {\"path\": \"sphinx/util/inspect.py\", \"why\": \"object_description() has no Enum case and falls back to repr(); stringify_signature uses it for parameter defaults\"},\n    {\"path\": \"tests/test_util_inspect.py\", \"why\": \"add a regression test for Enum members in object_description / stringify_signature\"}\n  ],\n  \"plan\": [\n    \"In object_description(), before the repr() fallback, add: if isinstance(object, enum.Enum): return '%s.%s' % (object.__class__.__name__, object.name)\",\n    \"Add a test asserting object_description(MyEnum.ValueA) == 'MyEnum.ValueA' and that a signature with that default renders '(e: ... = MyEnum.ValueA)'\",\n    \"Add a CHANGES bug-fix entry\"\n  ],\n  \"verification\": [\n    \"Probe on current code: object_description(MyEnum.ValueA) -> '<MyEnum.ValueA: 10>'; signature '(e: __main__.MyEnum = <MyEnum.ValueA: 10>) -> None'\",\n    \"Probe with the 2-line patch: signature '(e: __main__.MyEnum = MyEnum.ValueA) -> None'; tests/test_util_inspect.py, test_ext_autodoc.py and test_ext_autodoc_configs.py: 134 passed\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.95,\n  \"fixType\": \"frustration\",\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"object_description has special cases only for dict, set and frozenset, and otherwise returns repr(), so an Enum member becomes '<MyEnum.ValueA: 10>'.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"sphinx/util/inspect.py:461\", \"quote\": \"        s = repr(object)\"},\n      {\"type\": \"code\", \"ref\": \"sphinx/util/inspect.py:434\", \"quote\": \"\\\"\\\"\\\"A repr() implementation that returns text safe to use in reST context.\\\"\\\"\\\"\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"trigger\", \"text\": \"Signature rendering writes every parameter default through object_description.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"sphinx/util/inspect.py:743\", \"quote\": \"            arg.write(object_description(param.default))\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"impact\", \"text\": \"A user reported that Enum default values in documented function signatures render badly, instead of the expected 'MyEnum.ValueA'.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s3\", \"quote\": \"I would hope the signature rendered as: ugly_enum_func(e: ugly_enum.MyEnum = MyEnum.ValueA) \u2192 None\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"Already fixed in the current code\", \"why\": \"Running the current checkout still gives '(e: __main__.MyEnum = <MyEnum.ValueA: 10>) -> None', and the CHANGES file has no entry about Enum defaults in signatures.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"sphinx/util/inspect.py:461\", \"quote\": \"        s = repr(object)\"}\n    ]}\n  ],\n  \"intendedBehavior\": \"Documenting a function whose default is MyEnum.ValueA shows the signature as '(e: MyEnum = MyEnum.ValueA)' rather than '<MyEnum.ValueA: 10>'.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"object_description is documented as a reST-safe repr() and handles only dict/set/frozenset specially; no test, comment or changelog entry chooses raw Enum repr output for signatures.\"},\n  \"plain\": {\n    \"headline\": \"Generated docs show settings with a fixed list of choices (Python enums) in a cluttered raw form, because the docs tool has no special handling for them.\",\n    \"happened\": \"A user documented a function whose default setting is one of a fixed list of named choices. The docs tool printed that setting the way Python shows it internally, with angle brackets and the hidden number, instead of the readable choice name. The user reported it because their published docs look broken.\",\n    \"matters\": \"Every project that documents functions with defaults of this kind gets the same cluttered signatures in its docs.\",\n    \"fix\": \"Print these choices as just their type and name (for example MyEnum.ValueA) when showing default values.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 9,
+  "inputTokens": {
+   "avg": 14713.444444444445,
+   "max": 19009
+  },
+  "mainUsage": {
+   "inputTokens": 132421,
+   "cachedInputTokens": 120416,
+   "outputTokens": 6567
+  },
+  "cacheHitPercent": 90.93421738243934,
+  "wallSeconds": 76.90000009536743,
+  "tools": {
+   "read": 3,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 4
+  },
+  "reads": 3,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 2,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.21542619999999996,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.21542619999999996
+}

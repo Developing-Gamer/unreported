@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 81885,
+ "finalText": "Everything the request names is in place, and I did not repeat the checks I had already run.\n\n- **Fix:** pylint now writes run data to the platform cache directory (`$XDG_CACHE_HOME/pylint`, default `~/.cache/pylint` on Linux) instead of `~/.pylint.d`. `PYLINTHOME` still overrides it, and with no home directory it still falls back to `.pylint.d` in the current directory.\n- **Files changed:** `pylint/config/__init__.py`, `setup.cfg` (adds `platformdirs>=2.2.0`), `doc/faq.rst`, `ChangeLog` and `tests/lint/unittest_lint.py`. Nothing is committed.\n- **Not added:** I left out the investigation's optional one-time notice about an old `~/.pylint.d`; the ChangeLog entry says it can be deleted.\n- **Issue number:** the ChangeLog entry has no `Closes #\u2026` line, because I could not confirm the issue number.\n- **Tests:** before the fix, `test_pylint_home` and the new `test_pylint_home_follows_xdg_cache_home` both failed, with `PYLINT_HOME` ending in `.pylint.d`. After it, `tests/lint`, `test_self.py` and `test_func.py` pass (173 passed). I did not run the rest of the test suite.\n- **PR text:** the title and description are in `/testbed/.factory/pr-S2.md`.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"command\": \"python -m pytest tests/lint tests/test_self.py tests/test_func.py -q\", \"passed\": true},\n    {\"command\": \"python -m pytest tests/lint/unittest_lint.py -q\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"reproductionSteps\": \"With HOME set to a temp dir, XDG_CACHE_HOME=$HOME/.cache and PYLINTHOME unset, reload pylint.config and call save_results({'a':1}, 'mod'). Before the fix the file goes to $HOME/.pylint.d/mod1.stats; after the fix it goes to $HOME/.cache/pylint/mod1.stats.\",\n  \"reproductionTest\": {\n    \"path\": \"tests/lint/unittest_lint.py\",\n    \"command\": \"python -m pytest tests/lint/unittest_lint.py -k pylint_home -q\",\n    \"signature\": \"AssertionError: assert '/tmp/pytest-.../home/.pylint.d' == '/tmp/pytest-.../home/.cache/pylint'\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 13,
+  "inputTokens": {
+   "avg": 25980.615384615383,
+   "max": 32824
+  },
+  "mainUsage": {
+   "inputTokens": 337748,
+   "cachedInputTokens": 318812,
+   "outputTokens": 7649
+  },
+  "cacheHitPercent": 94.39345310705022,
+  "wallSeconds": 81.61899995803833,
+  "tools": {
+   "read": 7,
+   "edit": 6,
+   "test": 4,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 1
+  },
+  "reads": 7,
+  "edits": 6,
+  "runs": 5,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 7,
+  "editOperations": 13,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1875774,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1875774
+}

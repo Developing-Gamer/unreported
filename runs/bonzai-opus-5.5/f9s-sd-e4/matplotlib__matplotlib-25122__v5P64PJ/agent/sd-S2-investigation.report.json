@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 98505,
+ "finalText": "I re-checked the report against the request. The verdict, citations and probe results still hold. The only change is that the pull request number in `coveredBy` is now a number instead of text.\n\n**Verdict: already fixed.** Datetime axis labels looked cramped with `usetex=True` in Matplotlib 3.4. That was a real bug, but the code now in the repository (tagged v3.6.0) no longer has it.\n\n**Cause.** With `usetex=True`, date tick labels are turned into TeX math by `_wrap_in_tex` in [dates.py](file:///testbed/lib/matplotlib/dates.py). In 3.4 that step only protected dashes. In math mode, TeX drops plain spaces and spaces out `:` like an operator, so labels such as \"01 00:05\" came out squashed. The current code wraps `:` in braces and turns spaces into a TeX space (`\\;`), at lines 616 and 618.\n\n**Where it was fixed.** The 3.5.0 release notes list this exact issue (21518) as closed. The fix is pull request #21568, \"Enhancing support for tex and datetimes\", backported to 3.5 in #21625. The repository history is one snapshot commit, so I couldn't get the original commit hash.\n\n**Checked:**\n- The usetex date tests in [test_dates.py](file:///testbed/lib/matplotlib/tests/test_dates.py) pass (8 passed).\n- Calling `_wrap_in_tex` on a date-and-time label like the issue's ten-minute range gives `$\\mathdefault{2020{-}01{-}01\\;00{:}05}$`, with the space and colon handled correctly.\n- I didn't render an image with LaTeX.\n\n**What to do:** no code change is needed. Tell the reporter to upgrade to Matplotlib 3.5.0 or later.\n\n```json\n{\n  \"verdict\": \"covered\",\n  \"title\": \"Date labels with LaTeX text cramped (fixed in 3.5.0)\",\n  \"cause\": \"In 3.4, dates._wrap_in_tex put the whole date label in TeX math mode and only protected dashes. TeX drops plain spaces in math mode and spaces ':' like an operator, so usetex date tick labels looked cramped and unclear. The current code wraps ':' in braces and turns spaces into '\\\\;', which fixes it; this came in PR #21568 (backported as #21625) and shipped in Matplotlib 3.5.0.\",\n  \"files\": [\n    {\"path\": \"lib/matplotlib/dates.py\", \"why\": \"_wrap_in_tex builds the TeX string for date tick labels when text.usetex is on; it now protects ':' and spaces\"},\n    {\"path\": \"lib/matplotlib/tests/test_dates.py\", \"why\": \"test_date_formatter_usetex and test_concise_formatter_usetex assert the fixed output ({:} and \\\\;)\"}\n  ],\n  \"plan\": [\"No code change needed; tell the reporter to upgrade to Matplotlib 3.5.0 or later.\"],\n  \"verification\": [\n    \"Ran pytest lib/matplotlib/tests/test_dates.py -k usetex: 8 passed.\",\n    \"Called _wrap_in_tex('2020-01-01 00:05') and got '$\\\\mathdefault{2020{-}01{-}01\\\\;00{:}05}$', with the space and colon protected.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"none\",\n  \"risk\": \"none\",\n  \"confidence\": 0.9,\n  \"coveredBy\": 21568,\n  \"fixedIn\": {\"commit\": \"PR #21568 (backport #21625); local history is one snapshot commit c36d643af2944834e8f3ca9746e0ab7ad4631448\", \"release\": \"3.5.0\"},\n  \"fixType\": \"error\",\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"Date tick labels under usetex go through _wrap_in_tex, which now protects colons and turns spaces into TeX spaces; in 3.4 only dashes were protected, so spaces disappeared and colons were spaced like operators.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/dates.py:616\", \"quote\": \"ret_text = ret_text.replace('-', '{-}').replace(':', '{:}')\"},\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/dates.py:618\", \"quote\": \"ret_text = ret_text.replace(' ', r'\\\\;')\"},\n      {\"type\": \"query\", \"ref\": \"probe:_wrap_in_tex\", \"quote\": \"$\\\\mathdefault{2020{-}01{-}01\\\\;00{:}05}$\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"other\", \"text\": \"The project's 3.5.0 release record lists the reported issue as closed and the PR that fixed it.\", \"citations\": [\n      {\"type\": \"doc\", \"ref\": \"doc/users/prev_whats_new/github_stats_3.5.0.rst\", \"quote\": \"* :ghissue:`21518`: [Bug]: Datetime axis with usetex is unclear\"},\n      {\"type\": \"doc\", \"ref\": \"doc/users/prev_whats_new/github_stats_3.5.0.rst\", \"quote\": \"* :ghpull:`21625`: Backport PR #21568 on branch v3.5.x (Enhancing support for tex and datetimes)\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"other\", \"text\": \"Existing tests assert the fixed spacing and pass on the current code.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/tests/test_dates.py:351\", \"quote\": \"[r'$\\\\mathdefault{01\\\\;00{:}%02d}$' % minu for minu in range(0, 11)]),\"},\n      {\"type\": \"query\", \"ref\": \"probe:pytest test_dates.py -k usetex\", \"quote\": \"8 passed, 87 deselected in 8.03s\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"impact\", \"text\": \"The reporter, on Matplotlib 3.4, saw unclear date-axis labels with usetex compared with 3.3.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s2\", \"quote\": \"The spacing for a datetime axis when using `usetex=True` is unclear in matplotlib version 3.4 when comparing it to 3.3.\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"The current code still produces cramped usetex date labels\", \"why\": \"Calling _wrap_in_tex on a date-and-time label gives protected colons and explicit spaces, and the usetex tests pass.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:_wrap_in_tex\", \"quote\": \"Jan$\\\\mathdefault{{-}01\\\\;00{:}05}$\"}\n    ]}\n  ],\n  \"intendedBehavior\": \"With text.usetex on, a date tick label like '2020-01-01 00:05' becomes TeX that keeps the space between date and time and does not space the colon as an operator.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"The 3.4 behaviour was an unhandled case in the TeX wrapping of date labels, closed as a bug (issue 21518) and fixed by PR #21568 in 3.5.0.\"},\n  \"plain\": {\n    \"headline\": \"Date labels on charts using LaTeX text looked cramped in Matplotlib 3.4, and this was fixed in 3.5.0.\",\n    \"happened\": \"When charts render their text with LaTeX, date labels on the axis are converted into LaTeX math. In 3.4 that conversion lost the space between date and time and spaced out the colons in times, so labels looked squashed and hard to read. Version 3.5.0 changed the conversion to keep spaces and colons looking normal.\",\n    \"matters\": \"Only people still on 3.4 who use LaTeX text with dates on an axis see this.\",\n    \"fix\": \"No change needed; the person should upgrade to Matplotlib 3.5.0 or later.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 8,
+  "inputTokens": {
+   "avg": 16775.125,
+   "max": 21955
+  },
+  "mainUsage": {
+   "inputTokens": 134201,
+   "cachedInputTokens": 119252,
+   "outputTokens": 8134
+  },
+  "cacheHitPercent": 88.86073874263232,
+  "wallSeconds": 97.70700001716614,
+  "tools": {
+   "read": 2,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 5
+  },
+  "reads": 2,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.2612554,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.2612554
+}

@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 52037,
+ "finalText": "The reported behaviour is a documented design, not a defect, so I'm giving \"notActionable\" with deliberate true. I couldn't reproduce it, because `probe` fails on `import astropy` with `No module named 'erfa'`. The verdict rests on reading the code, docs and tests, and I re-checked the quotes in the claims against the files.\n\n- **What happens:** the default readers for basic and fixed_width only try int, then float, then str. A bool column written as `True`/`False` therefore comes back as a string column. The default list is at `astropy/io/ascii/core.py:1178`.\n- **Why it's intended:** `docs/io/ascii/read.rst` says \"By default the ``True`` and ``False`` values will be interpreted as strings.\" It then documents `converters={'*': [int, float, bool, str]}` as the way to read them as bool.\n- **Tests and changelog:** `test_read.py` (lines 2003 and 2045) uses bool only through explicit converters. `CHANGES.rst` (around line 555) records `converters={'col1': bool}` as the supported way to force bool.\n- **A judgement call:** I inferred that bool is kept out of the defaults to avoid turning 0/1 columns into bool. I found no comment or commit saying so. The documented default stands without that reason.\n- **What to tell the reporter:** use `converters` when reading, or write ECSV, which stores column types and round-trips bool.\n- **If the team wants bool inferred by default:** that is a separate product decision. I'd suggest an opt-in option rather than changing the defaults.\n\n```json\n{\n  \"verdict\": \"notActionable\",\n  \"title\": \"Plain text tables read True/False back as text\",\n  \"cause\": \"The basic and fixed_width readers only try int, float and str by default, so bool columns written as True/False come back as strings. The docs state this default and show converters={'*': [int, float, bool, str]} to read them as bool. ECSV is the format that round-trips bool.\",\n  \"files\": [\n    {\"path\": \"astropy/io/ascii/core.py\", \"why\": \"TableOutputter.default_converters is [int, float, str] and leaves bool out; convert_numpy(bool) exists as an opt-in converter\"},\n    {\"path\": \"docs/io/ascii/read.rst\", \"why\": \"States True/False are read as strings by default and documents the converters opt-in\"},\n    {\"path\": \"astropy/io/ascii/tests/test_read.py\", \"why\": \"Tests exercise bool only through explicit converters\"}\n  ],\n  \"plan\": [\n    \"No code change. Reply to the reporter: use converters={'*': [int, float, bool, str]} (or converters={'col': bool}) or write ECSV for a lossless round trip.\",\n    \"If the team wants bool inference by default, treat it as a separate product decision and add an opt-in flag rather than changing the defaults.\"\n  ],\n  \"verification\": [\n    \"Read a basic or fixed_width table with a True/False column using converters={'*': [int, float, bool, str]} and check the dtype is bool.\",\n    \"Write and read the same table as ECSV and check the bool dtype survives.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"likely\",\n  \"effort\": \"low\",\n  \"risk\": \"low\",\n  \"confidence\": 0.8,\n  \"deliberate\": true,\n  \"intent\": \"docs/io/ascii/read.rst says True/False are read as strings by default and documents the converters opt-in; the bool converter exists but is not in TableOutputter.default_converters; CHANGES.rst records converters={'col1': bool} as the supported way to force bool.\",\n  \"intendedBehavior\": \"Reading a basic or fixed_width table with a True/False column and converters={'*': [int, float, bool, str]} returns a bool column, and ECSV round-trips bool without options.\",\n  \"fixType\": \"predicted\",\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"The default converters for reading are int, float and str; bool is not tried.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"astropy/io/ascii/core.py:1178\", \"quote\": \"default_converters = [convert_numpy(int), convert_numpy(float), convert_numpy(str)]\"}]},\n    {\"id\": \"c2\", \"text\": \"The documentation says True/False are read as strings by default and shows the opt-in for bool.\", \"role\": \"other\", \"citations\": [{\"type\": \"doc\", \"ref\": \"docs/io/ascii/read.rst\", \"quote\": \"By default the ``True`` and ``False`` values will be interpreted as strings.\"}]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"The bool converter rejects valid True/False values\", \"why\": \"bool_converter accepts True, False, 0 and 1; the reader only fails to reach it because it isn't in the defaults.\", \"citations\": [{\"type\": \"code\", \"ref\": \"astropy/io/ascii/core.py:1034\", \"quote\": \"trues = (vals == \\\"True\\\") | (vals == \\\"1\\\")\"}]}\n  ],\n  \"plain\": {\n    \"headline\": \"True/False columns saved to plain text files come back as text, not true/false values, unless you ask otherwise.\",\n    \"happened\": \"A table with a true/false column is saved as the words True and False. When it is loaded again, the default settings only look for whole numbers, decimals or text, so the column comes back as text. The documentation describes this and explains how to ask for true/false values.\",\n    \"matters\": \"It affects anyone who saves true/false data to plain text tables and expects it back unchanged without extra settings.\",\n    \"fix\": \"No code change is needed: tell the reporter to request true/false conversion when loading, or to use the format that remembers column types.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 8,
+  "inputTokens": {
+   "avg": 17561.75,
+   "max": 23200
+  },
+  "mainUsage": {
+   "inputTokens": 140494,
+   "cachedInputTokens": 124300,
+   "outputTokens": 5699
+  },
+  "cacheHitPercent": 88.47352911868123,
+  "wallSeconds": 51.748000144958496,
+  "tools": {
+   "read": 8,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 1
+  },
+  "reads": 8,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.12232500000000002,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.12232500000000002
+}

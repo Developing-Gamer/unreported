@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 40321,
+ "finalText": "The caplog fix is finished and checked, so nothing further needed changing.\n\n`caplog.clear()` now empties the records list in place. `caplog.get_records()` therefore stays in sync with `caplog.records` after a clear. The new test `test_clear_for_call_stage` failed before the fix and passes now. The 60 tests under `testing/logging` pass.\n\nThe working tree also has uncommitted edits I did not make:\n- `src/_pytest/compat.py` and `src/_pytest/faulthandler.py`\n- `testing/python/metafunc.py` and `testing/test_faulthandler.py`\n- `changelog/10001.bugfix.rst` and `changelog/10002.bugfix.rst`\n\nThey appear to belong to the open PRs #1000 and #1001. I left them alone.\n\nMy changes are `src/_pytest/logging.py`, `testing/logging/test_fixture.py`, `changelog/10003.bugfix.rst` and the PR text in `.factory/pr-S7.md`. The changelog number 10003 is a placeholder, since I had no real issue number. Nothing is committed.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"command\": \"PYTHONPATH=src python -m pytest testing/logging\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"reproductionSteps\": \"In a test, log a message, call caplog.clear(), log another; caplog.get_records('call') still holds the first message and lacks the second, while caplog.records is correct.\",\n  \"reproductionTest\": {\n    \"path\": \"testing/logging/test_fixture.py\",\n    \"command\": \"PYTHONPATH=src python -m pytest testing/logging/test_fixture.py -k clear_for_call_stage\",\n    \"signature\": \"assert caplog.get_records(\\\"call\\\") == []  -> AssertionError: Left contains one more item: <LogRecord ... \\\"a_call_log\\\">\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 13,
+  "inputTokens": {
+   "avg": 23241.30769230769,
+   "max": 26680
+  },
+  "mainUsage": {
+   "inputTokens": 302137,
+   "cachedInputTokens": 289343,
+   "outputTokens": 4385
+  },
+  "cacheHitPercent": 95.7654971089274,
+  "wallSeconds": 38.49500012397766,
+  "tools": {
+   "read": 8,
+   "edit": 5,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 3
+  },
+  "reads": 8,
+  "edits": 5,
+  "runs": 3,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 5,
+  "editOperations": 6,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1336886,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1336886
+}

@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 93784,
+ "finalText": "I re-checked the report against the request and it meets it. I edited no files, and every command ran through probe in a throwaway copy. Each quote in the report matches what I read in the code or what probe printed.\n\n**The cause is still in the current code, and the fix is small.** When dragging is turned on for a legend or annotation, a helper object starts handling the mouse. On creation it stores the figure's on-screen drawing surface (the canvas) as its own attribute, in `DraggableBase.__init__` at line 1508 of `lib/matplotlib/offsetbox.py`. When a figure is pickled it leaves its own canvas out on purpose, because canvases can't be pickled. But the legend still holds the helper, and the helper still holds the canvas, so pickling reaches it anyway. Interactive canvases like Qt then raise `TypeError: cannot pickle 'FigureCanvasQTAgg' object`.\n\n**What I checked:**\n- On the headless Agg backend, pickling a figure with a draggable legend works, because the Agg canvas happens to be picklable. That is why the existing tests miss this.\n- I made the canvas unpicklable, as a Qt one is. A figure with a normal legend still pickled. Once I turned dragging on for the legend, and separately for an annotation, both failed with the reporter's error (`cannot pickle 'FigureCanvasAgg' object`).\n- The existing tests in `lib/matplotlib/tests/test_pickle.py` all pass (183), so none of them covers this case.\n\n**Fix:** have the helper look up the canvas through the figure each time instead of storing it. Disconnecting after the artist has been removed from its figure needs care, because the figure is gone by then. Add a test that pickles a figure with a draggable legend and annotation on a canvas that can't be pickled.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Figures with draggable legends can't be saved with pickle\",\n  \"cause\": \"DraggableBase.__init__ stores the figure canvas as an instance attribute (self.canvas = self.ref_artist.figure.canvas). Legend._draggable / Annotation._draggable keep this helper, so pickling a figure reaches the canvas even though Figure.__getstate__ removes its own 'canvas' entry. Interactive canvases (e.g. FigureCanvasQTAgg) can't be pickled, so the result is a TypeError.\",\n  \"files\": [\n    {\"path\": \"lib/matplotlib/offsetbox.py\", \"why\": \"DraggableBase stores self.canvas as a plain attribute that is pickled with the legend/annotation.\"},\n    {\"path\": \"lib/matplotlib/figure.py\", \"why\": \"Figure.__getstate__ already drops the canvas because it can't be pickled; the draggable helper gets around that.\"},\n    {\"path\": \"lib/matplotlib/tests/test_pickle.py\", \"why\": \"Needs a regression test for draggable legend/annotation pickling.\"}\n  ],\n  \"plan\": [\n    \"In DraggableBase, replace the stored attribute `self.canvas = self.ref_artist.figure.canvas` with a read-only property `canvas = property(lambda self: self.ref_artist.figure.canvas)` so the canvas is never part of the pickled state.\",\n    \"Make sure disconnect() still works when ref_artist.figure is None (e.g. use the stored cids with a canvas/callbacks reference that is not pickled, or guard the lookup).\",\n    \"Add a test in test_pickle.py that pickles and unpickles a figure with a draggable legend and a draggable annotation on a canvas that can't be pickled.\"\n  ],\n  \"verification\": [\n    \"Run the issue's reproduction with a Qt backend: pickle.dumps(fig) succeeds after leg.set_draggable(True).\",\n    \"Run on Agg with FigureCanvasBase made unpicklable: pickling succeeds for a draggable legend and a draggable annotation.\",\n    \"Run pytest lib/matplotlib/tests/test_pickle.py lib/matplotlib/tests/test_legend.py lib/matplotlib/tests/test_offsetbox.py; dragging still works after unpickling and re-showing.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.93,\n  \"fixType\": \"error\",\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"The draggable helper stores the figure's canvas directly on itself when it is created, so the canvas becomes part of the legend's pickled state.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/offsetbox.py:1508\", \"quote\": \"self.canvas = self.ref_artist.figure.canvas\"},\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/legend.py:1198\", \"quote\": \"self._draggable = DraggableLegend(self,\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"rootCause\", \"text\": \"The figure deliberately leaves its canvas out of the pickle because canvases can't be pickled, and the draggable helper gets around this.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/figure.py:3162\", \"quote\": \"# The canvas cannot currently be pickled, but this has the benefit\"},\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/figure.py:3165\", \"quote\": \"state.pop(\\\"canvas\\\")\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"trigger\", \"text\": \"Turning on dragging for a legend (or an annotation) creates the helper, and pickling then fails with the same error the reporter saw.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s8\", \"quote\": \"leg.set_draggable(True) #pickling works after removing this line\"},\n      {\"type\": \"query\", \"ref\": \"probe:python\", \"quote\": \"non-draggable ok\\nlegend TypeError cannot pickle 'FigureCanvasAgg' object\\nannot TypeError cannot pickle 'FigureCanvasAgg' object\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"impact\", \"text\": \"People using interactive backends such as Qt can't save figures with draggable legends or annotations; the existing pickle tests pass because they run on Agg, whose canvas happens to be picklable.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s8\", \"quote\": \"TypeError: cannot pickle 'FigureCanvasQTAgg' object\"},\n      {\"type\": \"query\", \"ref\": \"probe:pytest\", \"quote\": \"183 passed in 11.39s\"}\n    ]},\n    {\"id\": \"c5\", \"role\": \"other\", \"text\": \"Draggable annotations use the same helper, so they fail the same way.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/text.py:1645\", \"quote\": \"self._draggable = DraggableAnnotation(self, use_blit)\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"The figure's pickling code itself fails to drop the canvas.\", \"why\": \"Figure.__getstate__ removes the canvas, and a figure with a non-draggable legend pickled fine even when the canvas was made unpicklable.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:python\", \"quote\": \"non-draggable ok\\nlegend TypeError cannot pickle\"}\n    ]},\n    {\"hypothesis\": \"Already fixed in the current code (report from an older version).\", \"why\": \"The current DraggableBase still stores self.canvas as an attribute, and the probe reproduces the failure at the checked-out commit.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/offsetbox.py:1508\", \"quote\": \"self.canvas = self.ref_artist.figure.canvas\"}\n    ]}\n  ],\n  \"intendedBehavior\": \"pickle.dumps(fig) succeeds for a figure whose legend or annotation has dragging turned on, on any backend, and dragging still works after unpickling.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"Figure.__getstate__ deliberately drops the canvas ('The canvas cannot currently be pickled'), and callbacks are connected with _connect_picklable, which shows draggables were meant to be picklable. Storing the canvas on the helper undoes that by accident.\"},\n  \"plain\": {\n    \"headline\": \"People can't save a chart with pickle once they let its legend or labels be dragged, because the drag helper holds on to the on-screen window.\",\n    \"happened\": \"A user turned on dragging for a chart's legend and then tried to save the chart object with Python's pickle. The part that handles mouse dragging keeps a direct link to the on-screen drawing window. Saving skips that window everywhere else but still reaches it through this link, so the save fails with an error.\",\n    \"matters\": \"Anyone using an interactive window (such as Qt) can't save a chart whose legend or labels can be dragged.\",\n    \"fix\": \"Have the drag helper look up the drawing window when it needs it instead of keeping its own copy, and add a test that saves a chart with draggable parts.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 8,
+  "inputTokens": {
+   "avg": 15632,
+   "max": 20959
+  },
+  "mainUsage": {
+   "inputTokens": 125056,
+   "cachedInputTokens": 111103,
+   "outputTokens": 8511
+  },
+  "cacheHitPercent": 88.84259851586489,
+  "wallSeconds": 93.30299997329712,
+  "tools": {
+   "read": 3,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 3
+  },
+  "reads": 3,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.2621856,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.2621856
+}

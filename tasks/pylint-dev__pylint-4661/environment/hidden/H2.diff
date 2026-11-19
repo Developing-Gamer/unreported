@@ -1,0 +1,13 @@
+diff --git a/pylint/extensions/docparams.py b/pylint/extensions/docparams.py
+index 4344444f..341e04df 100644
+--- a/pylint/extensions/docparams.py
++++ b/pylint/extensions/docparams.py
+@@ -304,7 +304,7 @@ class DocstringParameterChecker(BaseChecker):
+         found_excs_full_names = doc.exceptions()
+ 
+         # Extract just the class name, e.g. "error" from "re.error"
+-        found_excs_class_names = {exc.split(".")[-1] for exc in found_excs_full_names}
++        found_excs_class_names = {exc.split(".", 1)[-1] for exc in found_excs_full_names}
+         missing_excs = expected_excs - found_excs_class_names
+         self._add_raise_message(missing_excs, func_node)
+ 

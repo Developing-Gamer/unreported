@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 70448,
+ "finalText": "`caplog.clear()` now empties the current phase's record list in place, so `caplog.get_records(when)` stays in sync with `caplog.records`. The new regression test failed on the original code with `assert [<LogRecord: ...> \"a_call_log\">] == []`. It now passes, and all of `testing/logging` passed (60 tests). I did not run the full pytest suite.\n\nThe cause was as the investigation said: `LogCaptureHandler.reset()` rebound `records` to a new list, while `get_records()` still held the old one.\n\nThe changes are uncommitted in the working tree:\n- **Fix in `src/_pytest/logging.py`:** a new `LogCaptureHandler.clear()` calls `records.clear()` and resets the stream. `LogCaptureFixture.clear()` calls it instead of `reset()`. I left `reset()` as it was so the setup-phase records still survive into the call phase.\n- **Test:** `test_clear_for_call_stage` in `testing/logging/test_fixture.py`.\n- **Changelog:** `changelog/9877.bugfix.rst`. The issue number 9877 is a guess, because the evidence doesn't give one, so the file needs renaming.\n\nThe system Python had no pytest dependencies, so I installed them into the scratch directory and ran tests with `PYTHONPATH=src:$BONZAI_SCRATCH/deps`.\n\nThe pull request text is in `/testbed/.factory/pr-S7.md`; nothing was committed or pushed.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"checks\": [\n    {\"command\": \"PYTHONPATH=src:$BONZAI_SCRATCH/deps python -m pytest testing/logging -q -p no:cacheprovider\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"reproductionSteps\": [\n    \"In a test using caplog, log a record, call caplog.clear(), then assert caplog.get_records('call') == [] (it still returns the old record)\",\n    \"Log again after clear(): get_records('call') does not include the new record and no longer equals caplog.records\"\n  ],\n  \"reproductionTest\": {\n    \"path\": \"testing/logging/test_fixture.py\",\n    \"command\": \"PYTHONPATH=src:$BONZAI_SCRATCH/deps python -m pytest testing/logging/test_fixture.py -k test_clear_for_call_stage -q -p no:cacheprovider\",\n    \"signature\": \"assert [<LogRecord: ...\\\"a_call_log\\\">] == []\"\n  },\n  \"prFile\": \".factory/pr-S7.md\"\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 18,
+  "inputTokens": {
+   "avg": 24278.833333333332,
+   "max": 29443
+  },
+  "mainUsage": {
+   "inputTokens": 437019,
+   "cachedInputTokens": 421452,
+   "outputTokens": 7226
+  },
+  "cacheHitPercent": 96.43791231044875,
+  "wallSeconds": 68.9909999370575,
+  "tools": {
+   "read": 10,
+   "edit": 9,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 3
+  },
+  "reads": 10,
+  "edits": 9,
+  "runs": 3,
+  "reReads": {
+   "total": 2,
+   "readFile": 2,
+   "shell": 0,
+   "sameFile": 5,
+   "readFileIgnoringRange": 5
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 5,
+  "editOperations": 8,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.19544789999999998,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.19544789999999998
+}

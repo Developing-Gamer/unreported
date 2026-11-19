@@ -1,0 +1,37 @@
+[
+  {
+    "source": "S1",
+    "decision": "fix",
+    "reason": "The science-state validator for the Sesame database setting (sesame_database.validate) silently replaces any value outside 'all', 'simbad', 'ned', 'vizier' with 'all', without raising or warning. A co"
+  },
+  {
+    "source": "S2",
+    "decision": "fix",
+    "reason": "TableDataDiff._diff only routes variable-length array columns to the per-row np.allclose comparison when the format contains 'P'. Columns in the 64-bit-descriptor 'Q' form (e.g. 'QD(2)') fall through "
+  },
+  {
+    "source": "S3",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The crash happens in the export-job service's own code (export/worker.py run and export/csv_writer.py flush), which is not in this repository. /testbed is the astropy library and has no export/ packag"
+  },
+  {
+    "source": "S4",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: In the reported pre-3.1 development version, minversion compared versions with distutils LooseVersion, which raises TypeError when it compares a number with a letter part such as 'dev'. The changelog "
+  },
+  {
+    "source": "S5",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: Before astropy 5.1, the table's column-building step turned any structured numpy array into an NdarrayMixin. That type couldn't be saved to HDF5, FITS or ECSV, and it dropped the mask of masked arrays"
+  },
+  {
+    "source": "S6",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: io.ascii's default type guessing tries int, then float, then str; bool is deliberately not in the default list, so a True/False column written with the basic or fixed_width format is read back as stri"
+  },
+  {
+    "source": "S7",
+    "decision": "skip",
+    "reason": "Self-Driving verdict needsEvidence: Not found in this repository. Every astropy path checked that builds or saves a radius in kpc (coordinate norms and conversions, Distance, kpc/h conversion, QTable/Table round-trips through FITS, ECSV"
+  }
+]

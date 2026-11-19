@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 35417,
+ "finalText": "Everything checks out. `.factory/pr-S3.md` exists, the regression test passes with the fix, and the change is uncommitted.\n\nThe working tree also has edits to `django/utils/dateformat.py`, `django/views/defaults.py` and their tests. I did not make them. They look like the changes from open PRs #1000 and #1001, and I left them alone. They are not part of this fix.\n\n```json\n{\"kind\":\"fix\",\"outcome\":\"ready\",\"checks\":[{\"name\":\"runtests queryset_pickle queries expressions_case annotations\",\"passed\":true}],\"visual\":false,\"reproductionSteps\":[\"Pickle Event.objects.values('group').annotate(count=Count('id')).query\",\"Unpickle and assign it to Event.objects.all().query\",\"Evaluate the queryset: instances with broken state / AttributeError instead of dicts\"],\"reproductionTest\":{\"path\":\"tests/queryset_pickle/tests.py\",\"command\":\"cd tests && PYTHONPATH=/testbed python runtests.py queryset_pickle\",\"signature\":\"AttributeError(\\\"'NoneType' object has no attribute 'attname'\\\")\"}}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 11,
+  "inputTokens": {
+   "avg": 22961.363636363636,
+   "max": 26004
+  },
+  "mainUsage": {
+   "inputTokens": 252575,
+   "cachedInputTokens": 240461,
+   "outputTokens": 3325
+  },
+  "cacheHitPercent": 95.2038008512323,
+  "wallSeconds": 34.187000036239624,
+  "tools": {
+   "read": 9,
+   "edit": 3,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 2
+  },
+  "reads": 9,
+  "edits": 3,
+  "runs": 2,
+  "reReads": {
+   "total": 2,
+   "readFile": 2,
+   "shell": 0,
+   "sameFile": 5,
+   "readFileIgnoringRange": 4
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 1,
+  "editOperations": 1,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.11161420000000001,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.11161420000000001
+}

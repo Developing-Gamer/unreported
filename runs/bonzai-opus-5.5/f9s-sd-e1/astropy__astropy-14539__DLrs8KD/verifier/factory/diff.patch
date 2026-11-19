@@ -1,0 +1,107 @@
+diff --git a/astropy/coordinates/name_resolve.py b/astropy/coordinates/name_resolve.py
+index 7a7890e76..53f55e1a5 100644
+--- a/astropy/coordinates/name_resolve.py
++++ b/astropy/coordinates/name_resolve.py
+@@ -55,9 +55,16 @@ class sesame_database(ScienceState):
+ 
+     @classmethod
+     def validate(cls, value):
+-        if value not in ["all", "simbad", "ned", "vizier"]:
+-            return "all"
+-        return value
++        allowed = ("all", "simbad", "ned", "vizier")
++        if isinstance(value, str):
++            normalized = value.strip().lower()
++            if normalized in allowed:
++                return normalized
++        raise ValueError(
++            f"Invalid Sesame database {value!r}: must be one of "
++            + ", ".join(repr(a) for a in allowed)
++            + "."
++        )
+ 
+ 
+ class NameResolveError(Exception):
+diff --git a/astropy/coordinates/tests/test_name_resolve.py b/astropy/coordinates/tests/test_name_resolve.py
+index 7fc9580a6..a9288ed95 100644
+--- a/astropy/coordinates/tests/test_name_resolve.py
++++ b/astropy/coordinates/tests/test_name_resolve.py
+@@ -224,3 +224,18 @@ def test_database_specify(name, db_dict):
+             icrs = SkyCoord.from_name(name)
+ 
+         time.sleep(1)
++
++
++@pytest.mark.parametrize(
++    ("value", "expected"),
++    [("SIMBAD", "simbad"), (" ned ", "ned"), ("Vizier", "vizier"), ("all", "all")],
++)
++def test_sesame_database_normalized(value, expected):
++    with sesame_database.set(value):
++        assert sesame_database.get() == expected
++
++
++@pytest.mark.parametrize("value", ["sinbad", "", None, 1])
++def test_sesame_database_invalid(value):
++    with pytest.raises(ValueError, match="all.*simbad.*ned.*vizier"):
++        sesame_database.set(value)
+diff --git a/astropy/io/fits/diff.py b/astropy/io/fits/diff.py
+index 100cdf1b8..d3608ef01 100644
+--- a/astropy/io/fits/diff.py
++++ b/astropy/io/fits/diff.py
+@@ -1449,7 +1449,7 @@ class TableDataDiff(_BaseDiff):
+                 arrb.dtype, np.floating
+             ):
+                 diffs = where_not_allclose(arra, arrb, rtol=self.rtol, atol=self.atol)
+-            elif "P" in col.format:
++            elif "P" in col.format or "Q" in col.format:
+                 diffs = (
+                     [
+                         idx
+diff --git a/astropy/io/fits/tests/test_diff.py b/astropy/io/fits/tests/test_diff.py
+index adfebe6a5..2ddb96025 100644
+--- a/astropy/io/fits/tests/test_diff.py
++++ b/astropy/io/fits/tests/test_diff.py
+@@ -923,3 +923,23 @@ def test_rawdatadiff_diff_with_rtol(tmp_path):
+ 
+     assert "...and at 1 more indices." in str1
+     assert "...and at 1 more indices." not in str2
++
++
++@pytest.mark.parametrize("fmt", ["PD", "QD"])
++def test_vla_identical_and_different(tmp_path, fmt):
++    """Regression test: variable-length array columns (both 'P' and 'Q'
++    descriptors) must not be reported as different from themselves.
++    """
++    path_a = tmp_path / "vla_a.fits"
++    path_b = tmp_path / "vla_b.fits"
++    BinTableHDU.from_columns(
++        [Column("a", format=fmt, array=[[0], [0, 0]])]
++    ).writeto(path_a)
++    BinTableHDU.from_columns(
++        [Column("a", format=fmt, array=[[0], [0, 1]])]
++    ).writeto(path_b)
++
++    assert FITSDiff(path_a, path_a).identical
++    diff = FITSDiff(path_a, path_b)
++    assert not diff.identical
++    assert diff.diff_hdus[0][1].diff_data.diff_total == 1
+diff --git a/docs/changes/coordinates/14600.api.rst b/docs/changes/coordinates/14600.api.rst
+new file mode 100644
+index 000000000..b77c63520
+--- /dev/null
++++ b/docs/changes/coordinates/14600.api.rst
+@@ -0,0 +1,4 @@
++``astropy.coordinates.name_resolve.sesame_database`` now accepts the database
++name case-insensitively (ignoring surrounding whitespace) and raises a
++``ValueError`` for values other than ``'all'``, ``'simbad'``, ``'ned'`` and
++``'vizier'``, instead of silently falling back to ``'all'``.
+diff --git a/docs/changes/io.fits/14600.bugfix.rst b/docs/changes/io.fits/14600.bugfix.rst
+new file mode 100644
+index 000000000..a9514506c
+--- /dev/null
++++ b/docs/changes/io.fits/14600.bugfix.rst
+@@ -0,0 +1,3 @@
++Fixed ``FITSDiff`` reporting differences between identical files (or raising
++``ValueError``) for tables with variable-length array columns using the 64-bit
++``Q`` descriptor format.

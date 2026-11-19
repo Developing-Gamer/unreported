@@ -1,0 +1,32 @@
+[
+  {
+    "source": "S1",
+    "decision": "fix",
+    "reason": "When a response is labelled gzip/deflate but the body is not actually compressed, stream_decompress catches zlib.error and only yields the remaining chunks of the raw iterator, discarding the chunk th"
+  },
+  {
+    "source": "S2",
+    "decision": "fix",
+    "reason": "The bundled urllib3 connection pools always pass strict=self.strict to http.client.HTTPConnection / HTTPSConnection when opening a new connection (connectionpool.py:196-198 and 541-546). Python 3.4 re"
+  },
+  {
+    "source": "S3",
+    "decision": "skip",
+    "reason": "Self-Driving verdict outsideCode: The billing-worker's TCP connection to api.stripe.com:443 was refused (Errno 111) before any request was sent, so requests raised its documented ConnectionError. The logged message format (\"Caused by "
+  },
+  {
+    "source": "S4",
+    "decision": "fix",
+    "reason": "PreparedRequest.prepare_body calls prepare_content_length(body) even when there is no body. prepare_content_length begins by setting headers['Content-Length'] = '0' and only replaces it when a body ex"
+  },
+  {
+    "source": "S5",
+    "decision": "fix",
+    "reason": "requests.api.request builds a new Session for every call and returns without closing it. With the default stream=False the body is read and the keep-alive socket goes back into that session's private "
+  },
+  {
+    "source": "S6",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: Every request URL goes through requote_uri (models.py:321), whose unquote_unreserved step (utils.py:392-407) decodes percent-escapes of unreserved characters (%7E, %2D, %2E, %5F, letters, digits) befo"
+  }
+]

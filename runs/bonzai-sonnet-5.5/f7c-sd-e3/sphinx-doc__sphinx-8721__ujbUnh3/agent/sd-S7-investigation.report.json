@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 42158,
+ "finalText": "One correction to my earlier report: I said the splitter lowercases words, and that was wrong. `split` in `sphinx/search/__init__.py:95` does not lowercase. Words reach `SearchDutch.stem` with their original capitalization.\n\nEverything else in the finding holds, and the cause is unchanged. Words like `Verwerking` in ordinary capitalization still stem correctly, because the Dutch suffix rules look at the word's ending and that ending is lowercase. An all-caps word like `VERWERKING` has no lowercase ending, so no suffix rule matches. It is indexed as `verwerking`, and the lowercased query stems to `verwerk`, so they never match. I could not run the stemmer, because `snowballstemmer` is not installed in the probe environment. The all-caps behaviour is inferred from how Snowball suffix matching works.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Dutch search misses pages with all-caps headings\",\n  \"cause\": \"SearchDutch.stem in sphinx/search/nl.py calls stemWord(word).lower(), so it stems before lowercasing, while every other language calls stemWord(word.lower()). The index builder passes words with their original capitalization (the splitter does not lowercase). Snowball's Dutch suffix rules only match lowercase endings, so an all-caps heading word like VERWERKING is indexed unstemmed as 'verwerking'. The lowercased query stems to 'verwerk', so the two never match. Words in ordinary capitalization keep lowercase endings and still stem, which is why those pages are found.\",\n  \"files\": [\n    {\"path\": \"sphinx/search/nl.py\", \"why\": \"stem() stems before lowercasing, unlike all other languages\"},\n    {\"path\": \"sphinx/search/__init__.py\", \"why\": \"split() and IndexBuilder.feed pass non-lowercased words to lang.stem, so the language class must lowercase\"},\n    {\"path\": \"tests/test_search.py\", \"why\": \"add a regression test for uppercase Dutch words\"}\n  ],\n  \"plan\": [\n    \"Change SearchDutch.stem to return self.stemmer.stemWord(word.lower())\",\n    \"Add a test asserting SearchDutch stems 'VERWERKING' and 'verwerking' to the same term\",\n    \"Rebuild existing Dutch docs so their search index picks up the corrected terms\"\n  ],\n  \"verification\": [\n    \"New test: SearchDutch().stem('HOOFDSTUKKEN') == SearchDutch().stem('hoofdstukken') fails before the change and passes after\",\n    \"Build a small Dutch-language project with an all-caps heading and confirm the stemmed word appears in searchindex.js\",\n    \"Run tests/test_search.py\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"likely\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.85,\n  \"deliberate\": false,\n  \"intent\": \"Nothing marks stem-then-lowercase as chosen. Every sibling language lowercases before stemming, and the trailing .lower() suggests the author meant to lowercase but placed it after the stemmer.\",\n  \"intendedBehavior\": \"A Dutch word in a heading is indexed under the same term whether it is written in capitals or lowercase, so searching for it finds the page.\",\n  \"fixType\": \"silentFailure\",\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"Dutch stemming runs before lowercasing.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"sphinx/search/nl.py:139\", \"quote\": \"return self.stemmer.stemWord(word).lower()\"}]},\n    {\"id\": \"c2\", \"text\": \"Other languages lowercase before stemming, so Dutch is the outlier.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"sphinx/search/de.py:315\", \"quote\": \"return self.stemmer.stemWord(word.lower())\"}]},\n    {\"id\": \"c3\", \"text\": \"The default splitter does not lowercase, so raw-case words reach the language stemmer.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"sphinx/search/__init__.py:95\", \"quote\": \"return self._word_re.findall(input)\"}]}\n  ],\n  \"plain\": {\n    \"headline\": \"Some Dutch pages can't be found by searching words in their all-caps headings, because those words are stored in a different form from what people type.\",\n    \"happened\": \"When the site's search index is built, Dutch words are reduced to their root form. For headings written in capitals, that reduction did nothing because it was done before the words were turned to lowercase. When someone searches, the typed word is lowercased first and then reduced to its root, so it no longer matches what was stored.\",\n    \"matters\": \"Anyone using the search on a Dutch documentation site misses pages whose headings are written in all capitals.\",\n    \"fix\": \"Turn Dutch words to lowercase before reducing them to their root, as the other languages already do, and rebuild the docs.\"\n  },\n  \"ruledOut\": [\n    {\"hypothesis\": \"All stemmed languages share this defect\", \"why\": \"The other stemmed languages lowercase before stemming, so only Dutch has it.\", \"citations\": [{\"type\": \"code\", \"ref\": \"sphinx/search/de.py:315\", \"quote\": \"return self.stemmer.stemWord(word.lower())\"}]}\n  ]\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 7,
+  "inputTokens": {
+   "avg": 26512.285714285714,
+   "max": 31735
+  },
+  "mainUsage": {
+   "inputTokens": 185586,
+   "cachedInputTokens": 160857,
+   "outputTokens": 5606
+  },
+  "cacheHitPercent": 86.67518023988879,
+  "wallSeconds": 41.29099988937378,
+  "tools": {
+   "read": 7,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 1
+  },
+  "reads": 7,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 3,
+   "readFileIgnoringRange": 3
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1500449,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1500449
+}

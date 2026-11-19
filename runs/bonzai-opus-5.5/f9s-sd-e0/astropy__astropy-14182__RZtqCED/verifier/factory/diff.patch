@@ -1,0 +1,195 @@
+diff --git a/astropy/io/ascii/core.py b/astropy/io/ascii/core.py
+index 381b5b13d..37d2d1991 100755
+--- a/astropy/io/ascii/core.py
++++ b/astropy/io/ascii/core.py
+@@ -1231,7 +1231,8 @@ class MetaBaseReader(type):
+                 + re.sub(".", "=", header)
+                 + "\n"
+             )
+-            func.__doc__ += inspect.cleandoc(cls.__doc__).strip()
++            # ``cls.__doc__`` is None when docstrings are stripped (python -OO).
++            func.__doc__ += inspect.cleandoc(cls.__doc__ or "").strip()
+             connect.io_registry.register_reader(io_format, Table, func)
+ 
+             if dct.get("_io_registry_can_write", True):
+@@ -1244,7 +1245,7 @@ class MetaBaseReader(type):
+                     + re.sub(".", "=", header)
+                     + "\n"
+                 )
+-                func.__doc__ += inspect.cleandoc(cls.__doc__).strip()
++                func.__doc__ += inspect.cleandoc(cls.__doc__ or "").strip()
+                 connect.io_registry.register_writer(io_format, Table, func)
+ 
+ 
+diff --git a/astropy/io/ascii/rst.py b/astropy/io/ascii/rst.py
+index abdeba8ef..6f77926f2 100755
+--- a/astropy/io/ascii/rst.py
++++ b/astropy/io/ascii/rst.py
+@@ -57,10 +57,14 @@ class RST(FixedWidth):
+     data_class = SimpleRSTData
+     header_class = SimpleRSTHeader
+ 
+-    def __init__(self):
+-        super().__init__(delimiter_pad=None, bookend=False)
++    def __init__(self, header_rows=None):
++        super().__init__(delimiter_pad=None, bookend=False, header_rows=header_rows)
++        # The data start after the top border, the header rows and the
++        # border below the header rows.
++        self.data.start_line = len(self.header.header_rows) + 2
+ 
+     def write(self, lines):
+         lines = super().write(lines)
+-        lines = [lines[1]] + lines + [lines[1]]
++        idx = len(self.header.header_rows)
++        lines = [lines[idx]] + lines + [lines[idx]]
+         return lines
+diff --git a/astropy/io/ascii/tests/test_read.py b/astropy/io/ascii/tests/test_read.py
+index 0f2cf2b8f..b40cb4186 100755
+--- a/astropy/io/ascii/tests/test_read.py
++++ b/astropy/io/ascii/tests/test_read.py
+@@ -2068,3 +2068,24 @@ def test_read_converters_simplified():
+             t2 = Table.read(
+                 out.getvalue(), format="ascii.basic", converters=converters, guess=False
+             )
++
++
++def test_import_with_stripped_docstrings():
++    """Regression test: ``python -OO`` strips docstrings (``cls.__doc__`` is
++    None), which must not break importing astropy.io.ascii."""
++    import subprocess
++    import sys
++
++    result = subprocess.run(
++        [
++            sys.executable,
++            "-OO",
++            "-c",
++            "from astropy.table import Table; import astropy.io.ascii;"
++            "t = Table.read(['a,b', '1,2'], format='ascii.csv');"
++            "assert t.colnames == ['a', 'b']",
++        ],
++        capture_output=True,
++        text=True,
++    )
++    assert result.returncode == 0, result.stderr
+diff --git a/astropy/io/ascii/tests/test_rst.py b/astropy/io/ascii/tests/test_rst.py
+index 84d6fed40..3e34c05ef 100755
+--- a/astropy/io/ascii/tests/test_rst.py
++++ b/astropy/io/ascii/tests/test_rst.py
+@@ -185,3 +185,42 @@ Col1      Col2 Col3 Col4
+ ==== ========= ==== ====
+ """,
+     )
++
++
++def test_write_header_rows():
++    """Write an RST table with several header rows"""
++    import astropy.units as u
++    from astropy.table import QTable
++
++    tbl = QTable({"wave": [350, 950] * u.nm, "response": [0.7, 1.2] * u.count})
++    out = StringIO()
++    tbl.write(out, format="ascii.rst", header_rows=["name", "unit"])
++    assert_equal_splitlines(
++        out.getvalue(),
++        """\
++===== ========
++ wave response
++   nm       ct
++===== ========
++350.0      0.7
++950.0      1.2
++===== ========
++""",
++    )
++
++
++def test_read_header_rows_roundtrip():
++    """Round trip an RST table with several header rows"""
++    import astropy.units as u
++    from astropy.table import QTable
++
++    tbl = QTable({"wave": [350, 950] * u.nm, "response": [0.7, 1.2] * u.count})
++    out = StringIO()
++    tbl.write(out, format="ascii.rst", header_rows=["name", "unit"])
++    out.seek(0)
++    dat = QTable.read(out.getvalue(), format="ascii.rst", header_rows=["name", "unit"])
++    assert dat.colnames == ["wave", "response"]
++    assert dat["wave"].unit == u.nm
++    assert dat["response"].unit == u.count
++    assert_almost_equal(dat["wave"].value, [350, 950])
++    assert_almost_equal(dat["response"].value, [0.7, 1.2])
+diff --git a/astropy/timeseries/core.py b/astropy/timeseries/core.py
+index ff91e83e1..664578aee 100755
+--- a/astropy/timeseries/core.py
++++ b/astropy/timeseries/core.py
+@@ -80,7 +80,7 @@ class BaseTimeSeries(QTable):
+                     " series has no columns"
+                 )
+ 
+-            elif not set(required_columns).issubset(self.colnames):
++            elif self.colnames[: len(required_columns)] != required_columns:
+                 raise ValueError(
+                     f"{self.__class__.__name__} object is invalid - expected"
+                     f" {as_scalar_or_list_str(required_columns)} as the first"
+diff --git a/astropy/utils/shapes.py b/astropy/utils/shapes.py
+index 6962e2b00..20568b985 100755
+--- a/astropy/utils/shapes.py
++++ b/astropy/utils/shapes.py
+@@ -125,10 +125,7 @@ class NDArrayShapeMethods:
+         Parameters are as for :meth:`~numpy.ndarray.squeeze`.  All internal
+         data are views of the data of the original.
+         """
+-        try:
+-            return self._apply("squeeze", *args, **kwargs)
+-        except ValueError:
+-            return self
++        return self._apply("squeeze", *args, **kwargs)
+ 
+     def take(self, indices, axis=None, out=None, mode="raise"):
+         """Return a new instance formed from the elements at the given indices.
+diff --git a/astropy/utils/tests/test_shapes.py b/astropy/utils/tests/test_shapes.py
+index 342396b83..e05b406cc 100755
+--- a/astropy/utils/tests/test_shapes.py
++++ b/astropy/utils/tests/test_shapes.py
+@@ -27,3 +27,17 @@ def test_unbroadcast():
+     y = np.broadcast_to(x, (5, 3, 5))
+     z = unbroadcast(y)
+     assert z.shape == (3, 5)
++
++
++def test_squeeze_invalid_axis_raises():
++    # Regression test: squeezing an axis whose length is not 1 must raise
++    # ValueError (as numpy does), not silently return the unsqueezed object.
++    from astropy.time import Time
++
++    t = Time(np.arange(10.0).reshape(5, 2) + 50000, format="mjd")
++    with pytest.raises(ValueError, match="cannot select an axis to squeeze"):
++        t.squeeze(axis=1)
++
++    t1 = t[:, :1]
++    assert t1.shape == (5, 1)
++    assert t1.squeeze(axis=1).shape == (5,)
+diff --git a/docs/changes/io.ascii/14000.feature.rst b/docs/changes/io.ascii/14000.feature.rst
+new file mode 100644
+index 000000000..e50ba07a8
+--- /dev/null
++++ b/docs/changes/io.ascii/14000.feature.rst
+@@ -0,0 +1,2 @@
++Added support for the ``header_rows`` argument to the ``ascii.rst`` format, so
++that e.g. units can be written to and read from reStructuredText simple tables.
+diff --git a/docs/changes/io.ascii/14100.bugfix.rst b/docs/changes/io.ascii/14100.bugfix.rst
+new file mode 100644
+index 000000000..e18e59441
+--- /dev/null
++++ b/docs/changes/io.ascii/14100.bugfix.rst
+@@ -0,0 +1,2 @@
++Fixed an ``AttributeError`` when importing ``astropy.io.ascii`` with Python's
++``-OO`` option, which strips docstrings.
+diff --git a/docs/changes/utils/14200.bugfix.rst b/docs/changes/utils/14200.bugfix.rst
+new file mode 100644
+index 000000000..c71ffaa82
+--- /dev/null
++++ b/docs/changes/utils/14200.bugfix.rst
+@@ -0,0 +1 @@
++Squeezing an axis whose length is not 1 with ``squeeze(axis=...)`` on ``Time``, ``SkyCoord``, representations and other classes using ``ShapedLikeNDArray`` now raises ``ValueError`` as ``numpy.ndarray.squeeze`` does, instead of silently returning the unchanged object.

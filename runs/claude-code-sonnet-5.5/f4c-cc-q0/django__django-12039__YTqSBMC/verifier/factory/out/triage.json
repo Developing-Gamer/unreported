@@ -1,0 +1,8 @@
+[
+{"source":"S1","decision":"skip","reason":"OOMKilled worker pod in an external export-job service; no code from this repository is implicated."},
+{"source":"S2","decision":"skip","reason":"Too vague to act on: a single-app plan includes only that target's dependencies, and MigrationExecutor.migration_plan/forwards_plan behave as designed with no reproducible defect."},
+{"source":"S3","decision":"skip","reason":"No reproducible defect identified; template loader/override behaviour in this checkout looks correct and the report points to deployment/configuration."},
+{"source":"S4","decision":"fix","reason":"Columns and IndexColumns add col_suffixes without a separating space and append a trailing space when the suffix is empty."},
+{"source":"S5","decision":"skip","reason":"Already fixed: MySQL/Oracle/SQLite operations convert from connection.timezone_name and skip conversion when it equals the current timezone."},
+{"source":"S6","decision":"skip","reason":"Already fixed: field_admin_ordering is used by both RelatedFieldListFilter and RelatedOnlyFieldListFilter and passed to get_choices."}
+]

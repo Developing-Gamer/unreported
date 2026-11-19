@@ -1,0 +1,42 @@
+[
+  {
+    "source": "S1",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The billing-worker service could not open a TCP connection to api.stripe.com ([Errno 111] Connection refused) while posting to /v1/charges. The repository at /testbed is the xarray scientific-array li"
+  },
+  {
+    "source": "S2",
+    "decision": "fix",
+    "reason": "as_compatible_data in xarray/core/variable.py runs `data = getattr(data, \"values\", data)` on every input, meant only to unwrap pandas/xarray containers. Any user object exposing a `values` attribute i"
+  },
+  {
+    "source": "S3",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: Before v0.14.1, merging coordinates during arithmetic (unique_variable in merge.py) compared coordinate values directly, which forced dask-backed non-index coordinates to be computed. PR #3453 added l"
+  },
+  {
+    "source": "S4",
+    "decision": "fix",
+    "reason": "Dataset.merge passes `other` straight to dataset_merge_method, which hands it to merge_core without converting a DataArray to a Dataset (the top-level xr.merge does this conversion). coerce_pandas_val"
+  },
+  {
+    "source": "S5",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: In older xarray (up to v0.12.3), after joining datasets combine_by_coords checked that every dimension of the result was sorted. A dimension that was the same in every input but not sorted (y = ['a','"
+  },
+  {
+    "source": "S6",
+    "decision": "fix",
+    "reason": "Dataset.merge passes `other` straight to dataset_merge_method without converting a DataArray to a Dataset, unlike the top-level xr.merge (merge.py:790). coerce_pandas_values then treats the DataArray "
+  },
+  {
+    "source": "S7",
+    "decision": "fix",
+    "reason": "In the dask path of rolling (xarray/core/dask_array_ops.py rolling_window), when a centered even-sized window needs extra front padding smaller than the overlap depth, the code pads to `depth` and the"
+  },
+  {
+    "source": "S8",
+    "decision": "fix",
+    "reason": "In _CachedAccessor.__get__, an AttributeError raised while constructing a registered accessor is swallowed and replaced by None (xarray/core/extensions.py:35-38). That None is then stored in the objec"
+  }
+]

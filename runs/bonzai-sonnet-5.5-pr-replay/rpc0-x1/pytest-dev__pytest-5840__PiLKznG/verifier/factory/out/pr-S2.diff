@@ -1,0 +1,109 @@
+diff --git a/changelog/5792.bugfix.rst b/changelog/5792.bugfix.rst
+new file mode 100644
+index 000000000..331e7070d
+--- /dev/null
++++ b/changelog/5792.bugfix.rst
+@@ -0,0 +1 @@
++Fix ``ImportError`` while loading ``conftest.py`` on Windows caused by the path being lowercased before import: the case-normalized path is now only used as a cache key.
+diff --git a/src/_pytest/config/__init__.py b/src/_pytest/config/__init__.py
+index 3a0eca546..a8fad8cbe 100644
+--- a/src/_pytest/config/__init__.py
++++ b/src/_pytest/config/__init__.py
+@@ -406,20 +406,23 @@ class PytestPluginManager(PluginManager):
+         else:
+             directory = path
+ 
+-        directory = unique_path(directory)
++        # Keep the real (case-preserving) path for walking and importing;
++        # the normalized path is only used as a key.
++        directory_key = unique_path(directory)
++        directory = directory.realpath()
+ 
+         # XXX these days we may rather want to use config.rootdir
+         # and allow users to opt into looking into the rootdir parent
+         # directories instead of requiring to specify confcutdir
+         clist = []
+         for parent in directory.parts():
+-            if self._confcutdir and self._confcutdir.relto(parent):
++            if self._confcutdir and self._confcutdir.relto(unique_path(parent)):
+                 continue
+             conftestpath = parent.join("conftest.py")
+             if conftestpath.isfile():
+                 mod = self._importconftest(conftestpath)
+                 clist.append(mod)
+-        self._dirpath2confmods[directory] = clist
++        self._dirpath2confmods[directory_key] = clist
+         return clist
+ 
+     def _rget_with_confmod(self, name, path):
+@@ -435,9 +438,12 @@ class PytestPluginManager(PluginManager):
+         # Use realpath to avoid loading the same conftest twice
+         # with build systems that create build directories containing
+         # symlinks to actual files.
+-        conftestpath = unique_path(conftestpath)
++        # The normalized path is only a key: importing it would lose the case
++        # of the real path (lowercase on Windows) and break package resolution.
++        key = unique_path(conftestpath)
++        conftestpath = conftestpath.realpath()
+         try:
+-            return self._conftestpath2mod[conftestpath]
++            return self._conftestpath2mod[key]
+         except KeyError:
+             pkgpath = conftestpath.pypkgpath()
+             if pkgpath is None:
+@@ -454,8 +460,8 @@ class PytestPluginManager(PluginManager):
+                 raise ConftestImportFailure(conftestpath, sys.exc_info())
+ 
+             self._conftest_plugins.add(mod)
+-            self._conftestpath2mod[conftestpath] = mod
+-            dirpath = conftestpath.dirpath()
++            self._conftestpath2mod[key] = mod
++            dirpath = key.dirpath()
+             if dirpath in self._dirpath2confmods:
+                 for path, mods in self._dirpath2confmods.items():
+                     if path and path.relto(dirpath) or path == dirpath:
+diff --git a/testing/test_conftest.py b/testing/test_conftest.py
+index 9888f5457..55c64bb44 100644
+--- a/testing/test_conftest.py
++++ b/testing/test_conftest.py
+@@ -143,11 +143,29 @@ def test_conftestcutdir(testdir):
+     # but we can still import a conftest directly
+     conftest._importconftest(conf)
+     values = conftest._getconftestmodules(conf.dirpath())
+-    assert values[0].__file__.startswith(str(unique_path(conf)))
++    assert values[0].__file__.startswith(str(conf.realpath()))
+     # and all sub paths get updated properly
+     values = conftest._getconftestmodules(p)
+     assert len(values) == 1
+-    assert values[0].__file__.startswith(str(unique_path(conf)))
++    assert values[0].__file__.startswith(str(conf.realpath()))
++
++
++def test_conftest_import_preserves_path_case(testdir, monkeypatch):
++    """The conftest must be imported through its real path, not through the
++    normcase'd path used as a dict key (which is lowercase on Windows)
++    (#5792)."""
++    monkeypatch.setattr("_pytest.pathlib.normcase", lambda s: s.lower())
++    pkg = testdir.mkdir("MixedCase").mkdir("PkgDir")
++    pkg.ensure("__init__.py")
++    conf = pkg.join("conftest.py")
++    conf.write("x = 1")
++    conftest = PytestPluginManager()
++    conftest_setinitial(conftest, [pkg], confcutdir=testdir.tmpdir)
++    values = conftest._getconftestmodules(pkg)
++    assert len(values) == 1
++    assert values[0].x == 1
++    assert values[0].__name__ == "PkgDir.conftest"
++    assert unique_path(conf) in conftest._conftestpath2mod
+ 
+ 
+ def test_conftestcutdir_inplace_considered(testdir):
+@@ -156,7 +174,7 @@ def test_conftestcutdir_inplace_considered(testdir):
+     conftest_setinitial(conftest, [conf.dirpath()], confcutdir=conf.dirpath())
+     values = conftest._getconftestmodules(conf.dirpath())
+     assert len(values) == 1
+-    assert values[0].__file__.startswith(str(unique_path(conf)))
++    assert values[0].__file__.startswith(str(conf.realpath()))
+ 
+ 
+ @pytest.mark.parametrize("name", "test tests whatever .dotdir".split())

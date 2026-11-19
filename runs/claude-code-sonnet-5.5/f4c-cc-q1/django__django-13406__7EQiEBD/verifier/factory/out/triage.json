@@ -1,0 +1,8 @@
+[
+{"source":"S1","decision":"fix","reason":"dateformat 'o' returned the calendar year instead of the ISO 8601 year, so Jan 1 2021 in week 53 was labeled 2021-53."},
+{"source":"S2","decision":"skip","reason":"The plain 'Server Error (500)' page is the intended fallback when 500.html cannot be found; nothing in this repo shows a defect, so it is likely a deployment/template-config issue."},
+{"source":"S3","decision":"fix","reason":"Assigning a values()/annotate() query to a QuerySet left _iterable_class as ModelIterable, so model instances were built from value rows."},
+{"source":"S4","decision":"skip","reason":"ChoicesMeta already sets do_not_call_in_templates = True in this checkout."},
+{"source":"S5","decision":"skip","reason":"parse_bits already handles keyword-only arguments with defaults and reports multiple values correctly in this checkout."},
+{"source":"S6","decision":"skip","reason":"Upstream api.github.com timeout in an external webhook-relay service; not a defect in this repository."}
+]

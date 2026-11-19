@@ -1,0 +1,32 @@
+[
+  {
+    "source": "S1",
+    "decision": "fix",
+    "reason": "In pyreverse's Run.run, black_list is set to `self.config.ignore_list or (\"CVS\",)`. An explicit empty --ignore parses to an empty list, which is falsy, so it is replaced by the default ('CVS',). Any p"
+  },
+  {
+    "source": "S2",
+    "decision": "skip",
+    "reason": "Self-Driving verdict outsideCode: Nothing in this repository (pylint 2.8.3) imports or defines IS_PYPY, and the constants module has no such name. Something loaded through import_module (an external plugin, tool or newer test/conftest"
+  },
+  {
+    "source": "S3",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: This repository is Pylint, a Python linter. It has no export worker, no CSV writer and no nightly export. The files named in the signal (export/worker.py and export/csv_writer.py) do not exist here. S"
+  },
+  {
+    "source": "S4",
+    "decision": "fix",
+    "reason": "_check_chained_comparison keeps operand usage in one dict keyed by operand.name for Name nodes and operand.value for Const nodes. A variable `a` and the string literal 'a' (and similar value/name coin"
+  },
+  {
+    "source": "S5",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The logging-format-style option only accepts \"old\" and \"new\" (choices: [\"old\", \"new\"]). The fstr value was valid in 2.4 but was dropped in 2.5 when logging-fstring-interpolation came back. The 2.5 rel"
+  },
+  {
+    "source": "S6",
+    "decision": "fix",
+    "reason": "The checker records the names used in `# type:` comments through `_store_type_annotation_node`. That function handles only a bare name (`ABC`) or a subscript (`List[int]`). A dotted annotation such as"
+  }
+]

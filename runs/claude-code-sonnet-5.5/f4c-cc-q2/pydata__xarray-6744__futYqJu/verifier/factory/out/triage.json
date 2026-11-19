@@ -1,0 +1,9 @@
+[
+{"source":"S1","decision":"skip","reason":"Vague production report about an export job with no reproducer or link to this library's code; not enough to act on."},
+{"source":"S2","decision":"skip","reason":"Already fixed: Dataset.merge converts a DataArray via to_dataset() and ds.merge(da) now works."},
+{"source":"S3","decision":"skip","reason":"Vague production report about exported grids with no reproducer or evidence pointing at this repository's code."},
+{"source":"S4","decision":"fix","reason":"DataArrayRolling.__iter__ ignored the center argument; windows are now offset so iteration matches rolling reductions."},
+{"source":"S5","decision":"skip","reason":"Sum of all-NaN with skipna=True returning 0 is documented behavior; min_count=1 yields NaN, so it is not a defect."},
+{"source":"S6","decision":"skip","reason":"Already fixed: weighted.py converts boolean weights to int before computing sum_of_weights."},
+{"source":"S7","decision":"skip","reason":"Stripe connection error from the billing-worker service is outside this repository."}
+]

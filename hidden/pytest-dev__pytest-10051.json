@@ -1,0 +1,30 @@
+{
+ "task": "pytest-dev__pytest-10051",
+ "kept": [
+  {
+   "path": "src/_pytest/faulthandler.py",
+   "category": "silent wrong result (a value or output that is subtly wrong, no exception)",
+   "defect_patch": "diff --git a/src/_pytest/faulthandler.py b/src/_pytest/faulthandler.py\nindex b9c925582..e7422e62b 100644\n--- a/src/_pytest/faulthandler.py\n+++ b/src/_pytest/faulthandler.py\n@@ -61,7 +61,7 @@ def get_stderr_fileno() -> int:\n \n \n def get_timeout_config_value(config: Config) -> float:\n-    return float(config.getini(\"faulthandler_timeout\") or 0.0)\n+    return int(float(config.getini(\"faulthandler_timeout\") or 0.0))\n \n \n @pytest.hookimpl(hookwrapper=True, trylast=True)\n",
+   "test_code": "import pytest\n\nfrom _pytest.faulthandler import get_timeout_config_value\n\n\n@pytest.mark.parametrize(\"configured_timeout\", [\"0.25\", \"1.75\", \"2\"])\ndef test_timeout_preserves_fractional_seconds(\n    pytestconfig, monkeypatch, configured_timeout\n):\n    monkeypatch.setitem(\n        pytestconfig._inicache, \"faulthandler_timeout\", configured_timeout\n    )\n\n    assert get_timeout_config_value(pytestconfig) == float(configured_timeout)\n",
+   "signal": {
+    "kind": "user",
+    "source": "CI support channel",
+    "text": "Hanging tests no longer produce thread dumps in our job configured with a 0.5-second timeout. The job using a 5-second timeout still produces them."
+   },
+   "summary": "Timeout values are truncated to whole seconds, silently disabling subsecond timeouts and shortening other fractional timeouts."
+  },
+  {
+   "path": "src/_pytest/compat.py",
+   "category": "silent wrong result (a value or output that is subtly wrong, no exception)",
+   "defect_patch": "diff --git a/src/_pytest/compat.py b/src/_pytest/compat.py\nindex d0cb07b22..1faf9ec1b 100644\n--- a/src/_pytest/compat.py\n+++ b/src/_pytest/compat.py\n@@ -200,7 +200,7 @@ def get_default_arg_names(function: Callable[..., Any]) -> Tuple[str, ...]:\n \n \n _non_printable_ascii_translate_table = {\n-    i: f\"\\\\x{i:02x}\" for i in range(128) if i not in range(32, 127)\n+    i: f\"\\\\x{i:02x}\" for i in range(128) if i not in range(32, 128)\n }\n _non_printable_ascii_translate_table.update(\n     {ord(\"\\t\"): \"\\\\t\", ord(\"\\r\"): \"\\\\r\", ord(\"\\n\"): \"\\\\n\"}\n",
+   "test_code": "import pytest\n\nfrom _pytest.compat import ascii_escaped\n\n\n@pytest.mark.parametrize(\"value\", [b\"device\\x7fready\", \"device\\x7fready\"])\ndef test_del_is_escaped_in_parameter_text(value):\n    assert ascii_escaped(value) == r\"device\\x7fready\"\n",
+   "signal": {
+    "kind": "user",
+    "source": "CI report feedback",
+    "text": "A few byte-valued test IDs now contain an invisible character instead of the usual escape text, and copying them from the report into rerun commands is unreliable."
+   },
+   "summary": "An off-by-one in the printable ASCII range leaves DEL bytes unescaped, silently corrupting the displayed text of affected parameter IDs."
+  }
+ ],
+ "rejected": []
+}

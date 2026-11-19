@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 157122,
+ "finalText": "Nothing needs fixing here. With `multiple=\"stack\"`, `histplot` stacks the smooth curves the same way it stacks the bars, and it does that on purpose. It isn't using the wrong data. The check before finishing turned up one problem in the report: a citation quote was too short. I swapped it for a code citation. The verdict is unchanged.\n\n**Where it happens.** Right after the bars are stacked, the curves go through the same stacking step. The only mode that leaves curves unstacked is \"dodge\" (`None if multiple == \"dodge\" else multiple`, `seaborn/distributions.py` lines 514\u2013515). Stacking adds each group's heights on top of the groups below it (line 262). `kdeplot(multiple=\"stack\")` stacks its curves the same way. Each group's curve is still worked out from its own raw values and scaled to its own unstacked bars before stacking (lines 451 and 492).\n\n**What I ran.** I used a throwaway copy with two groups (300 and 200 points) and `kde=True`:\n- In stack mode, the bottom group's curve was exactly the same as in layer mode.\n- The top group's curve was exactly the sum of both groups' layer-mode curves.\n\nSo the curves are each group's correct shape, added together where the bars are added. The installed pandas has dropped a setting this version of seaborn uses, so every plot crashed until I patched that one line in the copy. The same mismatch makes 84 of the 90 KDE-related tests fail, so I couldn't use the existing tests either way. None of them covers curves on a stacked histogram anyway; the curve test only covers layer and dodge.\n\n**Why it's a design choice.** The code picks stacked curves for stack and fill and makes dodge the only exception. The issue asks for curves that stay unstacked when the bars are stacked, which is a different design. The repository is a single v0.10.0 snapshot commit, so there's no history to check for a regression. The docs don't say what happens to the curves when the bars are stacked. A sentence there, or an option to leave curves unstacked, is up to the team.\n\n```json\n{\n  \"verdict\": \"notActionable\",\n  \"title\": \"Stacked histogram also stacks its smooth curves\",\n  \"cause\": \"With multiple='stack' (or 'fill'), histplot deliberately passes the KDE overlay curves through the same stacking step as the bars, exempting only 'dodge'. Each group's curve is its own density estimate scaled to its histogram, then added on top of the groups below it, so the curves trace the tops of the stacked bars. The data used is correct; the reporter wants unstacked overlays, which is a different design.\",\n  \"files\": [\n    {\"path\": \"seaborn/distributions.py\", \"why\": \"plot_univariate_histogram stacks the KDE densities with _resolve_multiple using the same 'multiple' value as the bars, except for 'dodge' (lines 512-516).\"},\n    {\"path\": \"seaborn/distributions.py\", \"why\": \"_resolve_multiple (lines 241-269) takes a cumulative sum across hue groups for 'stack' and 'fill'.\"}\n  ],\n  \"plan\": [\n    \"No code fix needed. Optionally, as a product decision: document in histplot's 'kde'/'multiple' docstring that KDE overlays follow the stacking mode, or add an option to draw unstacked overlays.\"\n  ],\n  \"verification\": [\n    \"Probe: for two hue groups, the bottom curve in stack mode equals its layer-mode curve exactly, and the top curve equals the sum of the two layer-mode curves (np.allclose True for both).\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.8,\n  \"fixType\": \"frustration\",\n  \"intendedBehavior\": \"With hue and multiple='stack', each KDE overlay line equals the sum of its own layer-mode curve and the curves of the groups stacked beneath it, so it traces the top of its stacked bars.\",\n  \"intent\": {\n    \"deliberate\": true,\n    \"evidence\": \"plot_univariate_histogram explicitly runs the KDE densities through _resolve_multiple with `None if multiple == \\\"dodge\\\" else multiple`, so stacking the curves in 'stack'/'fill' is a chosen behaviour (only 'dodge' is exempt). kdeplot stacks densities the same way for multiple='stack'.\"\n  },\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"other\", \"text\": \"The KDE overlay is stacked on purpose: densities go through the same stacking step as the bars, with only 'dodge' exempted.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"seaborn/distributions.py:514\", \"quote\": \"densities, _ = self._resolve_multiple(\"},\n      {\"type\": \"code\", \"ref\": \"seaborn/distributions.py:515\", \"quote\": \"densities, None if multiple == \\\"dodge\\\" else multiple\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"other\", \"text\": \"Stacking is a cumulative sum across hue groups, applied equally to histograms and KDE curves.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"seaborn/distributions.py:262\", \"quote\": \"curves[cols] = curves[cols].cumsum(axis=\\\"columns\\\")\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"trigger\", \"text\": \"The reporter expected the KDE lines to be identical between multiple='layer' and multiple='stack'.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s5\", \"quote\": \"When the stack option is used, the KDE treats the stacked height as the data.\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"other\", \"text\": \"Each group's density is computed from raw data before stacking and scaled to its own unstacked histogram, so the underlying data is correct.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"seaborn/distributions.py:451\", \"quote\": \"densities = self._compute_univariate_density(\"},\n      {\"type\": \"code\", \"ref\": \"seaborn/distributions.py:492\", \"quote\": \"hist_norm = (heights * widths).sum()\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"The KDE is computed from the stacked bar heights instead of the raw data.\", \"why\": \"Densities are estimated from the raw data before any stacking; in a probe, stack mode's bottom curve equals its layer-mode curve exactly and the top curve equals the sum of both layer curves.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"seaborn/distributions.py:451\", \"quote\": \"densities = self._compute_univariate_density(\"}\n    ]},\n    {\"hypothesis\": \"A recent regression changed the overlay behaviour.\", \"why\": \"The repository is a single v0.10.0 snapshot commit, and stacking the densities is an explicit branch rather than a side effect.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"seaborn/distributions.py:515\", \"quote\": \"densities, None if multiple == \\\"dodge\\\" else multiple\"}\n    ]}\n  ],\n  \"plain\": {\n    \"headline\": \"Smooth curves drawn over a stacked histogram are stacked too, which the reporter didn't expect, but it's how the feature was built.\",\n    \"happened\": \"Someone drew a histogram split by group, with a smooth curve over each group, and asked for the groups to be stacked. The curves were stacked the same way the bars were, so each curve follows the top of its own stacked bars. They expected the curves to look the same as when the groups overlap.\",\n    \"matters\": \"People who stack a histogram and add smooth curves may misread the curves as each group's own shape.\",\n    \"fix\": \"No repair needed; if the team wants, say in the docs that the curves follow stacking, or add an option to leave them unstacked.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 17,
+  "inputTokens": {
+   "avg": 24534,
+   "max": 34185
+  },
+  "mainUsage": {
+   "inputTokens": 417078,
+   "cachedInputTokens": 389881,
+   "outputTokens": 12026
+  },
+  "cacheHitPercent": 93.47915737583857,
+  "wallSeconds": 156.8199999332428,
+  "tools": {
+   "read": 8,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 2,
+   "subagent": 0,
+   "other": 7
+  },
+  "reads": 8,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 2,
+   "readFileIgnoringRange": 2
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.4544432,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.4544432
+}

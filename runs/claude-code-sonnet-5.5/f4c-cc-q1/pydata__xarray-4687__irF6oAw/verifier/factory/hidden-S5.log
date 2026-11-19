@@ -1,0 +1,29 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_____________ test_duration_decoding_can_be_disabled_independently _____________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7d8b652fe0b0>
+
+    def test_duration_decoding_can_be_disabled_independently(monkeypatch):
+        store = MemoryStore()
+    
+        def open_store(cls, filename, **kwargs):
+            return store
+    
+        monkeypatch.setattr(
+            backend.PseudoNetCDFDataStore, "open", classmethod(open_store)
+        )
+    
+        with backend.PseudoNetCDFBackendEntrypoint().open_dataset(
+            "unused.pnc", decode_times=True, decode_timedelta=False
+        ) as ds:
+>           assert ds["forecast_period"].dtype == np.dtype("int64")
+E           AssertionError: assert dtype('<m8[ns]') == dtype('int64')
+E            +  where dtype('<m8[ns]') = <xarray.DataArray 'forecast_period' (step: 3)>\narray([             0, 21600000000000, 43200000000000], dtype='timedelta64[ns]')\nDimensions without coordinates: step.dtype
+E            +  and   dtype('int64') = <class 'numpy.dtype'>('int64')
+E            +    where <class 'numpy.dtype'> = np.dtype
+
+/tmp/test_hidden_S5.py:44: AssertionError
+=========================== short test summary info ============================
+FAILED ../tmp/test_hidden_S5.py::test_duration_decoding_can_be_disabled_independently
+1 failed in 1.64s

@@ -1,0 +1,13 @@
+diff --git a/src/_pytest/faulthandler.py b/src/_pytest/faulthandler.py
+index b9c925582..e7422e62b 100644
+--- a/src/_pytest/faulthandler.py
++++ b/src/_pytest/faulthandler.py
+@@ -61,7 +61,7 @@ def get_stderr_fileno() -> int:
+ 
+ 
+ def get_timeout_config_value(config: Config) -> float:
+-    return float(config.getini("faulthandler_timeout") or 0.0)
++    return int(float(config.getini("faulthandler_timeout") or 0.0))
+ 
+ 
+ @pytest.hookimpl(hookwrapper=True, trylast=True)

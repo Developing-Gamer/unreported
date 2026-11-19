@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 61917,
+ "finalText": "The check turned up nothing to change. The code citations match what I read, and the investigation stayed read-only. SymPy would not run under `probe` (no `mpmath`), so I did not reproduce the issue's expression.\n\nTwo points are inferred from the code, not observed. The `Poly(0, x, domain='EX')` print shown in the cause is inferred from how the polynomial is built. The `ZeroDivisionError` link to #17990 comes from the issue text.\n\nThe cause is that `dup_clear_denoms` and `dmp_clear_denoms` multiply by the common denominator using `dup_mul_ground`/`dmp_mul_ground`, which never strip leading zeros. In the `EX` domain, a constant that is really zero simplifies to `EX(0)`. The rep becomes `[EX(0)]` instead of `[]`, so the result prints as zero but is treated as non-zero. The fix is to strip after multiplying and add a regression test.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"clear_denoms can return an unstripped zero polynomial\",\n  \"cause\": \"dup_clear_denoms/dmp_clear_denoms multiply coefficients by the common denominator via dup_mul_ground/dmp_mul_ground, which never strip leading zeros. In the EX domain the multiplication simplifies an unsimplified-zero constant to EX(0), so the rep becomes [EX(0)] rather than []. The Poly looks like zero but is_zero, degree and leading-coefficient code treat it as non-zero, which caused the ZeroDivisionError in #17990.\",\n  \"files\": [\n    {\"path\": \"sympy/polys/densetools.py\", \"why\": \"dup_clear_denoms and dmp_clear_denoms return the product without stripping zeros (lines 1198-1204, 1252-1258)\"},\n    {\"path\": \"sympy/polys/densearith.py\", \"why\": \"dup_mul_ground returns [cf*c for cf in f] with no strip (lines 269-272)\"},\n    {\"path\": \"sympy/polys/polyclasses.py\", \"why\": \"DMP.clear_denoms wraps the result with per() and DMP.__init__ does not normalise (lines 586-589, 149-161)\"}\n  ],\n  \"plan\": [\n    \"Strip the result with dup_strip/dmp_strip in dup_clear_denoms and dmp_clear_denoms, before the optional convert, or in DMP.clear_denoms\",\n    \"Add a regression test: Poly over EX with a zero-valued but unsimplified constant; assert clear_denoms() gives rep [] and is_zero True\",\n    \"Run the polys tests for densetools, polyclasses and polytools\"\n  ],\n  \"verification\": [\n    \"The new test fails before the change and passes after it\",\n    \"Existing polys tests still pass\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"likely\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.8,\n  \"intendedBehavior\": \"clear_denoms() on a Poly whose coefficients are all zero returns a properly normalised zero polynomial (empty rep, is_zero True).\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"The issue describes the unstripped DMP as an unintended side effect; no comment or test asserts it.\"},\n  \"fixType\": \"error\",\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"dup_mul_ground multiplies each coefficient and returns the list without stripping leading zeros.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"sympy/polys/densearith.py:269\", \"quote\": \"    if not c or not f:\\n        return []\\n    else:\\n        return [ cf * c for cf in f ]\"}]},\n    {\"id\": \"c2\", \"text\": \"dup_clear_denoms returns the product of dup_mul_ground without stripping, so a zero-valued EX coefficient stays in the list.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"sympy/polys/densetools.py:1198\", \"quote\": \"    if not K1.is_one(common):\\n        f = dup_mul_ground(f, common, K0)\"}]},\n    {\"id\": \"c3\", \"text\": \"EX coefficients are falsy when their expression equals 0, so a [EX(0)] rep is a zero polynomial that was never stripped.\", \"role\": \"impact\", \"citations\": [{\"type\": \"code\", \"ref\": \"sympy/polys/domains/expressiondomain.py:122\", \"quote\": \"        def __bool__(f):\\n            return f.ex != 0\"}]}\n  ],\n  \"plain\": {\n    \"headline\": \"A calculation could return a zero that looks like zero but isn't treated as zero, which later caused a crash.\",\n    \"happened\": \"When the library clears fractions from a polynomial whose number is secretly zero, it multiplies everything through and gets a zero. It forgets to tidy that result into a proper zero. Later steps then try to divide by that leftover zero and fail.\",\n    \"matters\": \"Anyone doing algebra with long, complicated constants that happen to cancel to zero can hit a confusing crash or wrong answer.\",\n    \"fix\": \"Tidy the polynomial after clearing fractions so a zero result is stored as a real zero, and add a test for it.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 11,
+  "inputTokens": {
+   "avg": 17590.909090909092,
+   "max": 24009
+  },
+  "mainUsage": {
+   "inputTokens": 193500,
+   "cachedInputTokens": 176491,
+   "outputTokens": 7042
+  },
+  "cacheHitPercent": 91.20981912144703,
+  "wallSeconds": 58.598000049591064,
+  "tools": {
+   "read": 10,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 2
+  },
+  "reads": 10,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.14822770000000002,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.14822770000000002
+}

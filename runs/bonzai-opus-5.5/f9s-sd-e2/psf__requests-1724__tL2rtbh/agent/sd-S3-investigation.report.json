@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 68315,
+ "finalText": "I re-checked the report against what you asked for. This was a read-only investigation: I changed no files and ran commands only in the probe's throwaway copy. Every citation quote matches what I read, and the report has all the required fields.\n\n**Finding (fixable):** The library stores the request type (such as \"POST\") exactly as the caller passed it. Two places only upper-case it: `PreparedRequest.prepare_method` (`requests/models.py:306-310`) and `Session.request` (`requests/sessions.py:314`). Neither converts it to Python 2's plain byte string. With `method=u'POST'`, Python 2's built-in HTTP library builds the request headers as unicode text and then adds the multipart body, which is raw bytes. That fails with `UnicodeDecodeError` once the uploaded file has a byte above 127, which is what the reporter hit uploading `/usr/bin/diff`. Header names were already converted with the existing `to_native_string` helper (`models.py:377`, also noted in the changelog), so leaving the method out was an oversight, not a choice.\n\n**What I could and couldn't check:** The probe environment only has Python 3.11, and this old version of the library needs a patch to its `collections` imports to load there. With that patch:\n- The method keeps whatever type it came in with: `b'post'` came out as `b'POST'`, still bytes.\n- A file upload's body is bytes.\n\nI could not run Python 2, so the last step comes from the reporter's traceback and from how Python 2's HTTP library is known to work. That's why certainty is \"likely\" rather than \"confirmed\".\n\n**Fix:** In `prepare_method`, use `self.method = to_native_string(self.method.upper())`. Add a regression test that sends `u'POST'` with a binary file upload.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Unicode method name crashes file uploads on Python 2\",\n  \"cause\": \"PreparedRequest.prepare_method (and Session.request) only upper-case the method and never convert it to the native str type, so on Python 2 a unicode method like u'POST' reaches httplib unchanged. httplib then builds a unicode request line/header block and concatenates the byte-string multipart body onto it, which triggers an implicit ASCII decode that fails as soon as the uploaded file contains non-ASCII bytes. Header names were already converted to native strings for this reason, but the method was never converted.\",\n  \"files\": [\n    {\"path\": \"requests/models.py\", \"why\": \"prepare_method upper-cases the method but never converts it to the native string type; this is where the fix goes\"},\n    {\"path\": \"requests/sessions.py\", \"why\": \"Session.request passes method.upper() through, so the unicode type is kept\"},\n    {\"path\": \"requests/utils.py\", \"why\": \"to_native_string already exists and does the needed conversion\"},\n    {\"path\": \"test_requests.py\", \"why\": \"add a regression test for a unicode method with a binary file upload\"}\n  ],\n  \"plan\": [\n    \"In PreparedRequest.prepare_method, set self.method = to_native_string(self.method.upper()) when the method is not None (to_native_string is already imported in models.py).\",\n    \"Add a test to test_requests.py that sends method=u'POST' with files={'file': open(binary_file, 'rb')} and asserts the request succeeds, and that prepare() gives a native str method.\",\n    \"Add a HISTORY.rst entry saying the method is now a native string.\"\n  ],\n  \"verification\": [\n    \"On Python 2.7, requests.request(method=u'POST', url=httpbin + '/post', files={'file': open('/usr/bin/diff','rb')}) returns 200 instead of raising UnicodeDecodeError.\",\n    \"type(requests.Request(method=u'post', url='http://x/').prepare().method) is str on both Python 2 and 3.\",\n    \"The existing test suite still passes.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"likely\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.85,\n  \"fixType\": \"error\",\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"prepare_method only upper-cases the method and keeps the caller's string type, so a unicode method stays unicode on Python 2.\", \"role\": \"rootCause\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/models.py:310\", \"quote\": \"self.method = self.method.upper()\"},\n      {\"type\": \"query\", \"ref\": \"probe:python\", \"quote\": \"bytes kept: <class 'bytes'> b'POST'\"}\n    ]},\n    {\"id\": \"c2\", \"text\": \"Session.request also passes the upper-cased method on without converting it.\", \"role\": \"rootCause\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/sessions.py:314\", \"quote\": \"method = method.upper(),\"}\n    ]},\n    {\"id\": \"c3\", \"text\": \"A file upload produces a byte-string body, which httplib appends to the now-unicode header block, triggering the decode error.\", \"role\": \"trigger\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:python\", \"quote\": \"<class 'str'> POST <class 'bytes'>\"},\n      {\"type\": \"evidence\", \"ref\": \"ev_s3\", \"quote\": \"using `method=u'POST'` instead of `method='POST'`) produces a UnicodeDecodeError\"}\n    ]},\n    {\"id\": \"c4\", \"text\": \"A conversion helper already exists and is used for header names but not for the method.\", \"role\": \"other\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/models.py:377\", \"quote\": \"self.headers = CaseInsensitiveDict((to_native_string(name), value) for name, value in headers.items())\"},\n      {\"type\": \"code\", \"ref\": \"requests/utils.py:567\", \"quote\": \"def to_native_string(string, encoding='ascii'):\"}\n    ]},\n    {\"id\": \"c5\", \"text\": \"Python 2 users who pass a unicode method (common with unicode_literals) cannot upload binary files at all.\", \"role\": \"impact\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s3\", \"quote\": \"Unicode method names cause UnicodeDecodeError for some requests in Python 2.7.2\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"Deliberate behaviour or a documented limitation\", \"why\": \"The changelog shows the project deliberately moved header names to native strings for this kind of problem; nothing says the method was meant to stay unicode.\", \"citations\": [\n      {\"type\": \"doc\", \"ref\": \"HISTORY.rst\", \"quote\": \"Keys in the Headers dictionary are now native strings on all Python versions,\"}\n    ]},\n    {\"hypothesis\": \"Already fixed in current code\", \"why\": \"The current prepare_method still only calls .upper() with no native-string conversion, and the probe shows the input type passes through unchanged.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/models.py:308\", \"quote\": \"self.method = method\"}\n    ]}\n  ],\n  \"intendedBehavior\": \"A request made with method=u'POST' and a binary file upload on Python 2 succeeds, and the prepared request's method is always a native str.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"Header names were converted to native strings on purpose (HISTORY.rst, models.py:377); no comment, test or changelog entry chooses to keep a unicode method, so the crash is an unhandled case.\"},\n  \"plain\": {\n    \"headline\": \"Uploading a file with Python 2 crashes when the request type is written as unicode text, because the library passes that text type straight through.\",\n    \"happened\": \"A person sent a file upload and wrote the request type as unicode text, which is common in Python 2 code. The library kept that unicode type, so Python 2 built the request headers as unicode. When it tried to attach the file's raw bytes, it failed with a text-decoding error and the upload never went out.\",\n    \"matters\": \"Every Python 2 user who writes the request type as unicode text and uploads a binary file gets a crash instead of a sent request.\",\n    \"fix\": \"Always turn the request type into the plain string type Python expects, the same way the library already does for header names.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 8,
+  "inputTokens": {
+   "avg": 14667.625,
+   "max": 18869
+  },
+  "mainUsage": {
+   "inputTokens": 117341,
+   "cachedInputTokens": 105478,
+   "outputTokens": 7438
+  },
+  "cacheHitPercent": 89.89014922320416,
+  "wallSeconds": 67.6159999370575,
+  "tools": {
+   "read": 3,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 3
+  },
+  "reads": 3,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.2291506,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.2291506
+}

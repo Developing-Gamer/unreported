@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 92628,
+ "finalText": "I re-checked the investigation against the request, and nothing needed changing. I edited no files and ran commands only with probe, in a throwaway copy.\n\n**What causes it:** In astropy's shared shape helper (`astropy/utils/shapes.py`, lines 128\u2013131), the `squeeze` method catches the `ValueError` NumPy raises when it's asked to drop an axis whose length isn't 1, and returns the object unchanged. `Time`, `SkyCoord` and coordinate representations all use this method. Batches whose target axis has length 1 still reduce to one dimension. Batches with two or more entries on that axis pass through silently and fail later.\n\n**What I ran:**\n- A `Time` of shape (5, 2) with `squeeze(axis=1)` came back as `(5, 2)` with no error, while a plain NumPy array of the same shape raised `ValueError`.\n- A `SkyCoord` of shape (4, 3) with `squeeze(axis=0)` came back as `(4, 3)`, again with no error.\n- Shape (5, 1) still reduced to `(5,)`, which matches the report that most batches still work.\n- Existing squeeze tests: 3 passed. One coordinates squeeze test stopped during setup because the copy's leap-second file has expired; that is an environment issue, not a failure in this code.\n\n**Was it on purpose?** Nothing says so:\n- No comment, test or changelog entry covers swallowing the error.\n- The method's own docstring says it behaves like NumPy's `squeeze`, and NumPy raises here.\n- The repository has a single snapshot commit, so I couldn't tell when the change came in or which release or deploy first had it.\n\n**Fix:** remove the try/except so the error reaches the caller. The only caller inside astropy (`Time.__init__`) squeezes a location only when it has size 1, so it can't hit this error. Add a regression test that an invalid axis raises `ValueError`.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"squeeze() silently ignores invalid axis on Time/SkyCoord\",\n  \"cause\": \"NDArrayShapeMethods.squeeze in astropy/utils/shapes.py wraps self._apply('squeeze', ...) in `try/except ValueError: return self`. When asked to squeeze an axis whose length is not 1, numpy raises ValueError, but astropy swallows it and returns the original, still multi-dimensional object. Batches whose target axis has length 1 squeeze normally; others pass through unchanged and fail later.\",\n  \"files\": [\n    {\"path\": \"astropy/utils/shapes.py\", \"why\": \"squeeze() catches ValueError and returns self unchanged instead of raising like numpy.ndarray.squeeze\"},\n    {\"path\": \"astropy/utils/tests/test_shapes.py\", \"why\": \"place for a regression test that an invalid squeeze axis raises ValueError\"}\n  ],\n  \"plan\": [\n    \"In NDArrayShapeMethods.squeeze, remove the try/except ValueError and just return self._apply('squeeze', *args, **kwargs).\",\n    \"Add a regression test: Time and SkyCoord of shape (5, 2) raise ValueError on squeeze(axis=1); shape (5, 1) still squeezes to (5,).\",\n    \"Add a changelog entry under bug fixes.\"\n  ],\n  \"verification\": [\n    \"Time(np.arange(10.).reshape(5,2)+50000, format='mjd').squeeze(axis=1) raises ValueError (today it returns shape (5, 2)).\",\n    \"Existing squeeze tests in astropy/time/tests/test_methods.py, astropy/coordinates/tests/test_shape_manipulation.py and test_representation_methods.py still pass.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.85,\n  \"fixType\": \"silentFailure\",\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"squeeze() catches the ValueError numpy raises for an axis of length other than 1 and returns the object unchanged.\",\n     \"citations\": [{\"type\": \"code\", \"ref\": \"astropy/utils/shapes.py:128\", \"quote\": \"            return self._apply(\\\"squeeze\\\", *args, **kwargs)\\n        except ValueError:\\n            return self\"}]},\n    {\"id\": \"c2\", \"role\": \"trigger\", \"text\": \"Run in a throwaway copy: a (5, 2) Time squeezed on axis 1 comes back two-dimensional, while a plain ndarray raises; the same happens for SkyCoord.\",\n     \"citations\": [{\"type\": \"query\", \"ref\": \"probe:python\", \"quote\": \"squeeze axis=1 on (5,2): (5, 2)\\nndarray: ValueError cannot select an axis to squeeze out which has size not equal to one\"},\n                   {\"type\": \"query\", \"ref\": \"probe:python\", \"quote\": \"skycoord (4,3) squeeze axis=0 (4, 3)\"}]},\n    {\"id\": \"c3\", \"role\": \"impact\", \"text\": \"Batches with a length-1 axis still reduce normally, matching the report that most batches still become one-dimensional.\",\n     \"citations\": [{\"type\": \"query\", \"ref\": \"probe:python\", \"quote\": \"(5,1)-> (5,) (5,)\"},\n                   {\"type\": \"evidence\", \"ref\": \"ev_s6\", \"quote\": \"Most batches still reduce to one dimension as before.\"}]},\n    {\"id\": \"c4\", \"role\": \"other\", \"text\": \"The method's docstring says it behaves like numpy's ndarray.squeeze, and numpy raises for this input.\",\n     \"citations\": [{\"type\": \"code\", \"ref\": \"astropy/utils/shapes.py:125\", \"quote\": \"Parameters are as for :meth:`~numpy.ndarray.squeeze`.  All internal\"}]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"Time.__init__ needs the swallowed error when squeezing a size-1 location\", \"why\": \"It squeezes only when location.size == 1, and squeezing a size-1 object never raises.\",\n     \"citations\": [{\"type\": \"code\", \"ref\": \"astropy/time/core.py:1835\", \"quote\": \"if self.location.size == 1:\\n                self.location = self.location.squeeze()\"}]},\n    {\"hypothesis\": \"Quantity / np.squeeze path is responsible\", \"why\": \"Quantity uses the ndarray squeeze directly, so numpy raises the error itself; only the shape-methods mixin used by Time, SkyCoord and representations swallows it.\",\n     \"citations\": [{\"type\": \"code\", \"ref\": \"astropy/units/quantity.py:1730\", \"quote\": \"# shape, transpose, swapaxes, flatten, ravel, squeeze all OK.\"}]}\n  ],\n  \"intendedBehavior\": \"Calling squeeze(axis=1) on a Time or SkyCoord whose axis 1 has length 2 raises ValueError, as numpy.ndarray.squeeze does, instead of returning the object unchanged.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"No comment, test or changelog entry chooses this. The docstring promises numpy.ndarray.squeeze semantics, and CHANGES.rst mentions squeeze only for an unrelated Quantity fix.\"},\n  \"plain\": {\n    \"headline\": \"Some observation batches skip the step that flattens them and break later, because a shape error at that step is silently ignored.\",\n    \"happened\": \"The pipeline asks each batch to drop an extra dimension. When a batch has more than one entry in that dimension, the step can't drop it, but instead of saying so it hands back the batch unchanged. The batch carries on and fails much later, far from the real cause.\",\n    \"matters\": \"Every batch with more than one entry in the dimension being dropped slips through and fails somewhere hard to trace, while single-entry batches work fine.\",\n    \"fix\": \"Let the flattening step report the problem right away, as the underlying number library does, instead of quietly passing the batch through.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 11,
+  "inputTokens": {
+   "avg": 18321.636363636364,
+   "max": 25166
+  },
+  "mainUsage": {
+   "inputTokens": 201538,
+   "cachedInputTokens": 183372,
+   "outputTokens": 8510
+  },
+  "cacheHitPercent": 90.98631523583641,
+  "wallSeconds": 91.84099984169006,
+  "tools": {
+   "read": 8,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 3
+  },
+  "reads": 8,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.2976784,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.2976784
+}

@@ -1,0 +1,9 @@
+[
+{"source":"S1","decision":"skip","reason":"should_do_markup already disables colour for TERM=dumb and non-tty output, so the reported behaviour is already handled."},
+{"source":"S2","decision":"skip","reason":"create_new_paste already uses lexer=text in this checkout."},
+{"source":"S3","decision":"skip","reason":"Upstream webhook timeout in an external service (webhook-relay), not code in this repository."},
+{"source":"S4","decision":"fix","reason":"_translate_non_printable left DEL (0x7f) unescaped, so byte/str test IDs contained an invisible character."},
+{"source":"S5","decision":"fix","reason":"get_timeout_config_value truncated faulthandler_timeout to int, so 0.5 became 0 and disabled thread dumps."},
+{"source":"S6","decision":"skip","reason":"Report serialization already includes exception chains (reports.py 'chain'); the xdist symptom was in an old pytest/xdist version."},
+{"source":"S7","decision":"fix","reason":"caplog.clear() replaced the records list, desynchronising caplog.get_records() from caplog.records."}
+]

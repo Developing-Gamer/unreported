@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 62150,
+ "finalText": "`fit_predict` now returns labels that match `predict` when `n_init > 1`. The new regression test failed before the fix and passes after it. I re-ran `pytest sklearn/mixture` just now: 57 passed.\n\n**Cause:** the investigation was right. In `BaseMixture.fit_predict` (`sklearn/mixture/base.py`), the final E-step ran before `_set_parameters(best_params)`. The labels therefore came from the last initialization, not the best one the model kept.\n\n**Fix:** I moved the final E-step to after the best parameters are restored. The not-converged warning and the `n_iter_` and `lower_bound_` assignments are unchanged.\n\n**Test:** `test_gaussian_mixture_fit_predict_n_init` in `sklearn/mixture/tests/test_gaussian_mixture.py` fits on `randn(1000, 5)` with `n_components=5` and `n_init=5`. Before the fix, 815 of 1000 labels differed. I did not add a separate test for `BayesianGaussianMixture`. It shares `BaseMixture.fit_predict`, so the fix covers it.\n\nI also added a changelog entry in `doc/whats_new/v0.20.rst`. Nothing is committed, and the PR text is in `.factory/pr-S1.md`.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"checks\": [\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest sklearn/mixture -q\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"reproductionSteps\": \"Fit GaussianMixture(n_components=5, n_init=5, random_state=0) on np.random.RandomState(0).randn(1000, 5); compare fit_predict(X) with predict(X) on the same fitted model. They differ in 815 of 1000 labels.\",\n  \"reproductionTest\": {\n    \"path\": \"sklearn/mixture/tests/test_gaussian_mixture.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest sklearn/mixture/tests/test_gaussian_mixture.py -k fit_predict_n_init -q\",\n    \"signature\": \"AssertionError: Arrays are not equal  Mismatched elements: 815 / 1000 (81.5%)\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 11,
+  "inputTokens": {
+   "avg": 23877,
+   "max": 27828
+  },
+  "mainUsage": {
+   "inputTokens": 262647,
+   "cachedInputTokens": 248709,
+   "outputTokens": 4769
+  },
+  "cacheHitPercent": 94.69325749009127,
+  "wallSeconds": 60.79400014877319,
+  "tools": {
+   "read": 5,
+   "edit": 5,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 4
+  },
+  "reads": 5,
+  "edits": 5,
+  "runs": 4,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 5,
+  "editOperations": 5,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.13226380000000001,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.13226380000000001
+}

@@ -1,0 +1,27 @@
+[
+  {
+    "source": "S1",
+    "decision": "fix",
+    "reason": "RequestContext.push should only open the session the first time the context is pushed, but it checks `if not self.session:` instead of `if self.session is None:`. When a view clears the session (logou"
+  },
+  {
+    "source": "S2",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The error comes from a separate service, webhook-relay (relay/deliver.py post_webhook, using the aiohttp client), which timed out after 30 s waiting for api.github.com. This repository is the Flask we"
+  },
+  {
+    "source": "S3",
+    "decision": "fix",
+    "reason": "flask.globals.__getattr__ returns the app-context stack (__app_ctx_stack) when asked for the deprecated name _request_ctx_stack. Every CLI command runs inside an app context, so monitoring or extensio"
+  },
+  {
+    "source": "S4",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: Since Flask 2.2.0, SessionInterface.get_expiration_time returns datetime.now(timezone.utc) + permanent_session_lifetime, a timezone-aware value. The 2.2.0 changelog records this as intended (PR #4645)"
+  },
+  {
+    "source": "S5",
+    "decision": "fix",
+    "reason": "Blueprint.__init__ only rejects names containing a dot, so an empty name is accepted. Endpoints are then built as f\"{name_prefix}.{name}.{endpoint}\".lstrip(\".\"), so a blueprint named \"\" registers un-p"
+  }
+]

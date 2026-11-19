@@ -1,0 +1,37 @@
+[
+  {
+    "source": "S1",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: The report comes from an old version. `to_unstacked_dataset` used to leave the stacked coordinate `y` on each unstacked variable. Variables with only one dimension then hit a MergeError when the datas"
+  },
+  {
+    "source": "S2",
+    "decision": "fix",
+    "reason": "`sort_backends` in xarray/backends/plugins.py loops over `sorted(STANDARD_BACKENDS_ORDER)` instead of `STANDARD_BACKENDS_ORDER`. That turns the intended priority [netcdf4, h5netcdf, scipy] into alphab"
+  },
+  {
+    "source": "S3",
+    "decision": "fix",
+    "reason": "xr.where is a thin wrapper around apply_ufunc and passes no keep_attrs argument. apply_ufunc then falls back to the global keep_attrs option, whose default is False, and that turns into 'drop'. So the"
+  },
+  {
+    "source": "S4",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: The report (xarray issue 3304) comes from an old release where DataArray.quantile dropped attrs even with keep_attrs=True. The current code passes keep_attrs through DataArray, Dataset and Variable qu"
+  },
+  {
+    "source": "S5",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: xarray decodes any variable whose units attribute is a time unit such as 'hours' into timedelta64[ns] unless decode_timedelta=False. A lead-time column of 6 and 12 labelled 'hours' therefore becomes s"
+  },
+  {
+    "source": "S6",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: When expand_dims is given a size or coordinates for a new dimension, Variable.set_dims builds the result with numpy's broadcast_to. That returns a read-only, zero-stride view of the original data and "
+  },
+  {
+    "source": "S7",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The error is a refused connection from the billing-worker service to api.stripe.com, raised in requests and urllib3. This repository is xarray, a data-analysis library, and has no Stripe, billing or H"
+  }
+]

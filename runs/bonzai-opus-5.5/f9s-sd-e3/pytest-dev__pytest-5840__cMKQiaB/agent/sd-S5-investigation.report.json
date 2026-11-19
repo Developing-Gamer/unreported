@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 67191,
+ "finalText": "I re-checked the report against the request. One citation pointed at the wrong line: the wildcard-free test loop in `testing/test_argcomplete.py` is on line 89, not 90. I've corrected it below. Everything else holds, and the report is the single JSON block the benchmark note asks for.\n\nThe cause is one wrong word in pytest's tab-completion code. When the text you're completing already contains a `*` or a `?` (as in `test_*.py`), the completer still adds its own `*` to the end. It then searches for `test_*.py*`, which also matches backup files like `test_a.py.bak`.\n\n**What I found**\n- In `src/_pytest/_argcomplete.py`, line 76 checks `if \"*\" not in prefix or \"?\" not in prefix:`. That says \"or\" where it should say \"and\". The trailing `*` is only meant to be added when the text has no wildcard at all.\n- As written, the check is false only when the text contains both `*` and `?`. So `test_*.py` or `test_?.py` (one kind of wildcard) still gets a `*` added, and the search matches anything that starts with the pattern.\n- Plain names don't go through a wildcard path, which fits \"ordinary filenames still look normal\".\n\n**What I ran** (in a throwaway copy, in a folder with `test_a.py`, `test_a.py.bak` and `test_b.py`)\n- `FastFilesCompleter()('test_*.py')` returned `['test_a.py', 'test_a.py.bak', 'test_b.py']`.\n- `FastFilesCompleter()('test_?.py')` returned the same three files.\n- Python's own `glob('test_*.py')` returned only `['test_a.py', 'test_b.py']`, which is what completion should offer.\n- I couldn't run the existing tests: pytest isn't installed in the probe environment, and running it from `src` crashes under this Python version. Those tests only try plain prefixes anyway, so they would pass with or without the bug.\n\n**Fix:** change `or` to `and` on line 76 and add a test that completes wildcard patterns. The repository history is a single snapshot commit, so I couldn't see when the bug came in. Nothing records it as intended, and the current code still has it.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Wildcard tab completion offers .py.bak files\",\n  \"cause\": \"FastFilesCompleter.__call__ is meant to add a trailing '*' only when the prefix has no wildcard, but it tests `\\\"*\\\" not in prefix or \\\"?\\\" not in prefix`, which is true unless both '*' and '?' are present. A pattern like 'test_*.py' becomes 'test_*.py*', so glob also returns files such as 'test_a.py.bak'.\",\n  \"files\": [\n    {\"path\": \"src/_pytest/_argcomplete.py\", \"why\": \"Line 76 uses `or` where `and` is needed, so a '*' is added to prefixes that already contain a wildcard.\"},\n    {\"path\": \"testing/test_argcomplete.py\", \"why\": \"Only plain prefixes are tested; a wildcard-prefix test is needed.\"}\n  ],\n  \"plan\": [\n    \"In FastFilesCompleter.__call__, change `if \\\"*\\\" not in prefix or \\\"?\\\" not in prefix:` to `if \\\"*\\\" not in prefix and \\\"?\\\" not in prefix:`.\",\n    \"Add a test to TestArgComplete: create test_a.py, test_a.py.bak and test_b.py in tmpdir, then assert FastFilesCompleter()('test_*.py') == ['test_a.py', 'test_b.py'] and FastFilesCompleter()('test_?.py') gives the same list.\",\n    \"Keep the existing plain-prefix tests (compare_with_compgen, remove_dir_prefix) passing.\"\n  ],\n  \"verification\": [\n    \"New wildcard test fails before the change (returns test_a.py.bak too) and passes after.\",\n    \"testing/test_argcomplete.py and testing/test_parseopt.py::test_argcomplete still pass.\",\n    \"Completing a plain prefix such as 'test_a' still lists test_a.py and test_a.py.bak.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"trivial\",\n  \"risk\": \"low\",\n  \"confidence\": 0.95,\n  \"fixType\": \"error\",\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"The guard that should skip appending '*' for wildcard prefixes uses `or`, so it is true for any prefix that lacks either '*' or '?'.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"src/_pytest/_argcomplete.py:76\", \"quote\": \"if \\\"*\\\" not in prefix or \\\"?\\\" not in prefix:\"},\n      {\"type\": \"code\", \"ref\": \"src/_pytest/_argcomplete.py:80\", \"quote\": \"prefix += \\\"*\\\"\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"impact\", \"text\": \"Calling the completer with 'test_*.py' returns the .py.bak file, while glob of the pattern itself does not.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:python FastFilesCompleter()('test_*.py')\", \"quote\": \"['test_a.py', 'test_a.py.bak', 'test_b.py']\"},\n      {\"type\": \"query\", \"ref\": \"probe:python glob('test_*.py')\", \"quote\": \"True False ['test_a.py', 'test_b.py']\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"trigger\", \"text\": \"A user reported .py.bak files offered when completing a pattern ending in .py, while plain names look normal.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s5\", \"quote\": \"Tab completion sometimes offers .py.bak files when my test filename pattern ends in .py.\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"other\", \"text\": \"Existing tests only use plain prefixes, so the wildcard path is not covered.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"testing/test_argcomplete.py:89\", \"quote\": \"for x in [\\\"d\\\", \\\"data\\\", \\\"doesnotexist\\\", \\\"\\\"]:\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"Plain-prefix completion is wrong too\", \"why\": \"For 'test_a', offering test_a.py.bak is correct prefix-completion behaviour, which matches the report that ordinary names look normal.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:python FastFilesCompleter()('test_a')\", \"quote\": \"['test_a.py', 'test_a.py.bak']\"}\n    ]}\n  ],\n  \"intendedBehavior\": \"With test_a.py, test_a.py.bak and test_b.py in the current directory, FastFilesCompleter()('test_*.py') returns ['test_a.py', 'test_b.py'] without the .py.bak file.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"The branch is meant to turn a plain prefix into a prefix glob by adding '*' (the comment says it imitates bash); adding '*' to a pattern that already has a wildcard was never chosen, and no test or changelog asserts it. Git history is a single snapshot commit bc15bc43d, so when the bug came in can't be seen.\"},\n  \"plain\": {\n    \"headline\": \"Tab completion in pytest offers backup files like .py.bak when people type a wildcard pattern ending in .py, because it adds an extra wildcard to the end.\",\n    \"happened\": \"Someone typed a filename pattern with a wildcard, such as test_*.py, and pressed Tab. The completion code is meant to add a wildcard only when the typed text has none, but its check is written backwards. It added one anyway, so the pattern also matched names that only start with .py, like backup files.\",\n    \"matters\": \"Anyone who tab-completes test file patterns with a wildcard is offered backup and other wrong files and can pick the wrong one.\",\n    \"fix\": \"Correct the check so the extra wildcard is added only when the typed text has no wildcard, and add a test for wildcard patterns.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 7,
+  "inputTokens": {
+   "avg": 15352,
+   "max": 19327
+  },
+  "mainUsage": {
+   "inputTokens": 107464,
+   "cachedInputTokens": 95145,
+   "outputTokens": 7130
+  },
+  "cacheHitPercent": 88.53662621901287,
+  "wallSeconds": 66.48099994659424,
+  "tools": {
+   "read": 1,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 4
+  },
+  "reads": 1,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.22320600000000002,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.22320600000000002
+}

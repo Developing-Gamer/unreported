@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 101924,
+ "finalText": "The 303 \u2192 307 redirect bug is fixed and left uncommitted in the working tree. I re-checked the working tree and it holds the one-line fix, the two new tests and the PR text.\n\nThe cause matched the investigation. `Session.resolve_redirects` copied the original request on every hop, so after a 303 turned a POST into a GET, a later 307 brought the POST and its body back. The fix, in `requests/sessions.py`, sets `req = prepared_request` after each hop is sent, so the next hop builds on the previous one.\n\n- **Before the fix:** a fake-adapter chain POST \u2192 303 \u2192 307 \u2192 200 sent POST, GET, POST, and the third request carried the original body. That failure is the reproduction.\n- **After the fix:** the same chain sends POST, GET, GET with no body. A plain POST \u2192 307 still re-sends the POST with its original body. Both new tests in `test_requests.py` pass.\n- **Full suite:** 88 passed and 1 failed. The failure is an SSL certificate error in a test that needs the network, and the base commit fails the same way.\n- **Interpreter:** I ran everything with the conda `testbed` env (Python 2.7), because the code doesn't import on the default Python 3.11.\n\nThe pull request text is in `.factory/pr-S1.md`. No commit, push or pull request was made.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"checks\": [\n    {\"name\": \"pytest test_requests.py -k 'redirect_303 or redirect_307'\", \"passed\": true},\n    {\"name\": \"pytest test_requests.py (full)\", \"passed\": false, \"alsoOnBase\": true, \"note\": \"only failure is a network-dependent SSL certificate verification test; fails identically on base\"}\n  ],\n  \"visual\": false,\n  \"reproductionSteps\": \"Mount a fake adapter on a Session answering POST with 303, then 307, then 200; call Session.post(url, data={'result': 'x'}). Before the fix the requests sent were POST, GET, POST (the third carrying the original body); after the fix they are POST, GET, GET with no body.\",\n  \"reproductionTest\": {\n    \"path\": \"test_requests.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest test_requests.py -k \\\"redirect_303 or redirect_307\\\"\",\n    \"signature\": \"AssertionError: assert ['POST', 'GET', 'POST'] == ['POST', 'GET', 'GET']\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 18,
+  "inputTokens": {
+   "avg": 26338.944444444445,
+   "max": 32816
+  },
+  "mainUsage": {
+   "inputTokens": 474101,
+   "cachedInputTokens": 455161,
+   "outputTokens": 6145
+  },
+  "cacheHitPercent": 96.00507064950295,
+  "wallSeconds": 100.98699998855591,
+  "tools": {
+   "read": 11,
+   "edit": 5,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 1,
+   "subagent": 0,
+   "other": 5
+  },
+  "reads": 11,
+  "edits": 5,
+  "runs": 5,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 4,
+  "editOperations": 5,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1998122,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1998122
+}

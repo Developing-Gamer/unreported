@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 53323,
+ "finalText": "Building html and then epub no longer writes `_modules` pages into the epub output unless `viewcode_enable_epub` is True. The change is uncommitted in the working tree, as asked.\n\nI re-checked it by restoring the original `viewcode.py` and running the new test. It failed with `AssertionError: assert not True`, because `_build/epub/_modules` existed. With the fix back in place, `tests/test_ext_viewcode.py` gives 4 passed and 1 failed. The failure is `test_viewcode`, which was already failing before my change on an HTML snippet comparison; I did not investigate it.\n\nThe fix is in `sphinx/ext/viewcode.py`. `collect_pages` now skips `singlehtml` and `epub*` builders (unless `viewcode_enable_epub` is True), the same check `doctree_read` already applied. I moved that check into a helper, `is_supported_builder()`, which both functions call. As a side effect, `collect_pages` no longer writes module pages for `singlehtml` either.\n\nI added two tests to `tests/test_ext_viewcode.py`, each building html and then epub in the same source and doctree directories. One checks that no `_modules` directory appears by default. The other checks that `_modules/spam/mod1.xhtml` still appears with `viewcode_enable_epub=True`. I also added a `CHANGES` entry using issue number #8609, which is a guess and should be checked against the real issue.\n\nflake8 and mypy aren't installed here, so I didn't run them. `sphinx/builders/gettext.py` and `tests/test_build_gettext.py` were already modified in the working tree before I started, and I left them alone. The PR text is in `.factory/pr-S6.md`.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"checks\": [\n    {\"command\": \"python -m pytest tests/test_ext_viewcode.py -q\", \"passed\": true, \"note\": \"4 pass; test_viewcode fails identically on base (alsoOnBase true)\"}\n  ],\n  \"visual\": false,\n  \"reproduction\": \"Build the ext-viewcode testroot with the html builder, then the epub builder with the same srcdir/doctreedir; _build/epub/_modules is created although viewcode_enable_epub is False.\",\n  \"reproductionTest\": {\n    \"path\": \"tests/test_ext_viewcode.py\",\n    \"command\": \"python -m pytest tests/test_ext_viewcode.py -q\",\n    \"signature\": \"AssertionError: assert not True (where True = (_build/epub / '_modules').exists())\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 12,
+  "inputTokens": {
+   "avg": 28685.25,
+   "max": 34247
+  },
+  "mainUsage": {
+   "inputTokens": 344223,
+   "cachedInputTokens": 323864,
+   "outputTokens": 6231
+  },
+  "cacheHitPercent": 94.08552014246578,
+  "wallSeconds": 52.42699980735779,
+  "tools": {
+   "read": 7,
+   "edit": 8,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 2
+  },
+  "reads": 7,
+  "edits": 8,
+  "runs": 2,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 4,
+  "editOperations": 7,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1779663,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1779663
+}

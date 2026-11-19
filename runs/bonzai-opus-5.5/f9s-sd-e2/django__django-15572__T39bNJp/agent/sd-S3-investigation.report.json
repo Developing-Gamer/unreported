@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 97391,
+ "finalText": "I checked the work against your request. Everything it asked for is covered, and no files were changed.\n\n**What's wrong:** In this repository's Oracle test setup, the reporting connection ends up on the main connection's test schema. So it sees every fixture loaded through the main connection, even though each was given its own test user.\n\n**Why it happens:**\n- When tests start, Django decides which connections share a test database by comparing a short fingerprint of each one. On Oracle that fingerprint is built in `test_db_signature()` in `django/db/backends/oracle/creation.py`. It uses the main login (`USER`) and ignores the test user (`TEST['USER']`).\n- Two connections with the same login but different test users therefore look identical. The test runner builds one test schema, and the second connection is made a mirror of the first, so it takes the first one's test user and password. On Oracle a schema is a user, so both connections read the same data.\n- The settings docs say the test user is the user tests connect with, so this breaks the documented behaviour. It wasn't a design choice.\n\n**How I confirmed it:** With probe, I set up a \"default\" and a \"reporting\" connection with the same login but test users `test_default` and `test_reporting`. Each test user resolved correctly. The two fingerprints came out identical, and the test runner put both connections into a single test database. I didn't run the existing Oracle creation tests: no Oracle database or driver was available, and none of those tests cover the fingerprint. The repository has a single snapshot commit, so I couldn't tell when this started.\n\n**Fix:** a one-line change in `test_db_signature()` to use the test user (`self._test_database_user()`) instead of the main login. Add a test in `tests/backends/oracle/test_creation.py` showing that two connections with different test users get different fingerprints. Low risk.\n\n**Who feels it:** any project that runs its tests on Oracle with several connections sharing one login. Those tests don't keep their data apart, so they can pass when they should fail.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Oracle aliases with separate test users share one schema\",\n  \"cause\": \"The Oracle backend's test_db_signature() identifies a test database by HOST, PORT, ENGINE, NAME and the main USER, ignoring the configured TEST['USER']. Two aliases sharing a login but with different test users get identical signatures, so get_unique_databases_and_mirrors groups them and setup_databases makes the second a mirror of the first, copying the first alias's test USER/PASSWORD. The reporting alias therefore connects to the default alias's test schema and sees its fixtures.\",\n  \"files\": [\n    {\"path\": \"django/db/backends/oracle/creation.py\", \"why\": \"test_db_signature() uses settings_dict[\\\"USER\\\"] instead of self._test_database_user(); set_as_test_mirror copies the primary's USER/PASSWORD.\"},\n    {\"path\": \"django/test/utils.py\", \"why\": \"Groups aliases by test_db_signature() and turns all but the first into mirrors.\"},\n    {\"path\": \"tests/backends/oracle/test_creation.py\", \"why\": \"Place for a regression test on the signature.\"}\n  ],\n  \"plan\": [\n    \"In DatabaseCreation.test_db_signature() (Oracle), replace settings_dict[\\\"USER\\\"] with self._test_database_user().\",\n    \"Add a test: two connections with the same USER but different TEST['USER'] give different signatures, and identical TEST users still give the same signature.\",\n    \"Optionally add a release note for the Oracle multi-database test fix.\"\n  ],\n  \"verification\": [\n    \"New unit test in tests/backends/oracle/test_creation.py fails before the change and passes after.\",\n    \"get_unique_databases_and_mirrors with default/reporting aliases (same USER, TEST USER test_default/test_reporting) returns two separate entries.\",\n    \"On Oracle CI, a fixture inserted via the default alias is not visible via the reporting alias.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.9,\n  \"fixType\": \"silentFailure\",\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"Oracle's test_db_signature identifies a test database by the main USER, not the configured test user.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"django/db/backends/oracle/creation.py:456\", \"quote\": \"def test_db_signature(self):\"},\n      {\"type\": \"code\", \"ref\": \"django/db/backends/oracle/creation.py:463\", \"quote\": \"settings_dict[\\\"USER\\\"],\"},\n      {\"type\": \"code\", \"ref\": \"django/db/backends/oracle/creation.py:401\", \"quote\": \"return self._test_settings_get(\\\"USER\\\", prefixed=\\\"USER\\\")\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"rootCause\", \"text\": \"Aliases with equal signatures are grouped and all but the first become mirrors; on Oracle the mirror takes the primary's test USER and PASSWORD.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"django/test/utils.py:347\", \"quote\": \"connection.creation.test_db_signature(),\"},\n      {\"type\": \"code\", \"ref\": \"django/test/utils.py:236\", \"quote\": \"connections[alias].creation.set_as_test_mirror(\"},\n      {\"type\": \"code\", \"ref\": \"django/db/backends/oracle/creation.py:156\", \"quote\": \"self.connection.settings_dict[\\\"USER\\\"] = primary_settings_dict[\\\"USER\\\"]\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"trigger\", \"text\": \"With probe, aliases default and reporting sharing USER 'app' but with TEST USER test_default/test_reporting produced one grouped test database.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:get_unique_databases_and_mirrors\", \"quote\": \"({('h', '1521', 'django.db.backends.oracle', 'orcl', 'app'): ('orcl', ['default', 'reporting'])}, {})\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"impact\", \"text\": \"The documented contract says TEST USER is the user tests connect with, but the reporting alias ends up on default's schema and sees its fixtures.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s3\", \"quote\": \"The reporting alias can now see fixtures inserted through the default alias during tests\"},\n      {\"type\": \"code\", \"ref\": \"docs/ref/settings.txt:927\", \"quote\": \"The username to use when connecting to the Oracle database that will be used\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"_test_database_user ignores TEST['USER']\", \"why\": \"The probe printed test_default and test_reporting, so test-user resolution is correct; only the signature ignores it.\", \"citations\": [{\"type\": \"query\", \"ref\": \"probe:test_db_signature\", \"quote\": \"reporting ('h', '1521', 'django.db.backends.oracle', 'orcl', 'app') test_reporting\"}]},\n    {\"hypothesis\": \"User configured TEST MIRROR explicitly\", \"why\": \"Grouping happened with MIRROR=None, via the signature path, not the explicit mirror path.\", \"citations\": [{\"type\": \"code\", \"ref\": \"django/test/utils.py:333\", \"quote\": \"default_sig = connections[DEFAULT_DB_ALIAS].creation.test_db_signature()\"}]}\n  ],\n  \"intendedBehavior\": \"Two Oracle aliases with the same USER but different TEST['USER'] get different test_db_signature() values and separate test schemas, so data inserted via one alias is not visible via the other.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"The docs say TEST USER is the user tests connect with on Oracle, and no comment or test asserts that aliases with different test users should share a schema; the signature simply omits the test user.\"},\n  \"plain\": {\n    \"headline\": \"On Oracle, a second database connection used in tests reads the main connection's test data because both are set up as the same test database.\",\n    \"happened\": \"The team set up two database connections with different test users so each gets its own test space. When tests start, Django decides which connections are the same database by the main login only and ignores the test user. It builds one test space and points the second connection at it, so data loaded through one shows up in the other.\",\n    \"matters\": \"Any project that tests on Oracle with several connections sharing a login gets tests that don't keep their data apart, so they can pass when they should fail.\",\n    \"fix\": \"Make the check that decides whether two connections are the same test database include each connection's own test user.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 9,
+  "inputTokens": {
+   "avg": 17421.222222222223,
+   "max": 24044
+  },
+  "mainUsage": {
+   "inputTokens": 156791,
+   "cachedInputTokens": 139751,
+   "outputTokens": 8602
+  },
+  "cacheHitPercent": 89.13202926188366,
+  "wallSeconds": 95.59899997711182,
+  "tools": {
+   "read": 8,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 1
+  },
+  "reads": 8,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.2851682,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.2851682
+}

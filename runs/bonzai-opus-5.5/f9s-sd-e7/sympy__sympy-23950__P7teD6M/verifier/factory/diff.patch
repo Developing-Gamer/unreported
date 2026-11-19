@@ -1,0 +1,193 @@
+diff --git a/sympy/physics/optics/tests/test_utils.py b/sympy/physics/optics/tests/test_utils.py
+index 6c93883a08..771ce05b97 100644
+--- a/sympy/physics/optics/tests/test_utils.py
++++ b/sympy/physics/optics/tests/test_utils.py
+@@ -70,6 +70,8 @@ def test_refraction_angle():
+         Ray3D(Point3D(0, 0, 0), direction_ratio=[1, 1, -1])
+     assert ae(refraction_angle(0.5, 1, 2), 0.24207, 5)
+     assert ae(refraction_angle(0.5, 2, 1), 1.28293, 5)
++    raises(ValueError, lambda: refraction_angle(1.2, 1.5, 1))  # TIR
++    assert ae(refraction_angle(0.5, 1.5, 1), 0.80256, 5)
+     raises(ValueError, lambda: refraction_angle(r1, m1, m2, normal_ray, P))
+     raises(TypeError, lambda: refraction_angle(m1, m1, m2)) # can add other values for arg[0]
+     raises(TypeError, lambda: refraction_angle(r1, m1, m2, None, i))
+@@ -109,6 +111,7 @@ def test_deviation():
+     assert deviation(r1, 1.33, 1, plane=P) is None  # TIR
+     assert deviation(r1, 1, 1, normal=[0, 0, 1]) == 0
+     assert deviation([-1, -1, -1], 1, 1, normal=[0, 0, 1]) == 0
++    assert deviation(1.2, 1.5, 1) is None  # TIR
+     assert ae(deviation(0.5, 1, 2), -0.25793, 5)
+     assert ae(deviation(0.5, 2, 1), 0.78293, 5)
+ 
+diff --git a/sympy/physics/optics/utils.py b/sympy/physics/optics/utils.py
+index fc5ac78330..07646a367b 100644
+--- a/sympy/physics/optics/utils.py
++++ b/sympy/physics/optics/utils.py
+@@ -52,6 +52,10 @@ def refractive_index_of_medium(medium):
+     return n
+ 
+ 
++class TotalInternalReflectionError(ValueError):
++    """Raised when there is no refracted ray due to total internal reflection."""
++
++
+ def refraction_angle(incident, medium1, medium2, normal=None, plane=None):
+     """
+     This function calculates transmitted vector after refraction at planar
+@@ -87,6 +91,10 @@ def refraction_angle(incident, medium1, medium2, normal=None, plane=None):
+ 
+     Returns an angle of refraction or a refracted ray depending on inputs.
+ 
++    If ``incident`` is an angle larger than the critical angle, there is no
++    refracted ray and a ``ValueError`` is raised. If ``incident`` is a ray
++    that undergoes total internal reflection, ``0`` is returned.
++
+     Examples
+     ========
+ 
+@@ -141,7 +149,10 @@ def refraction_angle(incident, medium1, medium2, normal=None, plane=None):
+             raise ValueError('Angle of incidence not in range [0:pi/2)')
+ 
+         if critical_angle_ and angle_of_incidence > critical_angle_:
+-            return S.Zero
++            # 0 is the valid angle for normal incidence, so it cannot be
++            # used to signal that there is no transmitted ray.
++            raise TotalInternalReflectionError(
++                'Ray undergoes total internal reflection')
+         return asin(n1*sin(angle_of_incidence)/n2)
+ 
+     # Treat the incident as ray below
+@@ -320,7 +331,8 @@ def deviation(incident, medium1, medium2, normal=None, plane=None):
+     plane : Plane
+         Plane of separation of the two media.
+ 
+-    Returns angular deviation between incident and refracted rays
++    Returns angular deviation between incident and refracted rays, or
++    ``None`` if the ray undergoes total internal reflection.
+ 
+     Examples
+     ========
+@@ -340,11 +352,14 @@ def deviation(incident, medium1, medium2, normal=None, plane=None):
+     >>> round(deviation(0.1, 1.2, 1.5), 5)
+     -0.02005
+     """
+-    refracted = refraction_angle(incident,
+-                                 medium1,
+-                                 medium2,
+-                                 normal=normal,
+-                                 plane=plane)
++    try:
++        refracted = refraction_angle(incident,
++                                     medium1,
++                                     medium2,
++                                     normal=normal,
++                                     plane=plane)
++    except TotalInternalReflectionError:
++        return None  # no transmitted ray
+     try:
+         angle_of_incidence = Float(incident)
+     except TypeError:
+diff --git a/sympy/sets/contains.py b/sympy/sets/contains.py
+index b2d4268d12..a578fca505 100644
+--- a/sympy/sets/contains.py
++++ b/sympy/sets/contains.py
+@@ -45,4 +45,19 @@ def binary_symbols(self):
+             isinstance(i, (Eq, Ne))])
+ 
+     def as_set(self):
+-        raise NotImplementedError()
++        """
++        Return the set of values of the symbol for which this is true.
++
++        Examples
++        ========
++
++        >>> from sympy import Contains, Reals, Symbol
++        >>> x = Symbol('x')
++        >>> Contains(x, Reals).as_set()
++        Reals
++        """
++        x, s = self.args
++        if x.is_Symbol:
++            return s
++        raise NotImplementedError(
++            'as_set is only implemented when the element is a Symbol')
+diff --git a/sympy/sets/tests/test_contains.py b/sympy/sets/tests/test_contains.py
+index 1973fed19c..3e5df67b8a 100644
+--- a/sympy/sets/tests/test_contains.py
++++ b/sympy/sets/tests/test_contains.py
+@@ -3,6 +3,8 @@
+ from sympy.core.relational import Eq
+ from sympy.core.singleton import S
+ from sympy.core.symbol import Symbol
++from sympy.functions.elementary.piecewise import Piecewise
++from sympy.logic.boolalg import And
+ from sympy.sets.contains import Contains
+ from sympy.sets.sets import (FiniteSet, Interval)
+ from sympy.testing.pytest import raises
+@@ -41,10 +43,14 @@ def test_binary_symbols():
+ def test_as_set():
+     x = Symbol('x')
+     y = Symbol('y')
+-    # Contains is a BooleanFunction whose value depends on an arg's
+-    # containment in a Set -- rewriting as a Set is not yet implemented
++    assert Contains(x, FiniteSet(y)).as_set() == FiniteSet(y)
++    assert Contains(x, S.Reals).as_set() == S.Reals
++    assert And(Contains(x, Interval(0, 2)), x > 1).as_set() == \
++        Interval.Lopen(1, 2)
++    assert Piecewise((6, Contains(x, S.Reals)), (7, True)
++        ).as_expr_set_pairs() == [(6, S.Reals)]
+     raises(NotImplementedError, lambda:
+-           Contains(x, FiniteSet(y)).as_set())
++           Contains(x + 1, S.Reals).as_set())
+ 
+ def test_type_error():
+     # Pass in a parameter not of type "set"
+diff --git a/sympy/stats/compound_rv.py b/sympy/stats/compound_rv.py
+index 3a834ccb10..bf5d77972f 100644
+--- a/sympy/stats/compound_rv.py
++++ b/sympy/stats/compound_rv.py
+@@ -202,7 +202,7 @@ def _marginalise(self, expr, rv, evaluate):
+         rv_dom = rv.pspace.domain.set
+         if rv.pspace.is_Discrete or rv.pspace.is_Finite:
+             expr = Sum(expr*rv_dens, (rv, rv_dom._inf,
+-                    rv_dom._sup - 1))
++                    rv_dom._sup))
+         else:
+             expr = Integral(expr*rv_dens, (rv, rv_dom._inf,
+                     rv_dom._sup))
+diff --git a/sympy/stats/tests/test_compound_rv.py b/sympy/stats/tests/test_compound_rv.py
+index 573ba364b6..8dc11e13ad 100644
+--- a/sympy/stats/tests/test_compound_rv.py
++++ b/sympy/stats/tests/test_compound_rv.py
+@@ -10,10 +10,10 @@
+ from sympy.functions.special.beta_functions import beta
+ from sympy.functions.special.error_functions import erf
+ from sympy.functions.special.gamma_functions import gamma
+-from sympy.integrals.integrals import Integral
++from sympy.integrals.integrals import Integral, integrate
+ from sympy.sets.sets import Interval
+ from sympy.stats import (Normal, P, E, density, Gamma, Poisson, Rayleigh,
+-                        variance, Bernoulli, Beta, Uniform, cdf)
++                        variance, Bernoulli, Beta, Uniform, cdf, Die)
+ from sympy.stats.compound_rv import CompoundDistribution, CompoundPSpace
+ from sympy.stats.crv_types import NormalDistribution
+ from sympy.stats.drv_types import PoissonDistribution
+@@ -73,6 +73,17 @@ def test_bernoulli_CompoundDist():
+     assert P(Eq(Y, 1)) == E(Y)
+ 
+ 
++def test_finite_param_CompoundDist_normalised():
++    # the last value of a finite/discrete parameter's support must be summed
++    Y = Normal('Y', Bernoulli('X', S(1)/4), 1)
++    pdf = density(Y)(x)
++    assert pdf == (sqrt(2)*exp(-(x - 1)**2/2)/(8*sqrt(pi)) +
++                   3*sqrt(2)*exp(-x**2/2)/(8*sqrt(pi)))
++    assert abs(integrate(pdf, (x, -oo, oo)).evalf() - 1) < 1e-10
++    D = Normal('Z', Die('D', 3), 1)
++    assert abs(integrate(density(D)(x), (x, -oo, oo)).evalf() - 1) < 1e-10
++
++
+ def test_unevaluated_CompoundDist():
+     # these tests need to be removed once they work with evaluation as they are currently not
+     # evaluated completely in sympy.

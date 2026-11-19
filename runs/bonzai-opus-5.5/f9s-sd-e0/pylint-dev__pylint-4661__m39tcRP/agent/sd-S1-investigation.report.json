@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 205295,
+ "finalText": "I re-checked the report against the request and changed nothing in the repository. Every citation matches the file, and the report ends with the JSON block the run asked for.\n\n**Verdict: fixable.** Pylint wrongly warns about private data when a class's own static method creates an object of that class and sets its private data.\n\n**Cause.** In `pylint/checkers/classes.py`, pylint lets a method touch the protected members of an object of its own class. That exception only applies to class methods: the check accepts `func.type == \"classmethod\"` (and `__class_getitem__`). A `@staticmethod` doing the same thing falls through. For a double-underscore name, it then ends in the \"protected-access\" warning (W0212). The exception was added for GitHub issue 1159 and is tested only with class methods. Nothing in the comments, tests or changelog says static methods were left out on purpose.\n\n**What I checked:**\n- **Reproduced it:** running pylint 2.10.0-dev0 on the issue's code gives `t.py:5:8: W0212: Access to a protected member __value of a client class (protected-access)`.\n- **Tried the fix in a throwaway copy:** I made the check also accept static methods. The warning on line 5 went away. A static method in a different class touching `Clazz`'s private data was still flagged.\n- **Ran the tests:** with the change, the functional tests and class-checker unit tests gave 514 passed, 1 failed, 20 skipped. The one failure, `recursion_error_3152`, also fails without the change.\n\n**What's left.** The same example also gets a second false alarm, \"Unused private member\" (W0238). That check only counts private data set through `self` or `cls`, so it needs its own fix.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Static factory methods wrongly flagged for private access\",\n  \"cause\": \"In _check_protected_attribute_access, the exemption that lets a method access protected/private members of an instance of its own class (added for issue 1159) is gated on _is_classmethod(node.frame()), which only accepts func.type == \\\"classmethod\\\" or __class_getitem__. A @staticmethod that builds an instance of its own class and sets/reads instance._attr or instance.__attr therefore falls through and gets protected-access (W0212).\",\n  \"files\": [\n    {\"path\": \"pylint/checkers/classes.py\", \"why\": \"_check_protected_attribute_access / _is_classmethod: the own-instance exemption only applies to classmethods, not staticmethods\"},\n    {\"path\": \"tests/functional/a/access/access_to_protected_members.py\", \"why\": \"Add staticmethod cases next to the existing Issue1159 classmethod cases\"}\n  ],\n  \"plan\": [\n    \"In _check_protected_attribute_access, apply the existing exemption (frame method + _is_inferred_instance(node.expr, klass) + _is_class_attribute(attrname, klass)) when the frame is a staticmethod as well as a classmethod, e.g. by checking node.frame().type in (\\\"classmethod\\\", \\\"staticmethod\\\") or adding a helper.\",\n    \"Add functional test cases: a staticmethod that instantiates its own class and reads/assigns a protected and a private attribute (no message), and one that touches another class's protected attribute (still protected-access).\",\n    \"Add a ChangeLog entry for the false positive.\",\n    \"Optionally, in a separate change, fix the related unused-private-member (W0238) false positive for private attributes assigned through a non-self name in a staticmethod (_check_unused_private_attributes).\"\n  ],\n  \"verification\": [\n    \"Run pylint on the issue's snippet: no W0212 on `instance.__value = value`.\",\n    \"Run pytest tests/test_functional.py -k access_to_protected_members and tests/checkers/unittest_classes.py.\",\n    \"Run the full functional suite; recursion_error_3152 already fails without the change in this environment.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small (a few lines plus tests)\",\n  \"risk\": \"low: the exemption still needs the expression to infer to an instance of the enclosing class and the attribute to exist on that class\",\n  \"confidence\": 0.9,\n  \"fixType\": \"frustration\",\n  \"intendedBehavior\": \"Running pylint on a class whose @staticmethod creates an instance of that same class and assigns instance.__value emits no protected-access message, while a staticmethod touching another class's protected member still does.\",\n  \"intent\": {\n    \"deliberate\": false,\n    \"evidence\": \"The own-instance exemption was added for issue 1159 and is tested only with @classmethod methods (tests/functional/a/access/access_to_protected_members.py, class Issue1159). No comment, test or ChangeLog entry says static methods should be excluded; they were just not handled.\"\n  },\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"The exemption for accessing protected members of an instance of the enclosing class only applies when the frame is a classmethod.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"pylint/checkers/classes.py:1598\", \"quote\": \"self._is_classmethod(node.frame())\"},\n      {\"type\": \"code\", \"ref\": \"pylint/checkers/classes.py:1639\", \"quote\": \"func.type == \\\"classmethod\\\" or func.name == \\\"__class_getitem__\\\"\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"rootCause\", \"text\": \"Falling through that exemption for a private (double-underscore) name ends in the protected-access message, because the special-method escape only covers single-underscore names.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"pylint/checkers/classes.py:1604\", \"quote\": \"licit_protected_member = not attrname.startswith(\\\"__\\\")\"},\n      {\"type\": \"code\", \"ref\": \"pylint/checkers/classes.py:1612\", \"quote\": \"self.add_message(\\\"protected-access\\\", node=node, args=attrname)\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"trigger\", \"text\": \"The user's code assigns a private attribute on a fresh instance of the same class inside a @staticmethod factory.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s1\", \"quote\": \"@staticmethod def create(value): instance = Clazz() instance.__value = value return instance\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"impact\", \"text\": \"Running the current pylint on the issue's snippet reproduces the false W0212 warning on the assignment line.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:pylint /tmp/t.py\", \"quote\": \"t.py:5:8: W0212: Access to a protected member __value of a client class (protected-access)\"}\n    ]},\n    {\"id\": \"c5\", \"role\": \"other\", \"text\": \"Classmethod access to own-instance protected members is explicitly tested as OK, showing the exemption's intent extends naturally to same-class factories.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"tests/functional/a/access/access_to_protected_members.py:140\", \"quote\": \"Access to protected instance members inside class methods is OK.\"}\n    ]},\n    {\"id\": \"c6\", \"role\": \"other\", \"text\": \"The same snippet also gets a separate unused-private-member false positive, because that check only counts private attributes assigned through self or cls.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"pylint/checkers/classes.py:989\", \"quote\": \"assign_attr.expr.name in acceptable_obj_names\"},\n      {\"type\": \"query\", \"ref\": \"probe:pylint /tmp/t.py\", \"quote\": \"t.py:5:8: W0238: Unused private member `Clazz.__value` (unused-private-member)\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"Already fixed in the current code (the report comes from an older release)\", \"why\": \"The current checkout (pylint 2.10.0-dev0, astroid 2.6.6) still emits W0212 on the issue's snippet.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:pylint --version\", \"quote\": \"pylint 2.10.0-dev0\"}\n    ]},\n    {\"hypothesis\": \"Static methods were excluded on purpose\", \"why\": \"The exemption was added for issue 1159 with classmethod-only tests, and no comment or ChangeLog entry mentions staticmethods. Extending it to staticmethods passes the existing access_to_protected_members test, and the only failure in the full functional run (recursion_error_3152) also fails without the change.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"pylint/checkers/classes.py:1636\", \"quote\": \"\\\"\\\"\\\"Check if the given *func* node is a class method.\\\"\\\"\\\"\"}\n    ]}\n  ],\n  \"plain\": {\n    \"headline\": \"Pylint wrongly warns about private data when a class's own factory method sets up a new object of that class.\",\n    \"happened\": \"A user wrote a factory method that is part of the class itself and creates a new object of that class. It fills in that object's private data. Pylint allows this for one kind of method attached to a class, but its rule doesn't cover this other common kind, so it warned that the code was reaching into someone else's private data.\",\n    \"matters\": \"Anyone who uses this common way of building objects gets a false warning, so they have to silence it by hand or stop trusting the warning.\",\n    \"fix\": \"Let the existing exception for a class's own methods cover this kind of method too, and add tests showing the warning stays for code that really does touch another class's private data.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 19,
+  "inputTokens": {
+   "avg": 20009.57894736842,
+   "max": 29640
+  },
+  "mainUsage": {
+   "inputTokens": 380182,
+   "cachedInputTokens": 357526,
+   "outputTokens": 11828
+  },
+  "cacheHitPercent": 94.04074890447207,
+  "wallSeconds": 204.91100001335144,
+  "tools": {
+   "read": 10,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 2,
+   "subagent": 0,
+   "other": 7
+  },
+  "reads": 10,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 2,
+   "readFileIgnoringRange": 2
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.4213032,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.4213032
+}

@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 96885,
+ "finalText": "The fix is in and both new tests pass. Short EUC-TW notices such as `\u672c\u4ecd\u6709\u6548` and `\u516c\u53f8\u4ecd\u71df` now detect as EUC-TW instead of ISO-8859-5, so they no longer come out garbled.\n\n**Cause:** entry 82 of `EUCTWCharToFreqOrder` in `requests/packages/charade/euctwfreq.py` (the character \u4ecd) had rank 705 instead of 507. That made \u4ecd count as rare, so short notices with exactly four frequent characters, one of them \u4ecd, lost EUC-TW confidence.\n\n**Fix:** line 55 of that file, 705 \u2192 507, as the investigation said. I did not diff the charade package against the requests 2.0.1 wheel, because I had no copy to compare with.\n\n**Tests:** `TestCharadeEUCTW` in `test_requests.py` has two tests. One checks that iconv-encoded EUC-TW samples detect as `EUC-TW`. The other checks that the frequency table has no duplicated ranks.\n- Both failed before the fix, with `assert 'ISO-8859-5' == 'EUC-TW'` and `assert 6016 == 6015`.\n- Both pass now.\n- I ran them with the Python 2.7 env at `/opt/miniconda3/envs/testbed/bin/python`, because the default python3 can't import requests here.\n\n**Full file:** `test_requests.py` gives 91 passed and 1 failed. The same file also gave 1 failed on the base commit (stash applied). I did not capture the failing test's name on either run. The failures I saw in the first full run were network-dependent tests (SSL certificate verification and HTTP 429 from external hosts). I did not run the Big5 and long EUC-TW detection checks from the investigation.\n\nThe two open PRs (#1000 and #1001) are about redirects and HTTP method handling, so neither covers this. Nothing is committed or pushed, as the benchmark note required. The PR text is in `.factory/pr-S6.md`.\n\n```json\n{\"kind\":\"fix\",\"outcome\":\"ready\",\"pullRequest\":null,\"checks\":[{\"command\":\"/opt/miniconda3/envs/testbed/bin/python -m pytest test_requests.py -q -k CharadeEUCTW\",\"passed\":true},{\"command\":\"/opt/miniconda3/envs/testbed/bin/python -m pytest test_requests.py -q\",\"passed\":false,\"alsoOnBase\":true,\"note\":\"one failure; the run's failing output showed network-dependent tests (SSL cert verify, HTTP 429); base run also had 1 failure\"}],\"visual\":false,\"reproductionSteps\":[\"Run charade.detect on EUC-TW bytes c6db c4f3 c8b4 d5e6 (\u672c\u4ecd\u6709\u6548) or c4fc c6b3 c4f3 f4b2 (\u516c\u53f8\u4ecd\u71df); it returns ISO-8859-5 instead of EUC-TW\"],\"reproductionTest\":{\"path\":\"test_requests.py\",\"command\":\"/opt/miniconda3/envs/testbed/bin/python -m pytest test_requests.py -q -k CharadeEUCTW\",\"signature\":\"AssertionError: assert 'ISO-8859-5' == 'EUC-TW'\"}}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 17,
+  "inputTokens": {
+   "avg": 24700.647058823528,
+   "max": 30400
+  },
+  "mainUsage": {
+   "inputTokens": 419911,
+   "cachedInputTokens": 403389,
+   "outputTokens": 6456
+  },
+  "cacheHitPercent": 96.0653567065402,
+  "wallSeconds": 96.20500016212463,
+  "tools": {
+   "read": 8,
+   "edit": 5,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 1,
+   "subagent": 0,
+   "other": 5
+  },
+  "reads": 8,
+  "edits": 5,
+  "runs": 5,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 4,
+  "editOperations": 5,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.18652380000000002,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.18652380000000002
+}

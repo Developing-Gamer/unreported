@@ -1,0 +1,258 @@
+diff --git a/astropy/coordinates/tests/test_shape_manipulation.py b/astropy/coordinates/tests/test_shape_manipulation.py
+index 193c85f40..873817ca4 100755
+--- a/astropy/coordinates/tests/test_shape_manipulation.py
++++ b/astropy/coordinates/tests/test_shape_manipulation.py
+@@ -313,6 +313,12 @@ class TestManipulation:
+         assert np.all(s0_squeeze.data.lat == self.s0.data.lat.reshape(3, 2, 7))
+         assert np.may_share_memory(s0_squeeze.data.lat, self.s0.data.lat)
+ 
++    def test_squeeze_non_unit_axis_raises(self):
++        with pytest.raises(ValueError):
++            self.s0.squeeze(axis=0)
++        with pytest.raises(ValueError):
++            self.s0.reshape(3, 1, 2, 7).squeeze(axis=2)
++
+     def test_add_dimension(self, method):
+         if method:
+             s0_adddim = self.s0[:, np.newaxis, :]
+diff --git a/astropy/io/ascii/core.py b/astropy/io/ascii/core.py
+index 381b5b13d..c8dc7025b 100755
+--- a/astropy/io/ascii/core.py
++++ b/astropy/io/ascii/core.py
+@@ -1231,7 +1231,8 @@ class MetaBaseReader(type):
+                 + re.sub(".", "=", header)
+                 + "\n"
+             )
+-            func.__doc__ += inspect.cleandoc(cls.__doc__).strip()
++            if cls.__doc__ is not None:
++                func.__doc__ += inspect.cleandoc(cls.__doc__).strip()
+             connect.io_registry.register_reader(io_format, Table, func)
+ 
+             if dct.get("_io_registry_can_write", True):
+@@ -1244,7 +1245,8 @@ class MetaBaseReader(type):
+                     + re.sub(".", "=", header)
+                     + "\n"
+                 )
+-                func.__doc__ += inspect.cleandoc(cls.__doc__).strip()
++                if cls.__doc__ is not None:
++                    func.__doc__ += inspect.cleandoc(cls.__doc__).strip()
+                 connect.io_registry.register_writer(io_format, Table, func)
+ 
+ 
+diff --git a/astropy/io/ascii/rst.py b/astropy/io/ascii/rst.py
+index abdeba8ef..ea4bc8cf3 100755
+--- a/astropy/io/ascii/rst.py
++++ b/astropy/io/ascii/rst.py
+@@ -50,6 +50,12 @@ class RST(FixedWidth):
+     or for ones which define column spans through the use of an additional
+     line of dashes in the header.
+ 
++    Parameters
++    ----------
++    header_rows : list, optional
++        Header row attributes to read or write, e.g. ``["name", "unit"]``.
++        Default is ``["name"]``.
++
+     """
+ 
+     _format_name = "rst"
+@@ -57,10 +63,14 @@ class RST(FixedWidth):
+     data_class = SimpleRSTData
+     header_class = SimpleRSTHeader
+ 
+-    def __init__(self):
+-        super().__init__(delimiter_pad=None, bookend=False)
++    def __init__(self, header_rows=None):
++        super().__init__(delimiter_pad=None, bookend=False, header_rows=header_rows)
++        # Data starts after the opening border, the header rows and the
++        # border that closes the header.
++        self.data.start_line = len(self.header.header_rows) + 2
+ 
+     def write(self, lines):
+         lines = super().write(lines)
+-        lines = [lines[1]] + lines + [lines[1]]
++        idx = len(self.header.header_rows)
++        lines = [lines[idx]] + lines + [lines[idx]]
+         return lines
+diff --git a/astropy/io/ascii/tests/test_read.py b/astropy/io/ascii/tests/test_read.py
+index 0f2cf2b8f..90f15693e 100755
+--- a/astropy/io/ascii/tests/test_read.py
++++ b/astropy/io/ascii/tests/test_read.py
+@@ -4,6 +4,8 @@ import locale
+ import pathlib
+ import platform
+ import re
++import subprocess
++import sys
+ from collections import OrderedDict
+ from io import BytesIO, StringIO
+ 
+@@ -2068,3 +2070,17 @@ def test_read_converters_simplified():
+             t2 = Table.read(
+                 out.getvalue(), format="ascii.basic", converters=converters, guess=False
+             )
++
++
++@pytest.mark.skipif(
++    sys.flags.optimize > 1, reason="docstrings are already stripped in this run"
++)
++def test_import_with_stripped_docstrings():
++    """Regression test: importing io.ascii must work under ``python -OO``,
++    where class docstrings are None."""
++    result = subprocess.run(
++        [sys.executable, "-OO", "-c", "import astropy.io.ascii, astropy.table"],
++        capture_output=True,
++        text=True,
++    )
++    assert result.returncode == 0, result.stderr
+diff --git a/astropy/io/ascii/tests/test_rst.py b/astropy/io/ascii/tests/test_rst.py
+index 84d6fed40..3c476812a 100755
+--- a/astropy/io/ascii/tests/test_rst.py
++++ b/astropy/io/ascii/tests/test_rst.py
+@@ -2,7 +2,9 @@
+ 
+ from io import StringIO
+ 
++from astropy import units as u
+ from astropy.io import ascii
++from astropy.table import QTable
+ 
+ from .common import assert_almost_equal, assert_equal
+ 
+@@ -185,3 +187,28 @@ Col1      Col2 Col3 Col4
+ ==== ========= ==== ====
+ """,
+     )
++
++
++def test_rst_with_header_rows():
++    """Write and read an RST table with extra header rows (name and unit)"""
++    tbl = QTable({"wave": [350, 950] * u.nm, "response": [0.7, 1.2] * u.count})
++    out = StringIO()
++    ascii.write(tbl, out, format="rst", header_rows=["name", "unit"])
++    expected = """\
++===== ========
++ wave response
++   nm       ct
++===== ========
++350.0      0.7
++950.0      1.2
++===== ========
++"""
++    assert_equal_splitlines(out.getvalue(), expected)
++
++    # Round trip
++    dat = ascii.read(expected, format="rst", header_rows=["name", "unit"])
++    assert dat.colnames == ["wave", "response"]
++    assert dat["wave"].unit == u.nm
++    assert dat["response"].unit == u.count
++    assert_almost_equal(dat["wave"], [350.0, 950.0])
++    assert_almost_equal(dat["response"], [0.7, 1.2])
+diff --git a/astropy/time/tests/test_methods.py b/astropy/time/tests/test_methods.py
+index f36b1360a..6e7ccfceb 100755
+--- a/astropy/time/tests/test_methods.py
++++ b/astropy/time/tests/test_methods.py
+@@ -244,6 +244,17 @@ class TestManipulation(ShapeSetup):
+         assert t2_squeeze.location.shape == t2_squeeze.shape
+         assert np.may_share_memory(t2_squeeze.location, self.t2.location)
+ 
++    def test_squeeze_non_unit_axis_raises(self, use_mask):
++        self.create_data(use_mask)
++
++        # Squeezing an axis that is not of length 1 must raise, as in numpy,
++        # rather than silently returning the unchanged object.
++        with pytest.raises(ValueError):
++            self.t0.squeeze(axis=0)
++        with pytest.raises(ValueError):
++            self.t0.reshape(5, 1, 2, 5).squeeze(axis=2)
++        assert self.t0.reshape(5, 1, 2, 5).squeeze(axis=1).shape == (5, 2, 5)
++
+     def test_add_dimension(self, use_mask):
+         self.create_data(use_mask)
+ 
+diff --git a/astropy/timeseries/core.py b/astropy/timeseries/core.py
+index ff91e83e1..8029726f1 100755
+--- a/astropy/timeseries/core.py
++++ b/astropy/timeseries/core.py
+@@ -80,7 +80,7 @@ class BaseTimeSeries(QTable):
+                     " series has no columns"
+                 )
+ 
+-            elif not set(required_columns).issubset(self.colnames):
++            elif self.colnames[: len(required_columns)] != list(required_columns):
+                 raise ValueError(
+                     f"{self.__class__.__name__} object is invalid - expected"
+                     f" {as_scalar_or_list_str(required_columns)} as the first"
+diff --git a/astropy/timeseries/tests/test_sampled.py b/astropy/timeseries/tests/test_sampled.py
+index 6179b28c2..4126511bb 100755
+--- a/astropy/timeseries/tests/test_sampled.py
++++ b/astropy/timeseries/tests/test_sampled.py
+@@ -452,6 +452,18 @@ def test_required_columns():
+     with pytest.raises(ValueError, match=MESSAGE):
+         ts_2cols_required.remove_column("a")
+ 
++    # Required columns present but not the first ones, or out of order
++    for index in (0, 1):
++        ts_2cols_required = ts.copy()
++        ts_2cols_required._required_columns = ["time", "a"]
++        MESSAGE_ORDER = (
++            r"TimeSeries object is invalid - expected \['time', 'a'\] as the first"
++            r" columns but found \['{}'\]"
++        )
++        expected = "c', 'time" if index == 0 else "time', 'c"
++        with pytest.raises(ValueError, match=MESSAGE_ORDER.format(expected)):
++            ts_2cols_required.add_column(Column([3, 4, 5], name="c"), index=index)
++
+ 
+ @pytest.mark.parametrize("cls", [BoxLeastSquares, LombScargle])
+ def test_periodogram(cls):
+diff --git a/astropy/utils/shapes.py b/astropy/utils/shapes.py
+index 6962e2b00..20568b985 100755
+--- a/astropy/utils/shapes.py
++++ b/astropy/utils/shapes.py
+@@ -125,10 +125,7 @@ class NDArrayShapeMethods:
+         Parameters are as for :meth:`~numpy.ndarray.squeeze`.  All internal
+         data are views of the data of the original.
+         """
+-        try:
+-            return self._apply("squeeze", *args, **kwargs)
+-        except ValueError:
+-            return self
++        return self._apply("squeeze", *args, **kwargs)
+ 
+     def take(self, indices, axis=None, out=None, mode="raise"):
+         """Return a new instance formed from the elements at the given indices.
+diff --git a/docs/changes/io.ascii/13734.feature.rst b/docs/changes/io.ascii/13734.feature.rst
+new file mode 100644
+index 000000000..d19e4b942
+--- /dev/null
++++ b/docs/changes/io.ascii/13734.feature.rst
+@@ -0,0 +1 @@
++Added support for the ``header_rows`` argument to the ``ascii.rst`` (reStructuredText simple table) reader and writer, e.g. ``header_rows=["name", "unit"]``.
+diff --git a/docs/changes/io.ascii/14000.bugfix.rst b/docs/changes/io.ascii/14000.bugfix.rst
+new file mode 100644
+index 000000000..79284c048
+--- /dev/null
++++ b/docs/changes/io.ascii/14000.bugfix.rst
+@@ -0,0 +1 @@
++Fixed a crash on importing ``astropy.io.ascii`` (and thus ``astropy.table``) when Python runs with docstrings stripped (``python -OO``).
+diff --git a/docs/changes/timeseries/13045.bugfix.rst b/docs/changes/timeseries/13045.bugfix.rst
+new file mode 100644
+index 000000000..38681f241
+--- /dev/null
++++ b/docs/changes/timeseries/13045.bugfix.rst
+@@ -0,0 +1,4 @@
++Fixed ``TimeSeries`` and ``BinnedTimeSeries`` required-column checks so that
++they verify the required columns are the first columns in the stated order,
++rather than only that they are present. Previously, adding a column before
++``time`` was not rejected.
+diff --git a/docs/changes/utils/14000.bugfix.rst b/docs/changes/utils/14000.bugfix.rst
+new file mode 100644
+index 000000000..48f79a0e4
+--- /dev/null
++++ b/docs/changes/utils/14000.bugfix.rst
+@@ -0,0 +1,4 @@
++``ShapedLikeNDArray.squeeze`` (and so ``squeeze`` on ``Time``, ``SkyCoord``,
++representations, etc.) no longer silently returns the object unchanged when
++numpy raises ``ValueError``, e.g. for ``squeeze(axis=k)`` on an axis whose
++length is not 1. The ``ValueError`` is now propagated, as for ``numpy.ndarray``.

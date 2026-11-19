@@ -1,0 +1,2363 @@
+[
+ {
+  "job": "f4c-cc-q0",
+  "task": "astropy__astropy-14182",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [
+   "S4"
+  ],
+  "decoys_checked": 2,
+  "wontfix_acted": [
+   "S4"
+  ],
+  "wontfix_total": 1,
+  "hidden_fixed": [
+   "S3"
+  ],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 5,
+    "tests": 15,
+    "description": 10,
+    "total": 85,
+    "rationale": "The RST changes address both the rejected keyword argument and the single-row layout assumptions, preserve the default layout, and add an exact-output regression test that also checks reading units and dtypes. The description explains the RST fix clearly, but the PR bundles an unrelated import fix and a changelog entry for a time-series fix absent from the diff, while the verification summary does not substantiate its claim that the remaining failures were pre-existing."
+   },
+   "claude": {
+    "root_cause": 28,
+    "fix": 23,
+    "scope": 5,
+    "tests": 12,
+    "description": 7,
+    "total": 75,
+    "rationale": "The RST change is correct: `RST.__init__` now accepts `header_rows` and passes it to `FixedWidth`, and both the data start line and the border line written after the header follow the number of header rows. This matches the reference fix; setting `start_line` in `__init__` instead of in `read` is also valid. However, the PR adds an unrelated `-OO` docstring fix with its own test, plus a timeseries changelog entry that describes a `BaseTimeSeries` change not in the diff. The description never mentions that timeseries entry, and its verification note is muddled: it says `pytest astropy/io/ascii`"
+   },
+   "total": 80.0,
+   "missed": false
+  },
+  "system": "claude-code-sonnet-5.5"
+ },
+ {
+  "job": "f4c-cc-q0",
+  "task": "django__django-12039",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 1,
+  "wontfix_acted": [],
+  "wontfix_total": 0,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 15,
+    "tests": 15,
+    "description": 15,
+    "total": 100,
+    "rationale": "The PR correctly identifies both whitespace bugs and fixes them by adding a separator only for nonempty suffixes, while preserving suffix-free output. The focused regression tests would fail before the fix and pass after it, and the description accurately explains the changes and reports the verification command and results."
+   },
+   "claude": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 15,
+    "tests": 15,
+    "description": 14,
+    "total": 99,
+    "rationale": "The code change matches the reference fix. It fixes both the missing space before `DESC` in `Columns` and the trailing space after an opclass in `IndexColumns` when the suffix is an empty string. The new unit tests cover both cases and would fail before the fix. The description states the root cause and the change correctly, but its claimed test-run results cannot be checked from the diff."
+   },
+   "total": 99.5,
+   "missed": false
+  },
+  "system": "claude-code-sonnet-5.5"
+ },
+ {
+  "job": "f4c-cc-q0",
+  "task": "matplotlib__matplotlib-25122",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 2,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [
+   "S4"
+  ],
+  "hidden_acted": [
+   "S3",
+   "S4"
+  ],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 3,
+    "tests": 15,
+    "description": 10,
+    "total": 83,
+    "rationale": "The PR correctly uses the squared signed window sum for the reported PSD branch, and the negative-window regression test fails with the old normalization and passes with the new one. The description accurately explains the spectral fix but omits the unrelated axis-label change and its test, as well as a new Qt backend test."
+   },
+   "claude": {
+    "root_cause": 20,
+    "fix": 12,
+    "scope": 2,
+    "tests": 12,
+    "description": 6,
+    "total": 52,
+    "rationale": "The PR correctly identifies the unnecessary `np.abs(window)` as the bug, but only fixes the PSD `scale_by_freq=False` branch and leaves the same wrong normalization in the 'magnitude' and 'complex' modes, which the reference also corrects. The diff also contains unrelated changes to axis label rcParams in axis.py, plus unrelated tests in test_axes.py and test_backend_qt.py, none of which the description mentions; the new mlab regression test is valid and would fail before the fix."
+   },
+   "total": 67.5,
+   "missed": false
+  },
+  "system": "claude-code-sonnet-5.5"
+ },
+ {
+  "job": "f4c-cc-q0",
+  "task": "pallets__flask-5014",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 2,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 15,
+    "tests": 15,
+    "description": 15,
+    "total": 100,
+    "rationale": "The PR closes the constructor validation gap by raising ValueError for an empty name while preserving the existing check for dotted names. The focused diff includes a regression test that would fail before the fix and a changelog entry, and the description accurately summarizes the changes and states the test command used."
+   },
+   "claude": {
+    "root_cause": 29,
+    "fix": 25,
+    "scope": 14,
+    "tests": 14,
+    "description": 13,
+    "total": 95,
+    "rationale": "The code change is the same as the reference fix: `Blueprint.__init__` now rejects an empty name with a ValueError, and the changelog entry and the new regression test follow the existing `test_dotted_name_not_allowed` pattern. The test passes in the unused `app` and `client` fixtures, which it copies from the neighbouring test, and the description says pytest was run but shows no output, so that claim can't be verified."
+   },
+   "total": 97.5,
+   "missed": false
+  },
+  "system": "claude-code-sonnet-5.5"
+ },
+ {
+  "job": "f4c-cc-q0",
+  "task": "pydata__xarray-3677",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 2,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [
+   "S7",
+   "S8"
+  ],
+  "hidden_acted": [
+   "S7",
+   "S8"
+  ],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 22,
+    "scope": 4,
+    "tests": 15,
+    "description": 8,
+    "total": 79,
+    "rationale": "Converting the DataArray to a Dataset before merging fixes the missing `.items()` error, and the regression test reproduces the reported failure and checks parity with `xr.merge`. The PR also changes unrelated `.values` coercion, risking compatibility regressions, and adds unrelated rolling tests; the description omits these edits and does not substantiate that the cftime failures were pre-existing."
+   },
+   "claude": {
+    "root_cause": 27,
+    "fix": 18,
+    "scope": 3,
+    "tests": 11,
+    "description": 6,
+    "total": 65,
+    "rationale": "The `Dataset.merge` change matches the reference: it converts a DataArray `other` to a Dataset before calling `dataset_merge_method`, and `test_merge_dataarray_method` is a regression test that fails before the fix and passes after it. However, the PR also changes `as_compatible_data` in variable.py, a risky core-behavior change unrelated to the bug, and adds an unrelated dask rolling test with no accompanying fix, none of which the description mentions."
+   },
+   "total": 72.0,
+   "missed": false
+  },
+  "system": "claude-code-sonnet-5.5"
+ },
+ {
+  "job": "f4c-cc-q0",
+  "task": "pylint-dev__pylint-4661",
+  "resolved": false,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [
+   "S1"
+  ],
+  "decoys_checked": 2,
+  "wontfix_acted": [
+   "S1"
+  ],
+  "wontfix_total": 1,
+  "hidden_fixed": [
+   "S4",
+   "S5"
+  ],
+  "hidden_acted": [
+   "S4",
+   "S5"
+  ],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 27,
+    "fix": 17,
+    "scope": 4,
+    "tests": 12,
+    "description": 8,
+    "total": 68,
+    "rationale": "The PR identifies the hard-coded home-directory default and adds a dependency-free XDG cache path with regression coverage, but users who already have the reported ~/.pylint.d directory are not moved to the new location or told how to switch. The tests cover default and custom cache paths plus legacy precedence, but not directory creation; unrelated checker, test, and changelog edits broaden the diff and go unmentioned in the description, whose test-pass claim is not substantiated by the supplied material."
+   },
+   "claude": {
+    "root_cause": 26,
+    "fix": 21,
+    "scope": 3,
+    "tests": 12,
+    "description": 6,
+    "total": 68,
+    "rationale": "The XDG change correctly moves the default PYLINT_HOME to $XDG_CACHE_HOME/pylint using only the standard library, keeps an existing ~/.pylint.d working, switches to os.makedirs, and adds a focused test_pylint_home_xdg test that would fail before the fix. However, the diff also includes unrelated changes the description never mentions: a protected-access/staticmethod checker change, a missing-raises-doc test, a multiset_difference test, and ChangeLog entries claiming fixes that do not appear in the diff, which hurts scope and description accuracy."
+   },
+   "total": 68.0,
+   "missed": false
+  },
+  "system": "claude-code-sonnet-5.5"
+ },
+ {
+  "job": "f4c-cc-q0",
+  "task": "pytest-dev__pytest-6197",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 2,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [
+   "S2",
+   "S5"
+  ],
+  "hidden_acted": [
+   "S2",
+   "S5"
+  ],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 29,
+    "fix": 16,
+    "scope": 6,
+    "tests": 14,
+    "description": 8,
+    "total": 73,
+    "rationale": "The PR correctly traces the regression to unconditional package imports, and the new regression test covers the reported example, but the fix still imports the initializer if the only yielded child is a collector that produces no tests. The description explains the intended change but omits two unrelated regression tests and changelog entries, and the diff contains no implementation changes for either unrelated issue."
+   },
+   "claude": {
+    "root_cause": 25,
+    "fix": 19,
+    "scope": 4,
+    "tests": 12,
+    "description": 7,
+    "total": 67,
+    "rationale": "The PR correctly traces the regression to `Package.collect()` always calling `_mount_obj_if_needed()`, which imports every `__init__.py`. Deferring the import until the package yields its first collectable child fixes the reported case, and the added `test_does_not_import_unmatched_init_py` would fail before the fix and pass after; unlike the reference, it keeps the #5830 package-mark behaviour and its `__init__.py` marker handling, so `__init__.py` files are still imported in packages that contain tests. However, the diff also adds unrelated changelog entries (6240, 6241) and tests for `pytes"
+   },
+   "total": 70.0,
+   "missed": false
+  },
+  "system": "claude-code-sonnet-5.5"
+ },
+ {
+  "job": "f4c-cc-q0",
+  "task": "sphinx-doc__sphinx-9281",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 3,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [
+   "S6"
+  ],
+  "hidden_acted": [
+   "S6"
+  ],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 7,
+    "tests": 15,
+    "description": 9,
+    "total": 86,
+    "rationale": "The PR correctly traces the ugly default to the repr() fallback, formats Enum members as Class.member, and adds regression assertions for both direct and dictionary-contained members. The unrelated LaTeX changelog entry and tests broaden the scope and are omitted from the description, which also incorrectly says nested rendering is unchanged despite the new dictionary assertion."
+   },
+   "claude": {
+    "root_cause": 29,
+    "fix": 23,
+    "scope": 4,
+    "tests": 10,
+    "description": 7,
+    "total": 73,
+    "rationale": "The PR fixes the actual root cause: `object_description()` now returns `ClassName.member` for Enum instances, the same logic as the reference, and the new regression test would fail before the fix and pass after it, including the dict-nested case. However, it also adds an unrelated LaTeX `escape_abbr` CHANGES entry and a new `tests/test_util_texescape.py` with no matching source change, which may fail; the description does not mention any of this, so it does not accurately match the diff."
+   },
+   "total": 79.5,
+   "missed": false
+  },
+  "system": "claude-code-sonnet-5.5"
+ },
+ {
+  "job": "f4c-cc-q1",
+  "task": "astropy__astropy-14539",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 2,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 15,
+    "tests": 15,
+    "description": 15,
+    "total": 100,
+    "rationale": "The PR correctly identifies that Q-format columns bypassed the existing row-by-row VLA comparison and fixes that dispatch without changing P-format behavior. The regression test reproduces the reported self-comparison and checks that a real QD difference is still detected, while the description accurately explains the focused change and reports how it was verified."
+   },
+   "claude": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 14,
+    "tests": 15,
+    "description": 13,
+    "total": 97,
+    "rationale": "The PR makes the same change as the reference fix: `Q`-format (64-bit descriptor) VLA columns now take the row-by-row comparison path instead of falling through to `np.where(arra != arrb)`. It adds a regression test that fails before the fix, checks both the identical case and a real difference, and includes a changelog entry. The changelog number appears to be guessed, and the description says the reproduction raised a ValueError, while the issue reports the output `False`; the 49-tests figure also cannot be checked from the diff."
+   },
+   "total": 98.5,
+   "missed": false
+  },
+  "system": "claude-code-sonnet-5.5"
+ },
+ {
+  "job": "f4c-cc-q1",
+  "task": "django__django-13406",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 3,
+  "wontfix_acted": [],
+  "wontfix_total": 0,
+  "hidden_fixed": [
+   "S1"
+  ],
+  "hidden_acted": [
+   "S1"
+  ],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 8,
+    "tests": 14,
+    "description": 11,
+    "total": 88,
+    "rationale": "The setter correctly switches to dictionary iteration for the reported grouped query, and the pickle round-trip test checks both row contents and type, though it does not cover values_list(). The unrelated ISO-year date-format test is out of scope and omitted from the description, which also leaves implicit that the fix returns dictionaries rather than reconstructing tuples for values_list()."
+   },
+   "claude": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 7,
+    "tests": 14,
+    "description": 9,
+    "total": 85,
+    "rationale": "The setter change is the same as the reference fix: when a values() query is assigned to a queryset, it switches to ValuesIterable, and the new pickle regression test would fail before the fix and pass after it. The diff also adds an unrelated ISO-year test to tests/utils_tests/test_dateformat.py, and the description leaves this out, naming only the pickle test while also listing unrelated test suites as verification."
+   },
+   "total": 86.5,
+   "missed": false
+  },
+  "system": "claude-code-sonnet-5.5"
+ },
+ {
+  "job": "f4c-cc-q1",
+  "task": "matplotlib__matplotlib-25311",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 3,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 20,
+    "scope": 13,
+    "tests": 15,
+    "description": 14,
+    "total": 92,
+    "rationale": "The PR correctly identifies the draggable helper\u2019s retained canvas reference and adds a round-trip regression test covering both legends and annotations with an unpicklable canvas. The change is focused and the verification report is clear, but the description misses that `_canvas` is omitted and never restored, so accessing `canvas` after an unpickled artist is removed can raise `AttributeError`."
+   },
+   "claude": {
+    "root_cause": 28,
+    "fix": 23,
+    "scope": 12,
+    "tests": 14,
+    "description": 14,
+    "total": 91,
+    "rationale": "The PR finds the real cause, which is that `DraggableBase` keeps a direct reference to the unpicklable GUI canvas. Like the reference fix, it makes `canvas` a property computed from `ref_artist.figure`, so the canvas no longer ends up in the pickled state, and the new test forces the canvas to be unpicklable, so it fails before the fix and passes after. The extra `_canvas` fallback and the custom `__getstate__` add complexity the reference fix does not need, and after unpickling the fallback attribute is gone, so accessing `canvas` on an artist with no figure would raise `AttributeError`; stil"
+   },
+   "total": 91.5,
+   "missed": false
+  },
+  "system": "claude-code-sonnet-5.5"
+ },
+ {
+  "job": "f4c-cc-q1",
+  "task": "psf__requests-1142",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [
+   "S5"
+  ],
+  "decoys_checked": 2,
+  "wontfix_acted": [
+   "S5"
+  ],
+  "wontfix_total": 1,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 9,
+    "tests": 12,
+    "description": 12,
+    "total": 88,
+    "rationale": "The patch correctly gates the removed strict argument in all three connection constructors and stops adding Content-Length to bodyless GET and HEAD requests while preserving explicit headers. The local HTTP tests cover both reported bugs but not the HTTPS constructor paths, and the otherwise clear description bundles an unrelated session cleanup with an unverified claim that streaming is unaffected."
+   },
+   "claude": {
+    "root_cause": 24,
+    "fix": 18,
+    "scope": 4,
+    "tests": 12,
+    "description": 8,
+    "total": 66,
+    "rationale": "The models.py change matches the reference fix for S4: it drops the unconditional Content-Length: 0 and keeps it only for body-less methods other than GET/HEAD, and the local-server tests for GET/HEAD/POST would catch a regression. However, the PR also patches vendored urllib3 for an S2 trace whose stack is incoherent, and adds an S5 session-close change that isn't in the report; that change could break streamed responses, and the description says they are unaffected without showing a test for it."
+   },
+   "total": 77.0,
+   "missed": false
+  },
+  "system": "claude-code-sonnet-5.5"
+ },
+ {
+  "job": "f4c-cc-q1",
+  "task": "pydata__xarray-4687",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 3,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [
+   "S2"
+  ],
+  "hidden_acted": [
+   "S2"
+  ],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 29,
+    "fix": 15,
+    "scope": 10,
+    "tests": 11,
+    "description": 10,
+    "total": 75,
+    "rationale": "The PR addresses the missing per-call attribute control and tests the default, explicit opt-in, and global option, but its merge callback uses the top-level attributes of `x` even for Dataset variables, replacing their own metadata. The regression test misses that case, and the description overstates the old behavior as always dropping attributes and omits the unrelated backend-ordering test."
+   },
+   "claude": {
+    "root_cause": 28,
+    "fix": 22,
+    "scope": 8,
+    "tests": 14,
+    "description": 11,
+    "total": 83,
+    "rationale": "The PR finds the real cause: `xr.where` never passed `keep_attrs` to `apply_ufunc`. It adds a `keep_attrs` argument that follows the global option and keeps `x`'s attrs, like the reference fix, and reading `getattr(x, 'attrs', {})` copes with a scalar `x`, but the callable returns `x`'s top-level attrs at every level, so Dataset data variables and coordinates can get the wrong attrs. The `test_where_attrs` regression test is solid, but the diff also adds an unrelated `test_sort_backends_standard_order` in `test_plugins.py`, which the description never explains; it only lists that file in its v"
+   },
+   "total": 79.0,
+   "missed": false
+  },
+  "system": "claude-code-sonnet-5.5"
+ },
+ {
+  "job": "f4c-cc-q1",
+  "task": "pylint-dev__pylint-6386",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 2,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 23,
+    "scope": 15,
+    "tests": 12,
+    "description": 13,
+    "total": 93,
+    "rationale": "The focused patch fixes the preprocessing mismatch and removes the misleading help metavar, though argparse can still silently ignore a bundled `-v` that bypasses preprocessing. The regression test verifies both standalone spellings but does not check help output, and the description overstates the link to S4 because the Sentry trace does not identify the failing argument."
+   },
+   "claude": {
+    "root_cause": 29,
+    "fix": 24,
+    "scope": 14,
+    "tests": 13,
+    "description": 14,
+    "total": 94,
+    "rationale": "The PR finds the same two defects as the reference fix: the preprocessor skipped `-v` because it only checked `--`-prefixed arguments, and `verbose` and `enable-all-extensions` were registered without a flag-style arity, so argparse and the help text expected a value. Using `nargs=0` instead of an empty metavar is an equally valid way to make argparse treat them as flags; the new test fails before the fix and passes after it, but it does not check the corrected `--help` output, and the description matches the diff and openly reports the 11 pre-existing test failures it did not investigate."
+   },
+   "total": 93.5,
+   "missed": false
+  },
+  "system": "claude-code-sonnet-5.5"
+ },
+ {
+  "job": "f4c-cc-q1",
+  "task": "scikit-learn__scikit-learn-13142",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 2,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [
+   "S2"
+  ],
+  "hidden_acted": [
+   "S2"
+  ],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 9,
+    "tests": 15,
+    "description": 11,
+    "total": 90,
+    "rationale": "Moving the final E-step after restoring the best parameters makes fit_predict return labels from the same model that predict uses, and the updated n_init=3 test exercises the reported mismatch. The mixture changes are focused and accurately described, but the PR also adds an unrelated TruncatedSVD test that the description omits and the reported mixture-only verification does not cover."
+   },
+   "claude": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 7,
+    "tests": 9,
+    "description": 8,
+    "total": 79,
+    "rationale": "The base.py change matches the reference fix: the final E-step now runs after `_set_parameters(best_params)`, so `fit_predict` labels agree with `predict` when `n_init>1`. However, the diff also adds an unrelated TruncatedSVD test that the description never mentions, and the regression test only adds `n_init=3` to a test that already fixes `means_init` and `precisions_init`, so the inits may be nearly identical and it is unclear the test would fail before the fix, which weakens the claim that it does."
+   },
+   "total": 84.5,
+   "missed": false
+  },
+  "system": "claude-code-sonnet-5.5"
+ },
+ {
+  "job": "f4c-cc-q2",
+  "task": "django__django-15572",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 1,
+  "wontfix_acted": [],
+  "wontfix_total": 0,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 15,
+    "tests": 14,
+    "description": 15,
+    "total": 99,
+    "rationale": "The focused fix filters empty entries from both directory sources before path normalization, preventing the working directory from being watched by mistake, and the description accurately explains the change and reports the test command. The directory-set assertion catches the regression, but the relative path in the template_changed() assertion would not match the absolute working directory even before the fix."
+   },
+   "claude": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 15,
+    "tests": 14,
+    "description": 14,
+    "total": 98,
+    "rationale": "The code change matches the reference fix exactly: it skips falsy entries in both `engine.dirs` and loader `get_dirs()`, so an empty string is no longer turned into the cwd and doesn't make `template_changed()` return True for every file. The new test's `get_template_directories() == set()` assertion would fail before the fix, but its `template_changed` check on a relative `foo.html` passes either way and adds little, and the description says the tests were run without showing their output."
+   },
+   "total": 98.5,
+   "missed": false
+  },
+  "system": "claude-code-sonnet-5.5"
+ },
+ {
+  "job": "f4c-cc-q2",
+  "task": "mwaskom__seaborn-3069",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [
+   "S5"
+  ],
+  "decoys_checked": 2,
+  "wontfix_acted": [
+   "S5"
+  ],
+  "wontfix_total": 1,
+  "hidden_fixed": [
+   "S4",
+   "S6"
+  ],
+  "hidden_acted": [
+   "S4",
+   "S6"
+  ],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 6,
+    "tests": 10,
+    "description": 5,
+    "total": 76,
+    "rationale": "The diff replaces the removed pandas option and gives inferred nominal axes categorical limits, hidden grids, and an inverted y-axis by default while preserving explicit limits. The nominal-axis regression test covers the requested behavior, but there is no dedicated pandas compatibility test, and the description omits the nominal and KDE changes, leaves its test claims unsubstantiated, and does not account for unrelated legend and palette tests and release notes."
+   },
+   "claude": {
+    "root_cause": 26,
+    "fix": 22,
+    "scope": 4,
+    "tests": 11,
+    "description": 3,
+    "total": 66,
+    "rationale": "The nominal-scale change in `_finalize_figure` matches the reference: it turns off the grid, sets limits at +/- 0.5 and inverts the y axis, while leaving explicit limits alone. The `mode.use_inf_as_na` swap also correctly fixes the Sentry OptionError, and the new nominal-axis tests would catch a regression. However, the PR also changes histplot KDE stacking, adds tests and whatsnew entries for legend and widget fixes it never implements, and its description covers only the pandas option change, not the nominal-scale work or the other edits."
+   },
+   "total": 71.0,
+   "missed": false
+  },
+  "system": "claude-code-sonnet-5.5"
+ },
+ {
+  "job": "f4c-cc-q2",
+  "task": "psf__requests-1724",
+  "resolved": false,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 1,
+  "wontfix_acted": [],
+  "wontfix_total": 0,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 24,
+    "scope": 14,
+    "tests": 12,
+    "description": 13,
+    "total": 93,
+    "rationale": "The PR correctly identifies why a Unicode method makes Python 2's httplib try to ASCII-decode the binary body, and native-string normalization fixes that path, though the conversion is duplicated. The offline test catches the method-type regression without exercising the upload itself, and the description accurately explains the change but overstates what the Sentry traceback proves about the trigger."
+   },
+   "claude": {
+    "root_cause": 28,
+    "fix": 22,
+    "scope": 13,
+    "tests": 13,
+    "description": 12,
+    "total": 88,
+    "rationale": "The PR finds the real cause: on Python 2, a unicode method makes httplib's request head unicode, so a binary body fails ASCII decoding. It fixes this with the same `builtin_str` coercion in `Session.request` as the reference, and its extra coercion in `PreparedRequest.prepare_method` is justified but slightly widens the known Python 3 `builtin_str(b'POST')` hazard. The offline regression test checks the native-str type and fails before the fix on Python 2, though it never exercises the actual send path; the description is accurate and clear, apart from unexplained remarks about S1, S2, S4 and "
+   },
+   "total": 90.5,
+   "missed": false
+  },
+  "system": "claude-code-sonnet-5.5"
+ },
+ {
+  "job": "f4c-cc-q2",
+  "task": "pydata__xarray-6744",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 3,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 15,
+    "tests": 15,
+    "description": 14,
+    "total": 99,
+    "rationale": "The iterator now honors centering for odd and even window sizes while preserving trailing behavior, and the focused regression test catches the reported mismatch. The description accurately explains the cause and fix, but the supplied material does not substantiate the reported full-suite pass count."
+   },
+   "claude": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 15,
+    "tests": 15,
+    "description": 14,
+    "total": 99,
+    "rationale": "The PR correctly finds that `DataArrayRolling.__iter__` always built trailing windows and ignored `self.center`, and its code change is functionally identical to the reference fix (centered offset, clipped starts, and window count taken from `obj.sizes[dim]`). The parametrized regression test compares iterated window means with `rolling().mean()` for center True/False and windows 1-4, so it would fail before the fix and pass after, and the description matches the diff, though the exact suite count (1798 passed) cannot be checked from the diff."
+   },
+   "total": 99.0,
+   "missed": false
+  },
+  "system": "claude-code-sonnet-5.5"
+ },
+ {
+  "job": "f4c-cc-q2",
+  "task": "pytest-dev__pytest-10051",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 2,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [
+   "S4",
+   "S5"
+  ],
+  "hidden_acted": [
+   "S4",
+   "S5"
+  ],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 5,
+    "tests": 15,
+    "description": 9,
+    "total": 84,
+    "rationale": "Clearing the shared list in place fixes the stale phase records while preserving per-phase reset behavior, and the regression test checks both that old records disappear and that new records appear after clearing. The description accurately explains the logging fix but omits unrelated DEL-escaping and faulthandler tests and changelog entries that have no corresponding implementation changes, and the claimed logging-suite pass is not independently verified."
+   },
+   "claude": {
+    "root_cause": 30,
+    "fix": 22,
+    "scope": 4,
+    "tests": 13,
+    "description": 8,
+    "total": 77,
+    "rationale": "The PR correctly finds the root cause: `reset()` rebinds the records list, which breaks the link with the list `get_records()` reads. It adds an in-place `LogCaptureHandler.clear()` that matches the reference fix, plus a regression test that would fail before the fix. However, the diff also includes unrelated changelog fragments and tests for DEL-character escaping and faulthandler fractional timeouts with no matching source changes, so those tests may fail. The description mentions only one changelog fragment and never discloses these extra edits."
+   },
+   "total": 80.5,
+   "missed": false
+  },
+  "system": "claude-code-sonnet-5.5"
+ },
+ {
+  "job": "f4c-cc-q2",
+  "task": "scikit-learn__scikit-learn-26194",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 2,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [
+   "S6"
+  ],
+  "hidden_acted": [
+   "S6"
+  ],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 7,
+    "tests": 14,
+    "description": 11,
+    "total": 87,
+    "rationale": "Replacing the synthetic `max(y_score) + 1` cutoff with `np.inf` preserves the ROC origin without changing the score-derived thresholds, and the new regression test would fail before the fix. The test checks against 1 rather than the maximum observed score as its docstring claims, the PR description omits unrelated `VarianceThreshold` edits, and the ROC changelog should clarify that only finite thresholds stay within [0, 1] for probability inputs."
+   },
+   "claude": {
+    "root_cause": 29,
+    "fix": 23,
+    "scope": 5,
+    "tests": 13,
+    "description": 7,
+    "total": 77,
+    "rationale": "The core change matches the reference fix: it replaces `thresholds[0] + 1` with `np.inf`, and it updates the docstring, doctest, user guide and the expected values in `test_roc_curve_drop_intermediate`. The new ROC regression test would fail before the fix and pass after it. However, the diff also adds an unrelated VarianceThreshold changelog entry and test without any matching code change, and the description never mentions them while claiming the `feature_selection` tests pass."
+   },
+   "total": 82.0,
+   "missed": false
+  },
+  "system": "claude-code-sonnet-5.5"
+ },
+ {
+  "job": "f4c-cc-q2",
+  "task": "sympy__sympy-20428",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 4,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 15,
+    "tests": 15,
+    "description": 15,
+    "total": 100,
+    "rationale": "The one-line fix addresses the structural zero check that left the DMP unstripped, while preserving truthiness for EX coefficients whose zero status is unknown. The regression test reproduces the reported input and checks the canonical representation, is_zero, and terms_gcd(), and the description accurately explains the change and reports verification."
+   },
+   "claude": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 15,
+    "tests": 14,
+    "description": 14,
+    "total": 98,
+    "rationale": "The PR finds the real cause: `Expression.__bool__` compared structurally with `!= 0` instead of using `is_zero`, so dup_strip left a zero EX coefficient in place. Its code change is the same as the reference fix, and the focused regression test checks the rep, `is_zero` and `terms_gcd` using the expression from the issue; the description is accurate, though its test-run counts can't be verified from the diff."
+   },
+   "total": 99.0,
+   "missed": false
+  },
+  "system": "claude-code-sonnet-5.5"
+ },
+ {
+  "job": "f4c-cc-q3",
+  "task": "matplotlib__matplotlib-22719",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 3,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 24,
+    "scope": 15,
+    "tests": 15,
+    "description": 15,
+    "total": 99,
+    "rationale": "The PR correctly identifies that `all()` returns true for empty input and adds a focused guard, with regression coverage for both plotting and direct axis conversion. The description matches the diff, but routing empty input through the categorical path can still produce a misleading info log about strings being parseable as numbers or dates."
+   },
+   "claude": {
+    "root_cause": 28,
+    "fix": 22,
+    "scope": 15,
+    "tests": 14,
+    "description": 14,
+    "total": 93,
+    "rationale": "The PR correctly finds that `all([])` evaluates to True for empty input, which sends empty data into the deprecated numeric pass-through branch, and it applies the same `values.size` guard as the reference fix. It leaves out the reference's matching guard in `UnitData.update` (an info log on empty data, not part of the reported failure), while its focused regression test covers both `plot([], [])` and `convert_units([])`, and the description accurately matches the diff."
+   },
+   "total": 96.0,
+   "missed": false
+  },
+  "system": "claude-code-sonnet-5.5"
+ },
+ {
+  "job": "f4c-cc-q3",
+  "task": "mwaskom__seaborn-3187",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 2,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [
+   "S2"
+  ],
+  "hidden_acted": [
+   "S2"
+  ],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 15,
+    "tests": 15,
+    "description": 15,
+    "total": 100,
+    "rationale": "The PR correctly identifies that legends omit the separate offset and multiplier text, and fixes both legend paths without changing log or non-scalar formatting. The changes are focused, the regression tests cover additive offsets in both paths and scientific scaling in the objects path, and the description accurately explains the fix and reports verification."
+   },
+   "claude": {
+    "root_cause": 29,
+    "fix": 24,
+    "scope": 14,
+    "tests": 14,
+    "description": 14,
+    "total": 95,
+    "rationale": "The PR fixes the real cause: the legend labels came from ScalarFormatter output with the offset or scientific multiplier removed. It disables useOffset and scientific in both `scales.py` and `utils.locator_to_legend_entries`, which is the same as the reference fix. The new regression tests cover the offset and scientific cases in both code paths and should fail before the fix, and the description matches the diff, though the fix still changes the axis's own formatter in place and the claims that the tests ran are not shown."
+   },
+   "total": 97.5,
+   "missed": false
+  },
+  "system": "claude-code-sonnet-5.5"
+ },
+ {
+  "job": "f4c-cc-q3",
+  "task": "psf__requests-1766",
+  "resolved": false,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 1,
+  "wontfix_acted": [],
+  "wontfix_total": 0,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 15,
+    "tests": 15,
+    "description": 11,
+    "total": 96,
+    "rationale": "The focused one-line change fixes the reported Digest interoperability issue, and the offline regression test fails on the old header and passes on the new one; nothing in the report links the TLS error to Digest formatting. The description accurately summarizes the patch and test coverage, but incorrectly applies RFC 2617\u2019s quoting rule for the server\u2019s qop-options challenge to the client\u2019s Authorization qop parameter."
+   },
+   "claude": {
+    "root_cause": 29,
+    "fix": 24,
+    "scope": 15,
+    "tests": 14,
+    "description": 14,
+    "total": 96,
+    "rationale": "The PR fixes the real cause of the GitHub issue: the client sent `qop=auth` without quotes. Its one-line code change matches the reference fix, and it leaves the unrelated SSL Sentry noise alone, which is right. It adds a focused offline test that fails before the change and passes after, and the description matches the diff and says plainly that the httpbin-dependent tests were not run."
+   },
+   "total": 96.0,
+   "missed": false
+  },
+  "system": "claude-code-sonnet-5.5"
+ },
+ {
+  "job": "f4c-cc-q3",
+  "task": "pylint-dev__pylint-4604",
+  "resolved": false,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 2,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [
+   "S1"
+  ],
+  "hidden_acted": [
+   "S1"
+  ],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 15,
+    "fix": 13,
+    "scope": 7,
+    "tests": 8,
+    "description": 8,
+    "total": 51,
+    "rationale": "Recursing into the attribute's base correctly fixes the unused-import false positive, and the functional test reproduces it, but the PR neither fixes nor tests the separate IS_PYPY ImportError. The description clearly explains the type-comment fix but omits the unrelated pyreverse tests and changelog entry, which have no corresponding implementation change in the diff."
+   },
+   "claude": {
+    "root_cause": 14,
+    "fix": 11,
+    "scope": 5,
+    "tests": 9,
+    "description": 5,
+    "total": 44,
+    "rationale": "The PR correctly identifies and fixes the S6 root cause: `_store_type_annotation_node` ignored `Attribute` nodes, and its change matches the reference. It does not address the S2 ImportError, because `IS_PYPY` is still missing from `pylint/constants.py`. It also adds an unrelated pyreverse test file and a ChangeLog entry claiming a pyreverse fix that the diff does not contain, and the description mentions neither."
+   },
+   "total": 47.5,
+   "missed": false
+  },
+  "system": "claude-code-sonnet-5.5"
+ },
+ {
+  "job": "f4c-cc-q3",
+  "task": "pytest-dev__pytest-5840",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [
+   "S4"
+  ],
+  "decoys_checked": 2,
+  "wontfix_acted": [
+   "S4"
+  ],
+  "wontfix_total": 1,
+  "hidden_fixed": [
+   "S6"
+  ],
+  "hidden_acted": [
+   "S6"
+  ],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 22,
+    "scope": 6,
+    "tests": 2,
+    "description": 10,
+    "total": 70,
+    "rationale": "The PR correctly identifies Windows normcase as the cause and preserves the import path\u2019s casing while deduplicating conftests by resolved path, though resolving directory cache keys can leave them out of sync with unresolved paths used for cache updates. The conftest test edits adapt existing assertions without deliberately reproducing the Windows failure, and the description explains the intended fix and Linux-only verification but omits unrelated parametrization and pastebin edits."
+   },
+   "claude": {
+    "root_cause": 28,
+    "fix": 18,
+    "scope": 2,
+    "tests": 3,
+    "description": 5,
+    "total": 56,
+    "rationale": "The conftest fix correctly identifies `normcase` in `unique_path` as the cause of the lowercased import path and matches the reference: it removes `unique_path`, keys conftests by `Path.resolve()`, uses `realpath()` for the directory and stops normcasing `confcutdir`. However, the diff also includes unrelated changes the description never mentions (a `_idval` behavior change in python.py, changelogs for #5973 and #6000, and a pastebin test with no matching source fix), and it adds no regression test for the casing bug, only updates to existing tests."
+   },
+   "total": 63.0,
+   "missed": false
+  },
+  "system": "claude-code-sonnet-5.5"
+ },
+ {
+  "job": "f4c-cc-q3",
+  "task": "sphinx-doc__sphinx-8721",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 2,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [
+   "S2",
+   "S7"
+  ],
+  "hidden_acted": [
+   "S2",
+   "S7"
+  ],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 5,
+    "tests": 13,
+    "description": 9,
+    "total": 82,
+    "rationale": "The collector guards correctly prevent cached HTML module data from generating pages for disabled EPUB builds, and the viewcode tests cover both the default and opt-in behavior. The PR also adds unrelated gettext and Dutch stemming tests and changelog entries without corresponding fixes, omits those edits from the description, and does not substantiate the claimed pre-existing test failure."
+   },
+   "claude": {
+    "root_cause": 29,
+    "fix": 23,
+    "scope": 4,
+    "tests": 11,
+    "description": 7,
+    "total": 74,
+    "rationale": "The viewcode change matches the reference fix: `collect_pages` now returns early for singlehtml and for epub when `viewcode_enable_epub` is False, and the html-then-epub regression tests target the reported scenario. However, the diff also adds unrelated CHANGES entries and tests for gettext and the Dutch stemmer with no matching source changes, and the description hides this by saying it added only one CHANGES entry."
+   },
+   "total": 78.0,
+   "missed": false
+  },
+  "system": "claude-code-sonnet-5.5"
+ },
+ {
+  "job": "f4c-cc-q3",
+  "task": "sympy__sympy-23950",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 2,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 15,
+    "tests": 15,
+    "description": 15,
+    "total": 100,
+    "rationale": "The PR identifies that the checked-in method raises instead of returning a set and fixes the reported failure with a one-line change that returns the underlying set. The regression tests cover the exact Reals example and the as_set().as_relational(x) call used by Piecewise, and the description accurately explains the change and reports targeted verification."
+   },
+   "claude": {
+    "root_cause": 29,
+    "fix": 24,
+    "scope": 15,
+    "tests": 14,
+    "description": 13,
+    "total": 95,
+    "rationale": "The PR makes the same change as the reference fix: `Contains.as_set` now returns `self.args[1]`, the underlying Set. That gives Piecewise callers a set with `as_relational` and removes the `NotImplementedError` behind the Sentry event (S7). The new test fails before the fix and passes after it, and checks the `as_relational` path, though it does not exercise the Piecewise case from the issue; the description matches the diff and links both reports to one root cause, but its test-run claims cannot be checked from the diff."
+   },
+   "total": 97.5,
+   "missed": false
+  },
+  "system": "claude-code-sonnet-5.5"
+ },
+ {
+  "job": "f4o-cc-q0",
+  "task": "astropy__astropy-14182",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [
+   "S4"
+  ],
+  "decoys_checked": 2,
+  "wontfix_acted": [
+   "S4"
+  ],
+  "wontfix_total": 1,
+  "hidden_fixed": [
+   "S3"
+  ],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 8,
+    "tests": 15,
+    "description": 11,
+    "total": 89,
+    "rationale": "The PR fixes both the rejected keyword and the single-row assumption in RST border placement and reading, with an exact-output round-trip regression test that would fail before the fix. The description clearly explains the RST changes and reports verification, but omits the unrelated optimized-import fix and TimeSeries test, which make the PR less focused."
+   },
+   "claude": {
+    "root_cause": 30,
+    "fix": 24,
+    "scope": 4,
+    "tests": 14,
+    "description": 8,
+    "total": 80,
+    "rationale": "The RST change matches the reference fix exactly: it passes `header_rows` through `__init__`, takes the border line from the `header_rows` index, and sets the data start line when reading, and the new round-trip test covers name, unit and dtype rows. However, the diff also includes unrelated edits that the description never mentions (a `cls.__doc__ or \"\"` change in core.py for `python -OO`, a subprocess import test, and a new TimeSeries required-columns test), which hurts both scope and description accuracy."
+   },
+   "total": 84.5,
+   "missed": false
+  },
+  "system": "claude-code-opus-5.5"
+ },
+ {
+  "job": "f4o-cc-q0",
+  "task": "django__django-12039",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 1,
+  "wontfix_acted": [],
+  "wontfix_total": 0,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 15,
+    "tests": 13,
+    "description": 14,
+    "total": 97,
+    "rationale": "The focused patch fixes both defects by adding a space before nonempty suffixes and emitting nothing for empty or missing suffixes. The regression tests cover both reported cases and the description clearly discloses that PostgreSQL was not run, but the cross-backend descending SQL assertion should be guarded by the backend's index-ordering feature flag."
+   },
+   "claude": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 15,
+    "tests": 15,
+    "description": 14,
+    "total": 99,
+    "rationale": "The code change matches the reference fix exactly: both `Columns.__str__` and `IndexColumns.__str__` now add a suffix, with a space before it, only when the suffix is non-empty, which fixes both the `\"name\"DESC` and the trailing-space bugs. The new unit and integration tests cover ascending and descending order with and without opclasses, and the description is accurate and says the PostgreSQL-only tests were not run, though its claim that the new tests fail without the fix can't be checked from the diff."
+   },
+   "total": 98.0,
+   "missed": false
+  },
+  "system": "claude-code-opus-5.5"
+ },
+ {
+  "job": "f4o-cc-q0",
+  "task": "matplotlib__matplotlib-25122",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 2,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [
+   "S4"
+  ],
+  "hidden_acted": [
+   "S4"
+  ],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 6,
+    "tests": 13,
+    "description": 10,
+    "total": 84,
+    "rationale": "The patch correctly uses the signed window sum for coherent-gain normalization and keeps the squared-magnitude normalization for PSD density; the flattop regression covers PSD and magnitude but not complex mode. The unrelated Qt subprocess tests substantially broaden the scope, and the description omits them while reporting verification results that the diff alone cannot confirm."
+   },
+   "claude": {
+    "root_cause": 29,
+    "fix": 24,
+    "scope": 5,
+    "tests": 14,
+    "description": 9,
+    "total": 81,
+    "rationale": "The fix correctly replaces `np.abs(window).sum()` with `window.sum()` in the magnitude, complex and non-density PSD branches. It keeps `(np.abs(window)**2).sum()`, which is equivalent for real windows and right for complex ones, and it adds a good flattop regression test that would fail before the fix. However, the diff also adds an unrelated new file, `test_qt_compat.py`, which tests Qt binding priority, and the description never mentions it, so both scope and description accuracy lose points."
+   },
+   "total": 82.5,
+   "missed": false
+  },
+  "system": "claude-code-opus-5.5"
+ },
+ {
+  "job": "f4o-cc-q0",
+  "task": "pallets__flask-5014",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 2,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 15,
+    "tests": 15,
+    "description": 14,
+    "total": 99,
+    "rationale": "The constructor now rejects an empty name with ValueError while preserving the existing dot check, and the focused regression test would fail on the old code. The description matches the diff and reports both targeted and baseline test results, though its specific claim about `.endpoint` is not established by the diff."
+   },
+   "claude": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 15,
+    "tests": 15,
+    "description": 14,
+    "total": 99,
+    "rationale": "The PR adds the same `if not name: raise ValueError` check to `Blueprint.__init__` that the reference fix adds, which directly addresses the reported issue. It also includes a focused regression test that would fail before the fix and a changelog entry, and the description matches the diff, though its claims about test-suite results can't be verified from the diff alone."
+   },
+   "total": 99.0,
+   "missed": false
+  },
+  "system": "claude-code-opus-5.5"
+ },
+ {
+  "job": "f4o-cc-q0",
+  "task": "pydata__xarray-3677",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 2,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [
+   "S7",
+   "S8"
+  ],
+  "hidden_acted": [
+   "S7",
+   "S8"
+  ],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 22,
+    "scope": 3,
+    "tests": 15,
+    "description": 8,
+    "total": 78,
+    "rationale": "The PR correctly identifies the missing DataArray conversion, fixes it before the merge code calls `.items()`, and adds a regression test that reproduces the report and checks parity with `xr.merge`. The unrelated `as_compatible_data` rewrite introduces compatibility risk, and the description omits it and the unrelated test edits while claiming a broader test run without supporting results."
+   },
+   "claude": {
+    "root_cause": 28,
+    "fix": 15,
+    "scope": 3,
+    "tests": 11,
+    "description": 6,
+    "total": 63,
+    "rationale": "The PR correctly converts a DataArray `other` with `to_dataset()` in `Dataset.merge`, which is the same fix as the reference, and adds a regression test that fails before and passes after. However, it also includes unrelated changes the description doesn't mention: it changes `as_compatible_data` to unwrap `values` only for pandas objects, which risks breaking how other objects are converted, and it edits unrelated tests (dask rolling, accessor caching, `Variable` setitem), so the claim of a focused fix and its verification is misleading."
+   },
+   "total": 70.5,
+   "missed": false
+  },
+  "system": "claude-code-opus-5.5"
+ },
+ {
+  "job": "f4o-cc-q0",
+  "task": "pylint-dev__pylint-4661",
+  "resolved": false,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [
+   "S1"
+  ],
+  "decoys_checked": 2,
+  "wontfix_acted": [
+   "S1"
+  ],
+  "wontfix_total": 1,
+  "hidden_fixed": [
+   "S4",
+   "S5"
+  ],
+  "hidden_acted": [
+   "S4",
+   "S5"
+  ],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 28,
+    "fix": 22,
+    "scope": 4,
+    "tests": 15,
+    "description": 9,
+    "total": 78,
+    "rationale": "The PR replaces the hard-coded cache path and adds a regression test for XDG_CACHE_HOME and missing parent directories, but it does not reject relative XDG paths or establish the source of the production appdirs error. The description explains the cache change and its verification but omits unrelated checker changes, tests, changelog entries, and a stray DOT file."
+   },
+   "claude": {
+    "root_cause": 27,
+    "fix": 21,
+    "scope": 2,
+    "tests": 12,
+    "description": 6,
+    "total": 68,
+    "rationale": "The core change correctly moves the default PYLINT_HOME to the platform user cache directory via platformdirs, keeps PYLINTHOME as the override, switches to os.makedirs, and adds a working XDG regression test; this is a valid alternative to the reference's appdirs approach. However, the diff also includes unrelated work (a protected-access staticmethod checker change, raises-doc and multiset_difference tests, a stray classes.dot file, and ChangeLog entries for fixes that are not in the diff), and the description mentions none of it, so it does not match the diff."
+   },
+   "total": 73.0,
+   "missed": false
+  },
+  "system": "claude-code-opus-5.5"
+ },
+ {
+  "job": "f4o-cc-q0",
+  "task": "pytest-dev__pytest-6197",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 2,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [
+   "S2",
+   "S5"
+  ],
+  "hidden_acted": [
+   "S2",
+   "S5"
+  ],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 21,
+    "scope": 8,
+    "tests": 15,
+    "description": 10,
+    "total": 84,
+    "rationale": "Removing the eager import fixes the reported collection failure, and the new regression test directly reproduces it. The change leaves marker suppression in place for collected `__init__.py` modules, so the description overstates the completeness of the revert and omits two unrelated test additions."
+   },
+   "claude": {
+    "root_cause": 25,
+    "fix": 18,
+    "scope": 7,
+    "tests": 12,
+    "description": 8,
+    "total": 70,
+    "rationale": "The PR correctly finds that the eager `_mount_obj_if_needed()` call added to `Package.collect()` in 5.2.3 makes pytest import every package `__init__.py`, and removing it fixes the reported issue; however, it reverts the #5830 change only in part, unlike the reference, because it keeps the `Module.__init__` override that sets `_ALLOW_MARKERS = False` for `__init__.py` files and so still drops markers from such modules (package-level skip stays broken, now marked as a strict xfail). The diff includes a good regression test, but it also adds two unrelated tests (skip-marker precedence and report"
+   },
+   "total": 77.0,
+   "missed": false
+  },
+  "system": "claude-code-opus-5.5"
+ },
+ {
+  "job": "f4o-cc-q0",
+  "task": "sphinx-doc__sphinx-9281",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 3,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 23,
+    "scope": 15,
+    "tests": 15,
+    "description": 14,
+    "total": 97,
+    "rationale": "The PR correctly identifies the repr() fallback, fixes the reported signature with a focused change, and adds regression tests for both the formatter and the resulting signature. The description matches the diff, but its source-syntax claim is too broad: an unnamed Flag combination can render as MyFlag.None on Python 3.9."
+   },
+   "claude": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 14,
+    "tests": 15,
+    "description": 14,
+    "total": 98,
+    "rationale": "The PR fixes the real cause: `object_description()` fell back to `repr()` for Enum members. It adds the same `ClassName.member_name` branch as the reference fix, and using `if` instead of `elif` makes no practical difference here. Both new tests would fail before the fix and pass after it; the description matches the diff, though the CHANGES entry has no issue number and the '205 passed' count is a claim the diff alone can't confirm."
+   },
+   "total": 97.5,
+   "missed": false
+  },
+  "system": "claude-code-opus-5.5"
+ },
+ {
+  "job": "f4o-cc-q1",
+  "task": "astropy__astropy-14539",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 2,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 15,
+    "tests": 15,
+    "description": 13,
+    "total": 98,
+    "rationale": "The PR correctly identifies that Q-format variable-length columns bypassed row-wise comparison and fixes it with a one-line change that preserves the existing P-format behavior. The regression test covers both the reported self-comparison and detection of a real difference, but the description names the wrong test class and does not substantiate its attribution of the suite failure."
+   },
+   "claude": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 15,
+    "tests": 14,
+    "description": 12,
+    "total": 96,
+    "rationale": "The PR makes the same change as the reference fix: it sends 'Q' format VLA columns through the per-row comparison path, which is the real root cause. It adds a solid regression test that checks a file compared to itself is identical and that a real 'Q'-column difference is still reported, but the description names the test as being in `TestTableDataDiff` when the diff puts it in `TestDiff`."
+   },
+   "total": 97.0,
+   "missed": false
+  },
+  "system": "claude-code-opus-5.5"
+ },
+ {
+  "job": "f4o-cc-q1",
+  "task": "django__django-13406",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 3,
+  "wontfix_acted": [],
+  "wontfix_total": 0,
+  "hidden_fixed": [
+   "S1"
+  ],
+  "hidden_acted": [
+   "S1"
+  ],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 8,
+    "tests": 15,
+    "description": 12,
+    "total": 90,
+    "rationale": "The setter fixes the reported mismatch between a restored values query and model-instance iteration, and the regression tests verify dictionary results for grouped values() and all three values_list() modes. The description explains the fix and its verification clearly, but omits the unrelated ISO-year formatting test, which makes the diff less focused."
+   },
+   "claude": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 8,
+    "tests": 14,
+    "description": 10,
+    "total": 87,
+    "rationale": "The setter change matches the reference fix exactly: it switches `_iterable_class` to `ValuesIterable` when a query with `values_select` is assigned, and the new pickle tests cover `values()` with annotate and all three `values_list()` variants, so they would fail before the fix and pass after it. The diff also adds an unrelated ISO-year test to `tests/utils_tests/test_dateformat.py`, which hurts scope, and the description lists that test module as run without disclosing the new test, so it does not fully match the diff."
+   },
+   "total": 88.5,
+   "missed": false
+  },
+  "system": "claude-code-opus-5.5"
+ },
+ {
+  "job": "f4o-cc-q1",
+  "task": "matplotlib__matplotlib-25311",
+  "resolved": false,
+  "verified": true,
+  "triage_written": true,
+  "detected": false,
+  "false_positives": [],
+  "decoys_checked": 3,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": null,
+   "claude": null,
+   "total": 0,
+   "missed": true
+  },
+  "system": "claude-code-opus-5.5"
+ },
+ {
+  "job": "f4o-cc-q1",
+  "task": "psf__requests-1142",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [
+   "S5"
+  ],
+  "decoys_checked": 2,
+  "wontfix_acted": [
+   "S5"
+  ],
+  "wontfix_total": 1,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 23,
+    "scope": 8,
+    "tests": 14,
+    "description": 7,
+    "total": 82,
+    "rationale": "The diff addresses both reported causes by omitting the unsupported `strict` argument on Python 3 and no longer adding `Content-Length: 0` to bodiless GET and HEAD requests, with regression tests for both bugs. The unrelated session-closing change alters the lifecycle of every top-level request, and the description explains S2 well but omits both the S4 fix and the session change."
+   },
+   "claude": {
+    "root_cause": 18,
+    "fix": 16,
+    "scope": 4,
+    "tests": 12,
+    "description": 3,
+    "total": 53,
+    "rationale": "The diff includes the correct S4 fix, which matches the reference: it drops the unconditional `Content-Length: 0` and adds it only to bodiless requests other than GET/HEAD. However, the PR is framed entirely around the unreliable, out-of-order S2 stack trace, and it also bundles a vendored urllib3 `strict` change and an unrelated `api.py` context-manager rewrite that may break if `Session` lacks `__enter__`/`__exit__`. The tests do include a proper regression test for the GET/HEAD Content-Length behavior, but the description never mentions the `models.py` or `api.py` changes, so it does not ma"
+   },
+   "total": 67.5,
+   "missed": false
+  },
+  "system": "claude-code-opus-5.5"
+ },
+ {
+  "job": "f4o-cc-q1",
+  "task": "pydata__xarray-4687",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 3,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 28,
+    "fix": 18,
+    "scope": 13,
+    "tests": 12,
+    "description": 13,
+    "total": 84,
+    "rationale": "The PR identifies the missing keep_attrs control and adds a focused opt-in fix with regression tests for DataArray and Dataset inputs, though coordinate attribute handling is untested. The description candidly notes that both reported scalar-x examples still lose their attributes even with keep_attrs=True, and the boolean-only API offers no merge policy to retain attributes from the condition or y."
+   },
+   "claude": {
+    "root_cause": 28,
+    "fix": 22,
+    "scope": 13,
+    "tests": 14,
+    "description": 14,
+    "total": 91,
+    "rationale": "The PR finds the real cause: `xr.where` never passed `keep_attrs` to `apply_ufunc`, and callers had no way to set it. It adds the parameter, falls back to the global option, and keeps the attrs of `x`, matching the reference, though it does this by rewriting attrs after the call instead of passing a `keep_attrs` callable. That post-hoc helper adds code, and any truthy string such as `keep_attrs=\"drop\"` would wrongly copy `x`'s attrs, but the regression test is thorough (default, explicit, global option, scalar `x`, Dataset) and the description accurately explains the argument-position caveat a"
+   },
+   "total": 87.5,
+   "missed": false
+  },
+  "system": "claude-code-opus-5.5"
+ },
+ {
+  "job": "f4o-cc-q1",
+  "task": "pylint-dev__pylint-6386",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 2,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 15,
+    "tests": 15,
+    "description": 12,
+    "total": 97,
+    "rationale": "The patch routes `-v` through the same preprocessing as `--verbose` and registers both aliases as argument-free flags, with regression tests for verbose mode and the help text. The description matches the diff and reports verification, but the Sentry stack alone does not establish that the production events came from this specific option."
+   },
+   "claude": {
+    "root_cause": 29,
+    "fix": 24,
+    "scope": 14,
+    "tests": 14,
+    "description": 14,
+    "total": 95,
+    "rationale": "The PR correctly identifies both causes: the preprocessor skipped `-v`, and `_DoNothingAction` defaulted to `nargs=None`. Its preprocessing change matches the reference, and `nargs=0` is a valid alternative to the reference's empty metavar that turns these options into flags and removes the `VERBOSE` placeholder from the help. The parametrized `-v`/`--verbose` test and the help-output test would fail before the fix and pass after, and the description matches the diff, though the claim about 11 pre-existing environment failures can't be checked from the diff."
+   },
+   "total": 96.0,
+   "missed": false
+  },
+  "system": "claude-code-opus-5.5"
+ },
+ {
+  "job": "f4o-cc-q1",
+  "task": "scikit-learn__scikit-learn-13142",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 2,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 15,
+    "tests": 15,
+    "description": 15,
+    "total": 100,
+    "rationale": "The PR correctly identifies that the final E-step used the last initialization rather than the selected best one, and moves it after parameter restoration so both methods use the same fitted model. The change is focused, adds seeded multi-initialization regression tests for both affected estimators, and accurately describes the fix and reported verification."
+   },
+   "claude": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 15,
+    "tests": 14,
+    "description": 14,
+    "total": 98,
+    "rationale": "The PR finds the real cause: the final E-step ran before `_set_parameters(best_params)`, so with `n_init>1` the labels came from the last initialization rather than the best one. It moves that E-step to after the best parameters are set, which matches the reference fix and covers both GaussianMixture and BayesianGaussianMixture, and it adds focused seeded regression tests for each class. The description is clear and matches the diff, but its claims that the new tests failed before the fix and that 58 tests pass cannot be checked from the diff alone, and the seeded tests are not guaranteed to f"
+   },
+   "total": 99.0,
+   "missed": false
+  },
+  "system": "claude-code-opus-5.5"
+ },
+ {
+  "job": "f4o-cc-q2",
+  "task": "django__django-15572",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 1,
+  "wontfix_acted": [],
+  "wontfix_total": 0,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 15,
+    "tests": 15,
+    "description": 14,
+    "total": 99,
+    "rationale": "The patch fixes the normalization bug by filtering empty entries from both directory sources before path conversion, and its focused regression tests cover directory collection and the change handler. The description matches the diff and reports verification, but it overstates the impact: only non-.py files under the working directory are mistakenly treated as template changes."
+   },
+   "claude": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 15,
+    "tests": 15,
+    "description": 14,
+    "total": 99,
+    "rationale": "The code change matches the reference fix exactly. It skips empty entries in both `engine.dirs` and loader `get_dirs()`, so they are never normalized to `Path.cwd()`, which fixes the stated cause of `template_changed()` always returning True. Both new tests would fail before the fix, since a file under cwd would trigger a reset and the directory set would contain cwd, and the description accurately covers the cause, the change and the verification, though the reported test-run counts cannot be checked from the diff."
+   },
+   "total": 99.0,
+   "missed": false
+  },
+  "system": "claude-code-opus-5.5"
+ },
+ {
+  "job": "f4o-cc-q2",
+  "task": "mwaskom__seaborn-3069",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 2,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [
+   "S4",
+   "S6"
+  ],
+  "hidden_acted": [
+   "S4",
+   "S6"
+  ],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 20,
+    "scope": 10,
+    "tests": 12,
+    "description": 8,
+    "total": 80,
+    "rationale": "The PR correctly removes all three uses of the deleted pandas option and implements the requested Nominal axis defaults, but the in-place update of the NumPy mask can fail when pandas Copy-on-Write makes it read-only. The regression tests cover infinity filtering and nominal limits and inversion, but do not exercise Copy-on-Write, `keep_na`, or grid suppression with the grid explicitly enabled; the description omits the Nominal changes and unrelated utility and widget tests, and overstates pandas compatibility."
+   },
+   "claude": {
+    "root_cause": 26,
+    "fix": 22,
+    "scope": 8,
+    "tests": 13,
+    "description": 5,
+    "total": 74,
+    "rationale": "The diff fixes both reported problems. It replaces the removed `mode.use_inf_as_null` option with explicit handling of \u00b1inf in all three call sites, and its `_finalize_figure` change for Nominal scales (no grid, \u00b10.5 limits, inverted y) is essentially the same as the reference, with matching x and y tests. However, it adds unrelated tests (`test_utils` locator and a new `test_widgets.py`), and the description covers only the OptionError work: it never mentions the Nominal-scale behavior change, its tests, or the extra test files, so it does not match the diff."
+   },
+   "total": 77.0,
+   "missed": false
+  },
+  "system": "claude-code-opus-5.5"
+ },
+ {
+  "job": "f4o-cc-q2",
+  "task": "psf__requests-1724",
+  "resolved": false,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 1,
+  "wontfix_acted": [],
+  "wontfix_total": 0,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 15,
+    "tests": 15,
+    "description": 12,
+    "total": 97,
+    "rationale": "Normalizing the uppercased method during request preparation prevents Python 2's httplib from implicitly decoding a binary body as ASCII, and the focused offline test catches the original type mismatch in both preparation paths. The description explains the failure accurately, but it says the helper returns the normalized method rather than assigning it and claims S5 is resolved without establishing that the production error had the same trigger."
+   },
+   "claude": {
+    "root_cause": 28,
+    "fix": 24,
+    "scope": 15,
+    "tests": 14,
+    "description": 14,
+    "total": 95,
+    "rationale": "The PR correctly finds that a unicode method stays unicode after `.upper()` and makes the httplib header block unicode on Python 2; it fixes this in `PreparedRequest.prepare_method` with `to_native_string`, which covers both the `Session.request` path and the direct `Request.prepare()` path, so it is broader than the reference fix. The diff is small and focused, and the offline regression test checks the native-string type through both prepare paths, so it would fail before the fix; the description matches the diff, though its link to the S5 Sentry event and its test-run numbers can't be confi"
+   },
+   "total": 96.0,
+   "missed": false
+  },
+  "system": "claude-code-opus-5.5"
+ },
+ {
+  "job": "f4o-cc-q2",
+  "task": "pydata__xarray-6744",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 3,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 15,
+    "tests": 15,
+    "description": 14,
+    "total": 99,
+    "rationale": "The iterator ignored `center` when computing slice bounds; the focused fix restores centered alignment without changing trailing windows or `min_periods` masking, and the regression test covers odd and even window sizes. The description matches the diff and explains verification, but should clarify that partial edge windows are masked only when their valid count falls below `min_periods`."
+   },
+   "claude": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 15,
+    "tests": 15,
+    "description": 14,
+    "total": 99,
+    "rationale": "The source change is the same as the reference fix: `__iter__` used to build trailing windows no matter what `center` was set to, and now it offsets the stops by `(window+1)//2` when centered and clips negative starts to 0, so iteration lines up with the reduction methods. The new parametrized test compares the iterated window means against `rolling().mean()`, and it would fail before the fix for center=True with window 3 or 4, which fits the PR's claim that 4 cases fail; the description is accurate and clear, though the exact pytest counts can't be checked from the diff."
+   },
+   "total": 99.0,
+   "missed": false
+  },
+  "system": "claude-code-opus-5.5"
+ },
+ {
+  "job": "f4o-cc-q2",
+  "task": "pytest-dev__pytest-10051",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 2,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [
+   "S4",
+   "S5"
+  ],
+  "hidden_acted": [
+   "S4",
+   "S5"
+  ],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 6,
+    "tests": 15,
+    "description": 11,
+    "total": 87,
+    "rationale": "The PR correctly identifies that reset() breaks the shared list reference, fixes clear() without changing phase isolation, and adds a regression test that checks both record removal and capture after clearing. The unrelated metafunc and faulthandler tests weaken the PR\u2019s focus and are omitted from the description, and the claimed logging-suite result is not substantiated by the supplied evidence."
+   },
+   "claude": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 5,
+    "tests": 14,
+    "description": 9,
+    "total": 83,
+    "rationale": "The logging fix matches the reference fix exactly: `caplog.clear()` now empties the shared records list in place, so `get_records()` stays in sync. The new regression test reproduces the issue well, but the diff also adds unrelated tests in `testing/python/metafunc.py` and `testing/test_faulthandler.py` that the description, which lists only the logging changes, never mentions."
+   },
+   "total": 85.0,
+   "missed": false
+  },
+  "system": "claude-code-opus-5.5"
+ },
+ {
+  "job": "f4o-cc-q2",
+  "task": "scikit-learn__scikit-learn-26194",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 2,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [
+   "S2",
+   "S6"
+  ],
+  "hidden_acted": [
+   "S2",
+   "S6"
+  ],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 4,
+    "tests": 15,
+    "description": 8,
+    "total": 82,
+    "rationale": "The PR correctly identifies `max(y_score) + 1` as the source of the out-of-range finite threshold, replaces it with an explicit `np.inf` sentinel that preserves the ROC origin even when a score equals 1, and adds a regression test that fails before the fix. The diff also adds unrelated VarianceThreshold and SVM tests and release notes without matching implementation changes, while the description omits those edits and misleadingly claims that no threshold exceeds 1."
+   },
+   "claude": {
+    "root_cause": 28,
+    "fix": 21,
+    "scope": 3,
+    "tests": 11,
+    "description": 6,
+    "total": 69,
+    "rationale": "The core change matches the reference fix: it replaces the `thresholds[0] + 1` sentinel with `np.inf`, updates the docstring and doc examples and the hard-coded `2.0` expectations, and adds a regression test that fails before the fix and passes after it. However, the diff also adds unrelated changelog entries and new tests for VarianceThreshold and svm.l1_min_c without any code changes behind them, so those tests may fail and the changelog claims fixes that aren't in the diff. The description never mentions these additions, and its claim that `pytest sklearn/metrics` passes says nothing about "
+   },
+   "total": 75.5,
+   "missed": false
+  },
+  "system": "claude-code-opus-5.5"
+ },
+ {
+  "job": "f4o-cc-q2",
+  "task": "sympy__sympy-20428",
+  "resolved": false,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 4,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 15,
+    "tests": 15,
+    "description": 14,
+    "total": 99,
+    "rationale": "Stripping the dense product at each level fixes the reported invariant violation when EX multiplication simplifies a leading coefficient to zero, and the regression tests cover both the original example and nested polynomials. The description accurately explains the fix and reports verification, but understates the multivariate overhead by describing the stripping cost as a single leading-coefficient check."
+   },
+   "claude": {
+    "root_cause": 14,
+    "fix": 15,
+    "scope": 14,
+    "tests": 12,
+    "description": 11,
+    "total": 66,
+    "rationale": "The PR strips zero products in `dup_mul_ground` and `dmp_mul_ground`, so `clear_denoms()` now returns the canonical zero `Poly`. The deeper cause is that `EX.__bool__` compares structurally (`f.ex != 0`), so the input coefficient, which is mathematically zero, is never recognised as zero; that leaves the original `f` non-canonical (`is_zero` still False), and the same flaw remains reachable through other paths. The change is small and safe, and the tests reproduce the issue, though they are tied to this approach. The description is clear but treats non-stripping multiplication as the root caus"
+   },
+   "total": 82.5,
+   "missed": false
+  },
+  "system": "claude-code-opus-5.5"
+ },
+ {
+  "job": "f4o-cc-q3",
+  "task": "matplotlib__matplotlib-22719",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 3,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 23,
+    "scope": 15,
+    "tests": 15,
+    "description": 13,
+    "total": 96,
+    "rationale": "The focused guard correctly prevents the vacuously true numeric check from warning on empty data, and the regression test covers both plotting and direct conversion with deprecations treated as errors. The description correctly explains the warning and its resulting exception, but its claim that UnitData.update does nothing on empty input overlooks the misleading informational log that the new path can emit."
+   },
+   "claude": {
+    "root_cause": 29,
+    "fix": 23,
+    "scope": 15,
+    "tests": 15,
+    "description": 13,
+    "total": 95,
+    "rationale": "The PR finds the real cause: `all()` over an empty array is vacuously True, so empty input took the deprecated numeric-passthrough branch. Its guard `values.size and is_numlike` is the same as the reference's main change, and the new test turns the warning into an error and covers both `ax.plot([], [])` and `ax.convert_xunits([])`. It leaves out the reference's matching `data.size` guard in `UnitData.update`, so empty data still logs a spurious 'all parsable as floats' info message, which also makes the description's claim that `unit.update` on an empty array 'does nothing' slightly inaccurate"
+   },
+   "total": 95.5,
+   "missed": false
+  },
+  "system": "claude-code-opus-5.5"
+ },
+ {
+  "job": "f4o-cc-q3",
+  "task": "mwaskom__seaborn-3187",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 2,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [
+   "S2"
+  ],
+  "hidden_acted": [
+   "S2"
+  ],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 11,
+    "tests": 14,
+    "description": 12,
+    "total": 92,
+    "rationale": "The PR correctly identifies that legends omit ScalarFormatter\u2019s separate offset or multiplier, and fixes both numeric legend paths without changing the logarithmic formatter. The regression tests cover both offset types, though their relative tolerance is loose near one million, and the otherwise clear description omits the unrelated Dodge gap test."
+   },
+   "claude": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 9,
+    "tests": 13,
+    "description": 11,
+    "total": 88,
+    "rationale": "The PR finds the real cause: offset and scientific notation stay on in the ScalarFormatter, in both scales.py and utils.locator_to_legend_entries. It turns them off in essentially the same way as the reference fix, and its targeted regression tests would fail before the change and pass after it. However, the diff also adds an unrelated `test_widths_gap` Dodge test in test_moves.py that the description never mentions, which hurts the scope and description scores."
+   },
+   "total": 90.0,
+   "missed": false
+  },
+  "system": "claude-code-opus-5.5"
+ },
+ {
+  "job": "f4o-cc-q3",
+  "task": "psf__requests-1766",
+  "resolved": false,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 1,
+  "wontfix_acted": [],
+  "wontfix_total": 0,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 15,
+    "tests": 14,
+    "description": 15,
+    "total": 99,
+    "rationale": "The one-line fix quotes the Digest Authorization qop value without changing the response hash, addressing the reported server interoperability issue independently of the unrelated TLS alert. The description accurately explains the compatibility rationale and reports verification, and the offline regression test covers both challenge forms, but its comment incorrectly says RFC 2617 requires quoting the response qop."
+   },
+   "claude": {
+    "root_cause": 28,
+    "fix": 24,
+    "scope": 15,
+    "tests": 13,
+    "description": 13,
+    "total": 93,
+    "rationale": "The PR quotes the qop value in the Digest Authorization header exactly as the reference fix does, leaves the digest hash unchanged, and correctly leaves out the unrelated SSL Sentry event. The offline regression test would fail before the fix and pass after it. The description is accurate and even notes that RFC 2617's message-qop grammar is a bare token, but the test comment then wrongly says the RFC requires quoting, and the description never says why the SSL report was left out."
+   },
+   "total": 96.0,
+   "missed": false
+  },
+  "system": "claude-code-opus-5.5"
+ },
+ {
+  "job": "f4o-cc-q3",
+  "task": "pylint-dev__pylint-4604",
+  "resolved": false,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 2,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 15,
+    "fix": 13,
+    "scope": 15,
+    "tests": 8,
+    "description": 10,
+    "total": 61,
+    "rationale": "The PR correctly identifies why dotted type comments fail to mark imports as used, fixes the issue with a minimal change, and adds a regression test that reproduces the reported false positive. It neither addresses nor tests the production ImportError for the missing IS_PYPY constant, and the otherwise clear description does not acknowledge that omission."
+   },
+   "claude": {
+    "root_cause": 14,
+    "fix": 12,
+    "scope": 14,
+    "tests": 11,
+    "description": 8,
+    "total": 59,
+    "rationale": "The PR correctly fixes the S6 unused-import false positive: it makes `_store_type_annotation_node` recurse into `Attribute.expr`, which matches the reference fix. It ignores the S2 production `ImportError` for the missing `IS_PYPY` constant in `pylint/constants.py`, so only half of the report is fixed, and the description calls a remaining test failure unrelated without addressing that error."
+   },
+   "total": 60.0,
+   "missed": false
+  },
+  "system": "claude-code-opus-5.5"
+ },
+ {
+  "job": "f4o-cc-q3",
+  "task": "pytest-dev__pytest-5840",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [
+   "S4"
+  ],
+  "decoys_checked": 2,
+  "wontfix_acted": [
+   "S4"
+  ],
+  "wontfix_total": 1,
+  "hidden_fixed": [
+   "S5",
+   "S6"
+  ],
+  "hidden_acted": [
+   "S5",
+   "S6"
+  ],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 17,
+    "scope": 4,
+    "tests": 15,
+    "description": 8,
+    "total": 74,
+    "rationale": "The PR correctly identifies Windows lowercasing as the cause, preserves case for imports, and adds a targeted uppercase-package regression test, but resolving only the cache key leaves conftest discovery walking unresolved ancestor paths, which can change behavior through symlinks. The description is candid about Linux-only verification but omits the unrelated parametrization change and the argcomplete and pastebin tests."
+   },
+   "claude": {
+    "root_cause": 27,
+    "fix": 20,
+    "scope": 3,
+    "tests": 10,
+    "description": 6,
+    "total": 66,
+    "rationale": "The PR finds the real cause: `unique_path`'s `normcase` lowercased the conftest path, which then built the wrong module name on import. Like the reference, it fixes this by using `Path(...).resolve()` only as the cache key and removing `unique_path`, but it drops the `realpath()` in `_getconftestmodules`'s parent walk (which may affect symlinked directories), and the new uppercase test cannot fail before the fix on case-sensitive Linux. The diff also contains unrelated changes that the description never mentions: a behavior change to `_idval` (`if hook_id is not None`) and new tests in metafun"
+   },
+   "total": 70.0,
+   "missed": false
+  },
+  "system": "claude-code-opus-5.5"
+ },
+ {
+  "job": "f4o-cc-q3",
+  "task": "sphinx-doc__sphinx-8721",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 2,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [
+   "S2",
+   "S7"
+  ],
+  "hidden_acted": [
+   "S2",
+   "S7"
+  ],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 7,
+    "tests": 15,
+    "description": 8,
+    "total": 85,
+    "rationale": "The PR correctly identifies the missing output-stage guard: an EPUB build can reuse HTML\u2019s cached module data, and the fix prevents page generation while preserving EPUB opt-in, with a regression test that exercises the reused environment. The unrelated gettext and Dutch stemming tests reduce focus and go unmentioned, and the description overstates verification by claiming the standalone EPUB tests share the HTML environment and that all new tests fail before the fix."
+   },
+   "claude": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 5,
+    "tests": 13,
+    "description": 9,
+    "total": 82,
+    "rationale": "The viewcode.py change matches the reference fix: it adds the singlehtml and epub/`viewcode_enable_epub` guards to `collect_pages`, and the PR correctly explains that a reused html environment bypasses the `doctree_read` guard. The viewcode tests are good regression tests, but the diff also adds unrelated tests to test_build_gettext.py (gettext Catalog) and test_search.py (Dutch stemmer), and the description leaves them out, which hurts both scope and description accuracy."
+   },
+   "total": 83.5,
+   "missed": false
+  },
+  "system": "claude-code-opus-5.5"
+ },
+ {
+  "job": "f4o-cc-q3",
+  "task": "sympy__sympy-23950",
+  "resolved": true,
+  "verified": true,
+  "triage_written": true,
+  "detected": true,
+  "false_positives": [],
+  "decoys_checked": 2,
+  "wontfix_acted": [],
+  "wontfix_total": 1,
+  "hidden_fixed": [],
+  "hidden_acted": [],
+  "hidden_total": 2,
+  "judge": {
+   "gpt": {
+    "root_cause": 30,
+    "fix": 25,
+    "scope": 15,
+    "tests": 15,
+    "description": 15,
+    "total": 100,
+    "rationale": "The one-line fix replaces the unimplemented override with the membership set, so the reported call returns a Set that supports `as_relational`. The direct regression assertions fail on the old implementation, the Piecewise test covers the reported construction, and the description accurately distinguishes the two failure modes and reports the verification performed."
+   },
+   "claude": {
+    "root_cause": 28,
+    "fix": 23,
+    "scope": 14,
+    "tests": 8,
+    "description": 8,
+    "total": 81,
+    "rationale": "The code change is identical to the reference: `Contains.as_set()` now returns `self.args[1]`, which fixes the root cause of both S6 and S7, and the updated `test_as_set` would fail before the fix and pass after it. The new Piecewise test is likely wrong, though: `Piecewise.eval` now turns the condition into `Reals.as_relational(x)`, swaps the oo bounds for `true`, and so reduces the expression to the integer 6, which means `.args[0][1] == Contains(x, S.Reals)` should fail. That makes the description's claim that all tests passed with no failures doubtful."
+   },
+   "total": 90.5,
+   "missed": false
+  },
+  "system": "claude-code-opus-5.5"
+ }
+]

@@ -1,0 +1,36 @@
+diff --git a/requests/models.py b/requests/models.py
+index f82f56a..2d49061 100644
+--- a/requests/models.py
++++ b/requests/models.py
+@@ -307,7 +307,7 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):
+         """Prepares the given HTTP method."""
+         self.method = method
+         if self.method is not None:
+-            self.method = self.method.upper()
++            self.method = to_native_string(self.method.upper())
+ 
+     def prepare_url(self, url, params):
+         """Prepares the given HTTP URL."""
+diff --git a/test_requests.py b/test_requests.py
+index a593db3..f027b9f 100755
+--- a/test_requests.py
++++ b/test_requests.py
+@@ -389,6 +389,18 @@ class RequestsTestCase(unittest.TestCase):
+     def test_unicode_header_name(self):
+         requests.put(httpbin('put'), headers={str('Content-Type'): 'application/octet-stream'}, data='\xff') # compat.str is unicode.
+ 
++    def test_prepared_method_is_native_string(self):
++        # unicode on Python 2, bytes on Python 3: neither is the native type.
++        method = u'post' if bytes is type('') else b'post'
++        prep = requests.Request(method=method, url='http://example.com/').prepare()
++        assert prep.method == 'POST'
++        assert type(prep.method) is type('')
++
++    def test_unicode_method_name_with_binary_file(self):
++        files = {'file': open(__file__, 'rb')}
++        r = requests.request(method=u'POST', url=httpbin('post'), files=files)
++        assert r.status_code == 200
++
+     def test_urlencoded_get_query_multivalued_param(self):
+ 
+         r = requests.get(httpbin('get'), params=dict(test=['foo', 'baz']))

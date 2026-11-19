@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 125314,
+ "finalText": "I checked the report against your request and it holds up. This is a real bug in this repository, the verdict is **fixable**, and nothing was changed: I only read the code and ran commands with the probe tool.\n\n**The bug.** With `n_init` above 1, `GaussianMixture.fit_predict(X)` returns labels from the last fitting attempt, not the best one. In `fit_predict` (`sklearn/mixture/base.py`), the step that works out the returned labels (line 263) runs before the best attempt's settings are restored (line 272). `fit()` calls `fit_predict()` and discards its labels, so the saved model and `predict()` are correct; only the labels `fit_predict` returns are wrong. `BayesianGaussianMixture` runs the same code.\n\n**What I ran** (against the existing build at `/testbed`, because the throwaway copy wasn't compiled):\n- **Reproduced:** on 1000\u00d75 random data with `n_components=5` and `random_state=0`, 0 labels differ at `n_init=1` and 815 of 1000 differ at `n_init=5`.\n- **Fix tested in memory:** with the label step moved after the restore, 0 labels differ at `n_init` 1 and 5, for both classes.\n- **Existing tests:** the 8 `fit_predict` tests pass, because none sets `n_init` above 1.\n\n**Not a design choice.** The comment above that line says it exists so the labels from `fit_predict` always match `fit(X).predict(X)`, so the current order breaks the code's own stated promise.\n\n**Who it hurts.** Anyone who uses several starting points for steadier clusters gets labels from a worse fit, and they don't match what the saved model predicts. Nothing warns them.\n\n**Fix.** Move `_, log_resp = self._e_step(X)` to after `self._set_parameters(best_params)`. Then add regression tests with `n_init` above 1 for both classes, asserting `fit_predict(X)` equals `predict(X)`, and add a changelog entry.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Mixture fit_predict labels come from wrong attempt\",\n  \"cause\": \"In BaseMixture.fit_predict the final E-step that produces the returned labels runs before self._set_parameters(best_params), so with n_init>1 the labels come from the last initialization's parameters rather than the best one. predict() uses the restored best parameters, so the two disagree. fit() calls fit_predict and discards its labels, so fit(X).predict(X) is correct and existing tests (which never set n_init>1) don't notice.\",\n  \"files\": [\n    {\"path\": \"sklearn/mixture/base.py\", \"why\": \"fit_predict does the final _e_step before restoring best_params (lines 263 vs 272)\"},\n    {\"path\": \"sklearn/mixture/tests/test_gaussian_mixture.py\", \"why\": \"test_gaussian_mixture_fit_predict never sets n_init>1; needs a regression test\"},\n    {\"path\": \"sklearn/mixture/tests/test_bayesian_mixture.py\", \"why\": \"BayesianGaussianMixture shares the code path; add the same regression test\"}\n  ],\n  \"plan\": [\n    \"In BaseMixture.fit_predict, move `_, log_resp = self._e_step(X)` to after `self._set_parameters(best_params)` (and the n_iter_/lower_bound_ assignments)\",\n    \"Add a regression test: GaussianMixture(n_components=5, n_init=5, random_state=0) on random data asserts fit_predict(X) == predict(X)\",\n    \"Add n_init>1 to the parametrized fit_predict tests for GaussianMixture and BayesianGaussianMixture\",\n    \"Add a changelog entry under mixture bug fixes\"\n  ],\n  \"verification\": [\n    \"New test fails before the change (815/1000 labels mismatch with n_init=5 in probe) and passes after (0 mismatches)\",\n    \"Run pytest sklearn/mixture/tests\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.97,\n  \"fixType\": \"silentFailure\",\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"fit_predict computes the returned responsibilities with an E-step before the best initialization's parameters are restored, so labels reflect the last initialization.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"sklearn/mixture/base.py:263\", \"quote\": \"_, log_resp = self._e_step(X)\"},\n      {\"type\": \"code\", \"ref\": \"sklearn/mixture/base.py:272\", \"quote\": \"self._set_parameters(best_params)\"},\n      {\"type\": \"code\", \"ref\": \"sklearn/mixture/base.py:276\", \"quote\": \"return log_resp.argmax(axis=1)\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"impact\", \"text\": \"With n_init=5 on 1000x5 random data, 815 of 1000 fit_predict labels differ from predict; with n_init=1 none differ.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe\", \"quote\": \"n_init 1 mismatches 0\\nn_init 5 mismatches 815\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"trigger\", \"text\": \"The user reported fit_predict and predict disagree whenever n_init is set, and that the existing unit test misses it.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s1\", \"quote\": \"When `n_init` is specified in GaussianMixture, the results of fit_predict(X) and predict(X) are often different.\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"other\", \"text\": \"The existing fit_predict tests leave n_init at its default of 1, so they cannot catch the bug, and they pass today.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"sklearn/mixture/tests/test_gaussian_mixture.py:586\", \"quote\": \"g = GaussianMixture(n_components=rand_data.n_components,\"},\n      {\"type\": \"query\", \"ref\": \"probe\", \"quote\": \"8 passed, 48 deselected\"}\n    ]},\n    {\"id\": \"c5\", \"role\": \"other\", \"text\": \"Moving the E-step after restoring best parameters removes all mismatches for both GaussianMixture and BayesianGaussianMixture.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe\", \"quote\": \"GaussianMixture n_init 5 mismatches 0\\nBayesianGaussianMixture n_init 5 mismatches 0\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"The fitted model itself (and predict) is wrong\", \"why\": \"fit() calls fit_predict, which restores best_params at the end; only the labels fit_predict returns are stale\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"sklearn/mixture/base.py:191\", \"quote\": \"self.fit_predict(X, y)\"}\n    ]},\n    {\"hypothesis\": \"Already fixed in current code\", \"why\": \"Reproduced against the current checkout: 815 mismatches with n_init=5\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe\", \"quote\": \"n_init 5 mismatches 815\"}\n    ]}\n  ],\n  \"intendedBehavior\": \"For any n_init, max_iter, tol and random_state, GaussianMixture(...).fit_predict(X) returns the same labels as predict(X) on the fitted model.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"The comment above the final E-step says it exists 'to guarantee that the labels returned by fit_predict(X) are always consistent with fit(X).predict(X)'; running it before restoring best_params defeats that stated contract.\"},\n  \"plain\": {\n    \"headline\": \"When people ask the clustering tool to try several starting points, the group labels it returns don't match what the finished model says.\",\n    \"happened\": \"The tool tries several starting points and keeps the best one. But it works out the labels to hand back before switching back to that best attempt, so the labels come from whichever attempt ran last. Asking the finished model for labels on the same data then gives different answers.\",\n    \"matters\": \"Anyone who uses several starting points for steadier clusters gets labels from a worse fit, with no warning.\",\n    \"fix\": \"Switch back to the best attempt first, then work out the labels, and add a test that uses several starting points.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 13,
+  "inputTokens": {
+   "avg": 15919,
+   "max": 21848
+  },
+  "mainUsage": {
+   "inputTokens": 206947,
+   "cachedInputTokens": 192095,
+   "outputTokens": 9011
+  },
+  "cacheHitPercent": 92.82328325609939,
+  "wallSeconds": 124.81200003623962,
+  "tools": {
+   "read": 5,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 6
+  },
+  "reads": 5,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.29286900000000005,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.29286900000000005
+}

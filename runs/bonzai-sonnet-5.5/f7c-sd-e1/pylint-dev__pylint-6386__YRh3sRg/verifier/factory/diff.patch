@@ -1,0 +1,191 @@
+diff --git a/ChangeLog b/ChangeLog
+index 539a393f..0e198230 100644
+--- a/ChangeLog
++++ b/ChangeLog
+@@ -15,6 +15,19 @@ Release date: TBA
+ 
+ * ``BaseChecker`` classes now require the ``linter`` argument to be passed.
+ 
++* Fix ``OptionsProviderMixIn.options_and_values`` returning every option when an empty
++  selection was passed, instead of no options.
++
++* Fix a regression where an old message name shared by several messages (for example
++  ``missing-docstring`` / ``C0111``) only resolved to the last registered message, so
++  disabling it no longer silenced ``missing-module-docstring`` and
++  ``missing-class-docstring``.
++
++* Fix a crash (``SystemExit: 2``) when the short ``-v`` verbose flag is used: it is now
++  preprocessed like ``--verbose`` and no longer expects a value. ``--verbose`` and
++  ``--enable-all-extensions`` are now also declared as taking no argument to argparse,
++  so ``--help`` no longer shows bogus ``VERBOSE`` / ``ENABLE_ALL_EXTENSIONS`` values.
++
+ * Fix a failure to respect inline disables for ``fixme`` occurring on the last line
+   of a module when pylint is launched with ``--enable=fixme``.
+ 
+diff --git a/pylint/config/options_provider_mixin.py b/pylint/config/options_provider_mixin.py
+index 96703e3a..c7c2be9e 100644
+--- a/pylint/config/options_provider_mixin.py
++++ b/pylint/config/options_provider_mixin.py
+@@ -114,7 +114,7 @@ class OptionsProviderMixIn:
+             yield section.upper(), options
+ 
+     def options_and_values(self, options=None):
+-        if not options:
++        if options is None:
+             options = self.options
+         for optname, optdict in options:
+             yield optname, optdict, self.option_value(optname)
+diff --git a/pylint/config/utils.py b/pylint/config/utils.py
+index 8c790416..c0b862b4 100644
+--- a/pylint/config/utils.py
++++ b/pylint/config/utils.py
+@@ -207,6 +207,7 @@ PREPROCESSABLE_OPTIONS: dict[
+     "--output": (True, _set_output),
+     "--load-plugins": (True, _add_plugins),
+     "--verbose": (False, _set_verbose_mode),
++    "-v": (False, _set_verbose_mode),
+     "--enable-all-extensions": (False, _enable_all_extensions),
+ }
+ 
+@@ -218,7 +219,7 @@ def _preprocess_options(run: Run, args: Sequence[str]) -> list[str]:
+     i = 0
+     while i < len(args):
+         argument = args[i]
+-        if not argument.startswith("--"):
++        if not argument.startswith("-"):
+             processed_args.append(argument)
+             i += 1
+             continue
+diff --git a/pylint/lint/base_options.py b/pylint/lint/base_options.py
+index c793cc85..ff319469 100644
+--- a/pylint/lint/base_options.py
++++ b/pylint/lint/base_options.py
+@@ -539,7 +539,7 @@ def _make_run_options(self: Run) -> Options:
+             "verbose",
+             {
+                 "action": _DoNothingAction,
+-                "kwargs": {},
++                "kwargs": {"nargs": 0},
+                 "short": "v",
+                 "help": "In verbose mode, extra non-checker-related info "
+                 "will be displayed.",
+@@ -550,7 +550,7 @@ def _make_run_options(self: Run) -> Options:
+             "enable-all-extensions",
+             {
+                 "action": _DoNothingAction,
+-                "kwargs": {},
++                "kwargs": {"nargs": 0},
+                 "help": "Load and enable all available extensions. "
+                 "Use --list-extensions to see a list all available extensions.",
+                 "hide_from_config_file": True,
+diff --git a/pylint/message/message_id_store.py b/pylint/message/message_id_store.py
+index 1dbb9a95..a212ecbb 100644
+--- a/pylint/message/message_id_store.py
++++ b/pylint/message/message_id_store.py
+@@ -71,7 +71,9 @@ class MessageIdStore:
+         """
+         self.__msgid_to_symbol[msgid] = symbol
+         self.__symbol_to_msgid[symbol] = msgid
+-        self.__old_names[msgid] = [new_msgid]
++        existing_old_names = self.__old_names.setdefault(msgid, [])
++        if new_msgid not in existing_old_names:
++            existing_old_names.append(new_msgid)
+ 
+     def check_msgid_and_symbol(self, msgid: str, symbol: str) -> None:
+         existing_msgid: str | None = self.__symbol_to_msgid.get(symbol)
+diff --git a/tests/config/test_config.py b/tests/config/test_config.py
+index f91e6cbf..4115f1c2 100644
+--- a/tests/config/test_config.py
++++ b/tests/config/test_config.py
+@@ -55,6 +55,37 @@ reports = "yes"
+     check_configuration_file_reader(runner)
+ 
+ 
++@pytest.mark.parametrize(
++    "args",
++    [
++        [str(EMPTY_MODULE), "-v"],
++        ["-v", str(EMPTY_MODULE)],
++        [str(EMPTY_MODULE), "--verbose"],
++    ],
++)
++def test_short_verbose(args: list[str]) -> None:
++    """Check that -v is preprocessed like --verbose and doesn't need a value."""
++    runner = Run(args, exit=False)
++    assert runner.verbose
++    assert runner.linter.msg_status == 0
++
++
++@pytest.mark.parametrize("flag", ["-v", "--verbose", "--enable-all-extensions"])
++def test_flag_options_take_no_argument(flag: str) -> None:
++    """Check that argparse itself treats the flags as taking no value.
++
++    The options are preprocessed before argparse sees them, but they must also
++    be correctly declared to argparse (usage, help message and parsing).
++    """
++    runner = Run([str(EMPTY_MODULE)], exit=False)
++    parser = runner.linter._arg_parser
++    namespace, remaining = parser.parse_known_args([flag, "some_file.py"])
++    assert remaining == ["some_file.py"]
++    assert namespace is not None
++    assert "VERBOSE" not in runner.linter.help()
++    assert "ENABLE_ALL_EXTENSIONS" not in runner.linter.help()
++
++
+ def test_unknown_message_id(capsys: CaptureFixture) -> None:
+     """Check that we correctly raise a message on an unknown id."""
+     Run([str(EMPTY_MODULE), "--disable=12345"], exit=False)
+diff --git a/tests/config/test_deprecations.py b/tests/config/test_deprecations.py
+index 453a460d..a704a557 100644
+--- a/tests/config/test_deprecations.py
++++ b/tests/config/test_deprecations.py
+@@ -119,3 +119,25 @@ class TestDeprecationArgumentsManager:
+         """Test that not having a level value in a optiondict emits a DeprecationWarning."""
+         with pytest.warns(DeprecationWarning):
+             SampleCheckerThree(self.linter)
++
++
++def test_options_provider_mixin_options_and_values_selection() -> None:
++    """An explicit empty selection must yield nothing, not every option."""
++    # pylint: disable=import-outside-toplevel
++    from pylint.config.options_provider_mixin import OptionsProviderMixIn
++
++    class Provider(OptionsProviderMixIn):
++        name = "test"
++        options = (
++            ("a", {"type": "string", "default": "x", "help": "a"}),
++            ("b", {"type": "string", "default": "y", "help": "b"}),
++        )
++
++    with warnings.catch_warnings():
++        warnings.simplefilter("ignore", DeprecationWarning)
++        provider = Provider()
++        assert [name for name, _, _ in provider.options_and_values()] == ["a", "b"]
++        assert not list(provider.options_and_values([]))
++        assert [
++            name for name, _, _ in provider.options_and_values([provider.options[0]])
++        ] == ["a"]
+diff --git a/tests/message/unittest_message_id_store.py b/tests/message/unittest_message_id_store.py
+index 69ff5f50..60cbd0e2 100644
+--- a/tests/message/unittest_message_id_store.py
++++ b/tests/message/unittest_message_id_store.py
+@@ -79,6 +79,19 @@ def test_add_msgid_and_symbol(empty_msgid_store: MessageIdStore) -> None:
+         empty_msgid_store.get_msgid("not-exist")
+ 
+ 
++def test_legacy_msgid_shared_by_several_messages(
++    empty_msgid_store: MessageIdStore,
++) -> None:
++    """An old name used by several messages must resolve to all of them."""
++    for msgid, symbol in (("C0114", "a"), ("C0115", "b"), ("C0116", "c")):
++        empty_msgid_store.register_message_definition(
++            msgid, symbol, [("C0111", "missing-docstring")]
++        )
++    expected = ["C0114", "C0115", "C0116"]
++    assert empty_msgid_store.get_active_msgids("C0111") == expected
++    assert empty_msgid_store.get_active_msgids("missing-docstring") == expected
++
++
+ def test_duplicate_symbol(empty_msgid_store: MessageIdStore) -> None:
+     empty_msgid_store.add_msgid_and_symbol("W1234", "warning-symbol")
+     with pytest.raises(InvalidMessageError) as error:

@@ -1,0 +1,40 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+________________ test_missing_pop_requires_an_explicit_default _________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7ffb495b8f90>
+
+    def test_missing_pop_requires_an_explicit_default(monkeypatch):
+        # Supply compatibility aliases for this Python 2-era backport on Python 3.
+        if sys.version_info[0] >= 3:
+            import _thread
+            import collections
+            import collections.abc
+    
+            monkeypatch.setitem(sys.modules, 'dummy_thread', _thread)
+            for name in ('Mapping', 'MutableMapping', 'Callable'):
+                if not hasattr(collections, name):
+                    monkeypatch.setattr(
+                        collections, name, getattr(collections.abc, name),
+                        raising=False,
+                    )
+    
+        from requests.packages.urllib3.packages.ordered_dict import OrderedDict
+    
+        pending = OrderedDict([('job-17', 'ready')])
+        fallback = object()
+        assert pending.pop('unknown-job', fallback) is fallback
+    
+        raised = False
+        try:
+            pending.pop('unknown-job')
+        except KeyError as error:
+            raised = True
+            assert error.args == ('unknown-job',)
+    
+>       assert raised, 'Removing a missing key without a default must raise KeyError'
+E       AssertionError: Removing a missing key without a default must raise KeyError
+E       assert False
+
+/tmp/test_hidden_S1.py:32: AssertionError
+1 failed in 0.08 seconds

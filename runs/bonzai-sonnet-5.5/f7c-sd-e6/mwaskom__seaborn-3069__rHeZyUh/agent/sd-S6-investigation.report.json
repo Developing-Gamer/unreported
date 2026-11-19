@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 44026,
+ "finalText": "The cause is in this repository, and the fix is a one-character change in `seaborn/utils.py` line 688. I could not run anything: the probe sandbox has no matplotlib, so this rests on reading the code and an existing test. The only change from my earlier report is a corrected quote in claim c3.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Scatter colour legend drops the highest value\",\n  \"cause\": \"Brief numeric legends (hue or size) pick tick values with a locator, then filter them with `l >= limits[0] and l < limits[1]`. The upper bound is exclusive, so a tick that lands exactly on the data maximum is dropped. For data spanning 0\u2013100, MaxNLocator(nbins=6) gives 0, 20, 40, 60, 80, 100 and the 100 entry is removed, so the legend stops at 80 while 100-valued points are still plotted. It only happens when the maximum falls on a 'nice' tick, which is why only a few reports show it. The repo's own test expects the max to be kept: for limits (1, 6) it asserts ['2','4','6'], which the current `<` filter would fail.\",\n  \"files\": [\n    {\"path\": \"seaborn/utils.py\", \"why\": \"locator_to_legend_entries filters ticks with `l < limits[1]`, excluding a tick equal to the data maximum (line 688).\"},\n    {\"path\": \"seaborn/relational.py\", \"why\": \"Calls locator_to_legend_entries for both the hue and size brief legends (lines 246 and 278), so both are affected.\"},\n    {\"path\": \"tests/test_utils.py\", \"why\": \"test_locator_to_legend_entries expects the maximum to be included. Add a 0\u2013100 case.\"}\n  ],\n  \"plan\": [\n    \"In seaborn/utils.py line 688, change the filter to `l >= limits[0] and l <= limits[1]` so ticks equal to the maximum are kept.\",\n    \"Add a regression test: MaxNLocator(nbins=6) with limits (0, 100) should give levels ending in 100.\",\n    \"Add a scatterplot test with hue values 0\u2013100 and legend='brief' that checks the last legend label is '100'.\"\n  ],\n  \"verification\": [\n    \"Run tests/test_utils.py::test_locator_to_legend_entries and tests/test_relational.py, including the new tests.\",\n    \"Draw sns.scatterplot with hue running 0..100 and legend='brief', then check the last legend text is '100'. The same applies to size.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"likely\",\n  \"effort\": \"low\",\n  \"risk\": \"low\",\n  \"confidence\": 0.85,\n  \"deliberate\": false,\n  \"intent\": \"The exclusive upper bound looks like an off-by-one. The existing test asserts that the maximum (6 for limits 1\u20136) is included in the legend, and nothing in the code or tests chooses to drop it.\",\n  \"fixType\": \"silentFailure\",\n  \"intendedBehavior\": \"A brief numeric hue or size legend includes a tick equal to the data maximum, so data from 0 to 100 gives a legend ending in 100.\",\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"The tick filter uses a strict `<` against the upper limit, so a tick equal to the data maximum is dropped.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"seaborn/utils.py:688\", \"quote\": \"raw_levels = [l for l in raw_levels if l >= limits[0] and l < limits[1]]\"}]},\n    {\"id\": \"c2\", \"text\": \"The hue legend passes the data's min and max as the limits, so the maximum is the excluded bound.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"seaborn/relational.py:245\", \"quote\": \"limits = min(self._hue_map.levels), max(self._hue_map.levels)\"}]},\n    {\"id\": \"c3\", \"text\": \"The existing test expects the max tick (6 for limits 1\u20136) to be included, which contradicts the strict `<` filter.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"tests/test_utils.py:323\", \"quote\": \"assert str_levels == [\\\"2\\\", \\\"4\\\", \\\"6\\\"]\"}]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"The legend is capped by the brief_ticks setting of 6.\", \"why\": \"brief_ticks is only passed as nbins to the locator. It does not stop at 80. 0\u2013100 with nbins=6 yields six ticks, 0 to 100, and the last is removed by the filter.\", \"citations\": [{\"type\": \"code\", \"ref\": \"seaborn/relational.py:244\", \"quote\": \"locator = mpl.ticker.MaxNLocator(nbins=brief_ticks)\"}]}\n  ],\n  \"plain\": {\n    \"headline\": \"On some scatter charts the colour legend leaves out the highest value, even though points at that value are drawn.\",\n    \"happened\": \"When the legend is shortened to a few round values, the code picks the values and then discards any that equal the data's maximum. With data from 0 to 100 the legend lists 0 to 80 and silently drops 100. It only shows when the maximum happens to be a round value, so it looks like it affects only a few reports.\",\n    \"matters\": \"Anyone reading a colour or size legend on these charts can't map the top-valued points to the legend, and may misread the scale.\",\n    \"fix\": \"Keep the value equal to the data maximum when building the shortened legend, and add a test with data from 0 to 100.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 8,
+  "inputTokens": {
+   "avg": 15612.125,
+   "max": 20496
+  },
+  "mainUsage": {
+   "inputTokens": 124897,
+   "cachedInputTokens": 111407,
+   "outputTokens": 5391
+  },
+  "cacheHitPercent": 89.19910005844817,
+  "wallSeconds": 40.2039999961853,
+  "tools": {
+   "read": 6,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 2
+  },
+  "reads": 6,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.10990640000000002,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.10990640000000002
+}

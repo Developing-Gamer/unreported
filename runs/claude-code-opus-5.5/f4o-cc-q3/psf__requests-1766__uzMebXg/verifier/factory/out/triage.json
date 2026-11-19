@@ -1,0 +1,8 @@
+[
+  {"source": "S1", "decision": "skip", "reason": "Response.iter_content correctly yields gzip-decoded bytes while Content-Length counts the compressed bytes on the wire, so a progress bar that divides decoded bytes by Content-Length overshoots (CSV compresses ~6x); the contents are correct, so this is a bug in the client's progress calculation, not a library defect."},
+  {"source": "S2", "decision": "skip", "reason": "CERTIFICATE_VERIFY_FAILED 'unable to get local issuer certificate' means the server's chain can't be verified against the deployment's CA bundle, which is an environment/certificate configuration problem rather than a defect in this repository's code."},
+  {"source": "S3", "decision": "fix", "reason": "HTTPDigestAuth.build_digest_header emits qop=auth unquoted, contrary to RFC 2617 and curl, which breaks strict servers; it now emits qop=\"auth\"."},
+  {"source": "S4", "decision": "skip", "reason": "Already fixed in this checkout: PreparedRequest.prepare_content_length leaves out Content-Length for body-less GET/HEAD requests."},
+  {"source": "S5", "decision": "skip", "reason": "Could not reproduce: against a local server, GET and HEAD with redirects enabled follow 301/302/303/307 to the final 200, and the report doesn't include a URL, a Location header, or code to go further."},
+  {"source": "S6", "decision": "skip", "reason": "Connection refused (Errno 111) to api.stripe.com is a network or remote-service availability problem that requests reports correctly, not a library defect."}
+]

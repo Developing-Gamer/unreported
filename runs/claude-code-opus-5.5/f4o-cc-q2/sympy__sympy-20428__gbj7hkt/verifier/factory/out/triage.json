@@ -1,0 +1,9 @@
+[
+  {"source": "S1", "decision": "skip", "reason": "Vague report from a downstream 'spectral fitting' product about shape-parameter validation; it names no SymPy API, input or traceback, and it describes no reproducible defect in this repository."},
+  {"source": "S2", "decision": "skip", "reason": "Already fixed in this checkout: srepr({x, y}) and srepr({x: y}) already print Symbol('x')/Symbol('y') via ReprPrinter._print_set/_print_dict."},
+  {"source": "S3", "decision": "skip", "reason": "Connection refused to api.stripe.com in an external billing service is a network/infrastructure problem unrelated to this repository's code."},
+  {"source": "S4", "decision": "fix", "reason": "Reproduced: clear_denoms() on an EX constant that simplifies to zero returns an unstripped DMP([EX(0)]), so is_zero is False and terms_gcd() raises IndexError; dup_mul_ground/dmp_mul_ground did not strip vanishing products."},
+  {"source": "S5", "decision": "skip", "reason": "Already fixed in this checkout: posify(Symbol('x', finite=True))[0].is_finite returns True."},
+  {"source": "S6", "decision": "skip", "reason": "Vague support-channel message with no formula, API call or error output; there is not enough information to find or reproduce a defect in this repository."},
+  {"source": "S7", "decision": "skip", "reason": "Raising an error for S.true & 5 is intended: as the issue itself notes (see #13427), And with a non-Boolean integer is not well-posed, so there is no defect to fix."}
+]

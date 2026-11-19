@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 86607,
+ "finalText": "I re-checked the answer against your request and it holds. This was a read-only investigation: I changed no files and ran commands only in a throwaway copy of the repository. The quotes in the report match the code and the command output.\n\nThe problem is in this repository. In `sympy/polys/orthopolys.py` (lines 304\u2013311), the Laguerre polynomial generator (`laguerre_poly`) silently treats a shape value (`alpha`) it can't read as zero. It wraps the conversion in a `try` that catches `TypeError` and `ValueError`. The parsing error (`SympifyError`) is a kind of `ValueError`, so it is caught and `alpha` falls back to 0, the same default used when no shape is given. The result is coefficients identical to leaving the parameter blank, with no error. The two similar functions, `jacobi_poly` and `gegenbauer_poly`, convert their shape values without a `try` and do raise an error.\n\n**What I ran (in the copy):**\n- `laguerre_poly(2, x, alpha=object())` returned `x**2/2 - 2*x + 1`, the same as with no `alpha`.\n- A valid `alpha=1/2` still gives the right answer, `x**2/2 - 5*x/2 + 15/8`.\n- Converting that same bad value directly raises `SympifyError`, which is the error being thrown away.\n- The existing tests pass (7 passed) because none of them passes a bad `alpha`.\n\n**Who it hurts:** anyone who gives a bad shape value gets coefficients that look normal but are wrong, with no warning, and they can end up in exported fits.\n\n**Fix:** remove the `try/except` so a bad value raises an error, keep zero only as the default when `alpha` is not given, and add a test that a malformed `alpha` raises. I couldn't tell when the `try/except` was added, because the repository history is a single snapshot commit (tag `sympy-1.6`).\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Bad Laguerre shape value silently becomes zero\",\n  \"cause\": \"laguerre_poly wraps construct_domain(alpha) in try/except (TypeError, ValueError) and on failure falls back to K, alpha = QQ, QQ(0), the same default used when alpha is omitted. SympifyError subclasses ValueError, so an unparseable alpha is swallowed and the returned coefficients equal the alpha-less polynomial. jacobi_poly and gegenbauer_poly call construct_domain without a try and do raise.\",\n  \"files\": [\n    {\"path\": \"sympy/polys/orthopolys.py\", \"why\": \"laguerre_poly lines 304-311 swallow conversion errors for alpha and substitute 0\"},\n    {\"path\": \"sympy/polys/tests/test_orthopolys.py\", \"why\": \"test_laguerre_poly has no case for an invalid alpha; add raises(...) there\"}\n  ],\n  \"plan\": [\n    \"In laguerre_poly, remove the try/except around construct_domain(alpha, field=True) so conversion errors reach the caller\",\n    \"Keep the alpha is None branch as the only place that defaults to QQ(0)\",\n    \"Add a test asserting laguerre_poly(2, x, alpha=object()) raises (SympifyError/ValueError)\"\n  ],\n  \"verification\": [\n    \"laguerre_poly(2, x, alpha=object()) raises instead of returning x**2/2 - 2*x + 1\",\n    \"laguerre_poly(2, x, alpha=S(1)/2) still returns x**2/2 - 5*x/2 + 15/8\",\n    \"python -m pytest sympy/polys/tests/test_orthopolys.py passes\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.9,\n  \"fixType\": \"silentFailure\",\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"laguerre_poly catches TypeError/ValueError from converting alpha and replaces alpha with zero, the same as the omitted-alpha default.\", \"role\": \"rootCause\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"sympy/polys/orthopolys.py:308\", \"quote\": \"except (TypeError, ValueError):\\n            K, alpha = QQ, QQ(0)\"},\n      {\"type\": \"code\", \"ref\": \"sympy/polys/orthopolys.py:311\", \"quote\": \"    else:\\n        K, alpha = QQ, QQ(0)\"}\n    ]},\n    {\"id\": \"c2\", \"text\": \"Calling laguerre_poly with an unparseable alpha returns the alpha-less polynomial without raising, while construct_domain itself raises SympifyError for that input.\", \"role\": \"rootCause\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe\", \"quote\": \"<object object at 0x x**2/2 - 2*x + 1\"},\n      {\"type\": \"query\", \"ref\": \"probe\", \"quote\": \"cd raised SympifyError Sympify of expression 'could not parse\"}\n    ]},\n    {\"id\": \"c3\", \"text\": \"Sibling generators convert their shape parameters with construct_domain and no try/except, so they surface bad input.\", \"role\": \"other\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"sympy/polys/orthopolys.py:55\", \"quote\": \"K, v = construct_domain([a, b], field=True)\"},\n      {\"type\": \"code\", \"ref\": \"sympy/polys/orthopolys.py:100\", \"quote\": \"K, a = construct_domain(a, field=True)\"}\n    ]},\n    {\"id\": \"c4\", \"text\": \"Users exporting coefficients get plausible but wrong (alpha=0) values with no error, matching the report.\", \"role\": \"impact\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s1\", \"quote\": \"the exported coefficients are identical to leaving the parameter blank\"}\n    ]},\n    {\"id\": \"c5\", \"text\": \"Existing tests pass because none exercises an invalid alpha.\", \"role\": \"other\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe\", \"quote\": \"7 passed, 5 warnings in 1.61s\"},\n      {\"type\": \"code\", \"ref\": \"sympy/polys/tests/test_orthopolys.py:122\", \"quote\": \"raises(ValueError, lambda: laguerre_poly(-1, x))\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"Valid alpha values are also ignored\", \"why\": \"A rational alpha produces distinct, correct coefficients; only failed conversions fall back to 0\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe\", \"quote\": \"x**2/2 - 5*x/2 + 15/8\\nx**2/2 - 2*x + 1\"}\n    ]},\n    {\"hypothesis\": \"jacobi/gegenbauer shape parameters have the same silent fallback\", \"why\": \"They call construct_domain directly with no exception handling\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"sympy/polys/orthopolys.py:100\", \"quote\": \"K, a = construct_domain(a, field=True)\"}\n    ]}\n  ],\n  \"intendedBehavior\": \"laguerre_poly(n, x, alpha=<value that cannot be converted to a domain element>) raises an error instead of returning the alpha=0 polynomial.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"No comment, test or changelog entry explains the fallback; the sibling functions jacobi_poly and gegenbauer_poly let conversion errors propagate, and the docstring describes alpha only as deciding the coefficient domain. Only the None default to 0 was chosen; substituting 0 for invalid input was not.\"},\n  \"plain\": {\n    \"headline\": \"A wrong shape value for one family of polynomials is quietly treated as zero, so people export wrong coefficients without being warned.\",\n    \"happened\": \"Someone gave the Laguerre polynomial generator a shape value it could not read. Instead of reporting the problem, it quietly used zero, the same as when no value is given. The coefficients it handed back looked normal but were for the wrong shape.\",\n    \"matters\": \"Anyone who mistypes or passes a bad shape value gets believable but wrong results with no warning, and they can end up in exported fits.\",\n    \"fix\": \"Stop quietly replacing an unreadable shape value with zero and report an error instead, the way the two similar polynomial generators already do.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 7,
+  "inputTokens": {
+   "avg": 16552,
+   "max": 22717
+  },
+  "mainUsage": {
+   "inputTokens": 115864,
+   "cachedInputTokens": 100155,
+   "outputTokens": 7644
+  },
+  "cacheHitPercent": 86.44186287371402,
+  "wallSeconds": 85.91700005531311,
+  "tools": {
+   "read": 5,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 1
+  },
+  "reads": 5,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.25143800000000005,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.25143800000000005
+}

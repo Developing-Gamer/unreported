@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 15986,
+ "finalText": "```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Tab completion adds a stray * to wildcard patterns\",\n  \"cause\": \"The fast file completer decides whether to append a trailing '*' to the typed prefix with `if \\\"*\\\" not in prefix or \\\"?\\\" not in prefix`. That is true whenever at least one of the two wildcard characters is missing. A pattern like `test_*.py` has no '?', so the code turns it into `test_*.py*` before globbing, and `test_foo.py.bak` matches. Plain names contain neither character, so they complete normally, which fits the report. The condition should use `and` so a prefix that already has a wildcard is left alone. I read the code only and did not run probe.\",\n  \"files\": [\n    {\"path\": \"src/_pytest/_argcomplete.py\", \"why\": \"FastFilesCompleter.__call__ line 76 uses `or` where `and` is needed, so a '*' is appended to prefixes that already contain a wildcard.\"}\n  ],\n  \"plan\": [\n    \"Change line 76 to `if \\\"*\\\" not in prefix and \\\"?\\\" not in prefix:`.\",\n    \"Add a unit test in testing/test_argcomplete.py. It should create `test_a.py` and `test_a.py.bak` in a temp dir, call FastFilesCompleter()(\\\"test_*.py\\\") and assert only `test_a.py` is returned.\",\n    \"Add a changelog entry.\"\n  ],\n  \"verification\": [\n    \"The new test fails before the change, because test_a.py.bak is returned, and passes after it.\",\n    \"The existing testing/test_argcomplete.py tests still pass, and completing plain prefixes such as `test_` still appends '*'.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.9,\n  \"deliberate\": false,\n  \"intent\": \"The completer is meant to append '*' only to plain prefixes, so a prefix that already has a glob wildcard is not widened. The `or` in the condition looks like a logic slip, and the comparable condition elsewhere in pytest uses `and`. No changelog entry or test says this behaviour was chosen.\",\n  \"intendedBehavior\": \"Completing a prefix that already contains '*' or '?', such as `test_*.py`, returns only files matching that glob and not files like `test_a.py.bak`.\",\n  \"fixType\": \"frustration\",\n  \"claims\": [\n    {\n      \"id\": \"c1\",\n      \"text\": \"The condition uses `or`, so a prefix with only one of '*' or '?' still gets '*' appended, and `test_*.py` becomes `test_*.py*`.\",\n      \"role\": \"rootCause\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"src/_pytest/_argcomplete.py:76\", \"quote\": \"if \\\"*\\\" not in prefix or \\\"?\\\" not in prefix:\"},\n        {\"type\": \"code\", \"ref\": \"src/_pytest/_argcomplete.py:80\", \"quote\": \"prefix += \\\"*\\\"\"}\n      ]\n    }\n  ],\n  \"ruledOut\": [],\n  \"plain\": {\n    \"headline\": \"Tab completion for a filename pattern ending in .py also offered .py.bak backup files, because the completer added an extra wildcard.\",\n    \"happened\": \"When someone types a pattern with a star, such as test_*.py, the completer still adds its own star at the end. That makes it match backup files like test_a.py.bak too. Plain names have no star, so they complete correctly.\",\n    \"matters\": \"Anyone who tab-completes a wildcard pattern gets extra, wrong suggestions.\",\n    \"fix\": \"Only add the trailing star when the typed text has no wildcard at all, and add a test for it.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 3,
+  "inputTokens": {
+   "avg": 12446,
+   "max": 13607
+  },
+  "mainUsage": {
+   "inputTokens": 37338,
+   "cachedInputTokens": 30747,
+   "outputTokens": 1721
+  },
+  "cacheHitPercent": 82.34774224650491,
+  "wallSeconds": 15.585999965667725,
+  "tools": {
+   "read": 2,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 0
+  },
+  "reads": 2,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.0398329,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.0398329
+}

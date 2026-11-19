@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 54064,
+ "finalText": "A descending index now renders as `(\"name\" DESC)`, and an opclass column with no explicit ordering no longer has a trailing space. The new tests fail on the original code and pass with the fix. Only the `Columns` DESC test was seen failing before the fix; the other new tests were not separately checked against the original code. The PostgreSQL-only opclass tests were skipped here because the backend is SQLite.\n\nThe fix is in `django/db/backends/ddl_references.py`:\n- **`Columns.__str__`:** it puts a space between the quoted column and its suffix, and adds nothing when the suffix is empty.\n- **`IndexColumns.__str__`:** it only appends the suffix when it isn't empty.\n\nI added a `ColumnSuffixesTests` class to `tests/backends/test_ddl_references.py`. It covers a DESC column, an empty suffix, an opclass column with an empty suffix, with no suffix, and with DESC. Before the fix, the DESC case failed with `'\"name\"DESC' != '\"name\" DESC'`.\n\nI ran `python tests/runtests.py backends.test_ddl_references indexes schema model_indexes` against the fix. It ran 201 tests and passed, with 33 skipped. To run the tests I had to `pip install asgiref pytz sqlparse`. I did not find any existing test assertions with the old spacing, so none needed updating.\n\nNothing is committed, as requested. The PR text is in `/testbed/.factory/pr-S4.md`.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"checks\": [\n    {\"command\": \"python tests/runtests.py backends.test_ddl_references indexes schema model_indexes\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"reproductionSteps\": \"Build Columns('t', ['name'], quote, col_suffixes=['DESC']) and str() it: before the fix it gave '\\\"name\\\"DESC'. IndexColumns with col_suffixes=[''] and an opclass left a trailing space.\",\n  \"reproductionTest\": {\n    \"path\": \"tests/backends/test_ddl_references.py\",\n    \"command\": \"python tests/runtests.py backends.test_ddl_references\",\n    \"signature\": \"AssertionError: '\\\"name\\\"DESC' != '\\\"name\\\" DESC'\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 11,
+  "inputTokens": {
+   "avg": 24803.454545454544,
+   "max": 29991
+  },
+  "mainUsage": {
+   "inputTokens": 272838,
+   "cachedInputTokens": 256737,
+   "outputTokens": 4699
+  },
+  "cacheHitPercent": 94.09869592945265,
+  "wallSeconds": 51.486000061035156,
+  "tools": {
+   "read": 8,
+   "edit": 5,
+   "test": 0,
+   "verify": 0,
+   "git": 1,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 2
+  },
+  "reads": 8,
+  "edits": 5,
+  "runs": 3,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 2,
+  "editOperations": 4,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1385769,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1385769
+}

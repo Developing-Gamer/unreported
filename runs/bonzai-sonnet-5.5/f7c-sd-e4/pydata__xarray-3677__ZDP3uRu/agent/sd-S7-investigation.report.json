@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 60362,
+ "finalText": "The report is a real defect in this repository, but I could not run it. The probe environment has no numpy or dask, so I found the cause by reading the code and tracing a four-sample window by hand. That is why certainty is \"likely\" rather than \"confirmed\". I re-checked the cited lines against what I read: `dask_array_ops.py` lines 17, 60 and 69, and `nputils.py` line 147.\n\nOn chunked (dask) data, centered rolling windows with an even length of 4 or more come out one sample later than on in-memory data. The chunked code pads the front of the array and then trims the result back to size, and it trims one sample too few (`drop_size = depth[axis] - pad_size + 1`). The output length is still correct, so timestamps and row counts match, which fits the support message. The existing test `test_dask_rolling` already includes window 8 with `center=True`. I expect it to fail today, but I could not run it to confirm.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Centered even-size rolling windows shift on large data\",\n  \"cause\": \"For large chunked (dask) data, the code that builds centered rolling windows pads the front of the array and then trims the result back to size. When the window is even and 4 or longer (4, 6, 8\u2026), it trims one sample too few (`depth - pad_size + 1`). Every window therefore sits one sample later than the in-memory version, which is the one-step misalignment support saw. Timestamps and row counts still match because the output length is correct; only the values are shifted.\",\n  \"files\": [\n    {\"path\": \"xarray/core/dask_array_ops.py\", \"why\": \"In the dask rolling_window, drop_size is computed as depth - pad_size + 1. It should be depth - pad_size.\"},\n    {\"path\": \"xarray/tests/test_duck_array_ops.py\", \"why\": \"The existing test_dask_rolling already covers window=8 with center=True. Add window=4 and 6 to the parametrization, and add a DataArray-level rolling().construct() test on chunked versus in-memory data.\"}\n  ],\n  \"plan\": [\n    \"In dask_array_ops.rolling_window, change `drop_size = depth[axis] - pad_size + 1` to `drop_size = depth[axis] - pad_size`.\",\n    \"Add even window sizes 4 and 6 to the test_dask_rolling parametrization.\",\n    \"Add a test that compares a chunked DataArray with an in-memory one for rolling(center=True).construct()/mean with window 4.\"\n  ],\n  \"verification\": [\n    \"Hand trace for window 4, center=True: numpy gives window i = orig[i-2..i+1]. Current dask code gives orig[i-1..i+2]. With the fix, dask gives orig[i-2..i+1].\",\n    \"Run xarray/tests/test_duck_array_ops.py::test_dask_rolling with even windows 4, 6 and 8 and center=True, plus the rolling tests in test_dataarray.py, in an environment that has numpy and dask installed (the probe environment does not).\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"likely\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.85,\n  \"claims\": [\n    {\n      \"id\": \"c1\",\n      \"text\": \"The dask path over-trims the padded result by one sample (+ 1), which shifts centered even windows of 4 or more.\",\n      \"role\": \"rootCause\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"xarray/core/dask_array_ops.py:69\", \"quote\": \"drop_size = depth[axis] - pad_size + 1\"}\n      ]\n    },\n    {\n      \"id\": \"c2\",\n      \"text\": \"The in-memory path centers with start = window/2 and end = window-1-start, so window 4 covers i-2..i+1. This is the reference the dask path should match.\",\n      \"role\": \"other\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"xarray/core/nputils.py:147\", \"quote\": \"start = int(window / 2)  # 10 -> 5,  9 -> 4\"}\n      ]\n    },\n    {\n      \"id\": \"c3\",\n      \"text\": \"The shift only appears when pad_size < depth, which for centered windows means even windows of 4 or more. Odd windows and window 2 skip this branch, which matches 'only the large-data export'.\",\n      \"role\": \"impact\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"xarray/core/dask_array_ops.py:60\", \"quote\": \"pad_size = max(start, end) + offset - depth[axis]\"}\n      ]\n    }\n  ],\n  \"ruledOut\": [\n    {\n      \"why\": \"The bottleneck path (dask_rolling_wrapper) is not the cause: it uses a symmetric overlap and no pad-and-drop step.\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"xarray/core/dask_array_ops.py:17\", \"quote\": \"depth[axis] = (window + 1) // 2\"}\n      ]\n    }\n  ],\n  \"intendedBehavior\": \"A centered rolling window of even size 4 or more on chunked data returns exactly the same values, with the same alignment, as the same calculation on in-memory data.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"The in-memory path and the existing dask test (test_dask_rolling, window 8 with center=True) both expect identical results. The extra + 1 is not documented anywhere and contradicts that contract.\"},\n  \"fixType\": \"silentFailure\",\n  \"headline\": \"Large-data trend calculations were shifted by one sample compared with small extracts.\",\n  \"happened\": \"For big datasets the trend is calculated in pieces, with extra padding at the start. For centered windows of an even length, such as four samples, the code removed one sample too few from that padding. Every window therefore lined up one sample later than on small data, while timestamps and row counts still matched.\",\n  \"matters\": \"Anyone computing centered even-length rolling averages or trends on large datasets gets quietly wrong values.\",\n  \"fix\": \"Trim exactly the padding that was added, by removing the extra sample in that calculation, and add tests that compare large and small data for even windows.\"\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 7,
+  "inputTokens": {
+   "avg": 16080.42857142857,
+   "max": 21403
+  },
+  "mainUsage": {
+   "inputTokens": 112563,
+   "cachedInputTokens": 98168,
+   "outputTokens": 7613
+  },
+  "cacheHitPercent": 87.21160594511518,
+  "wallSeconds": 59.11800003051758,
+  "tools": {
+   "read": 6,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 2
+  },
+  "reads": 6,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1317421,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1317421
+}

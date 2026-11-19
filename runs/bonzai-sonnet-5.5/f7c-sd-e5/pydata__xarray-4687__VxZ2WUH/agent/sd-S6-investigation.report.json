@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 35794,
+ "finalText": "The investigation points to expected behaviour, not a defect, so I'm not proposing a code change. I could not run anything: the probe environment has no numpy, so this rests on reading the code. This report adds the plain-language summary, claims and ruled-out items that the first one left out.\n\n```json\n{\n  \"verdict\": \"notActionable\",\n  \"title\": \"expand_dims result is a read-only broadcast view by design\",\n  \"cause\": \"When expand_dims is given a size or coordinates for a new dimension, Variable.set_dims builds the result with numpy's broadcast_to. That returns a read-only, zero-stride view of the original data and does no copy. The reporter then forced the writeable flag back on. A write through a zero-stride view hits the same memory for every index along the new dimension, so every inner value changes. This is numpy's documented broadcast behaviour. Xarray documents the result as a view, not a copy.\",\n  \"files\": [\n    {\"path\": \"xarray/core/variable.py\", \"why\": \"set_dims uses duck_array_ops.broadcast_to, which gives the read-only zero-stride view. A comment there shows the code only avoids broadcast_to when it is not needed, to keep the result writeable.\"},\n    {\"path\": \"xarray/core/dataset.py\", \"why\": \"Dataset.expand_dims calls v.set_dims(dict(all_dims)) for each data variable.\"},\n    {\"path\": \"xarray/core/dataarray.py\", \"why\": \"The DataArray.expand_dims docstring says the new object is a view into the underlying array, not a copy.\"}\n  ],\n  \"plan\": [\n    \"No code change is needed.\",\n    \"Optional: add a docstring note that expanding to a length greater than 1 returns a read-only broadcast view. Tell users to call .copy() before writing in place.\"\n  ],\n  \"verification\": [\n    \"Not run: the probe environment has no numpy. To check, run da.expand_dims(z=3).values.flags.writeable (expect False) and .strides (expect 0 on the new axis).\"\n  ],\n  \"userFacing\": false,\n  \"certainty\": \"likely\",\n  \"effort\": \"low\",\n  \"risk\": \"low\",\n  \"confidence\": 0.75,\n  \"deliberate\": true,\n  \"intent\": \"The expand_dims docstring promises a view, not a copy. The set_dims comment says broadcast_to is used only when necessary 'so the result remains writeable if possible'. Making the data writeable would mean copying, which is a design change and not a fix. No changelog entry or test treats the read-only result as a defect.\",\n  \"intendedBehavior\": \"expand_dims returns a view without copying. Users who need to write to the result call .copy() first.\",\n  \"fixType\": \"frustration\",\n  \"headline\": \"A user was surprised that an expanded array is read-only and that forcing it writable changes every copy of a value.\",\n  \"happened\": \"Expanding an array along a new dimension of length greater than 1 gives a read-only view that reuses the original data. The user switched the read-only protection off. After that, setting one value changed it everywhere along the new dimension, because all those positions share the same memory.\",\n  \"matters\": \"It only affects people who force a read-only expanded array to be writable, and the library documents that the result is a view and not a copy.\",\n  \"fix\": \"No change is needed. Optionally, add a documentation note that people should make a copy before editing an expanded array.\",\n  \"claims\": [\n    {\n      \"id\": \"c1\",\n      \"text\": \"set_dims uses broadcast_to when the new dimension has a size, which gives a read-only view without copying.\",\n      \"role\": \"rootCause\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"xarray/core/variable.py:1529\", \"quote\": \"expanded_data = duck_array_ops.broadcast_to(self.data, tmp_shape)\"}\n      ]\n    },\n    {\n      \"id\": \"c2\",\n      \"text\": \"The code only avoids broadcast_to when it is not needed, in order to keep the result writeable. This is intentional.\",\n      \"role\": \"other\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"xarray/core/variable.py:1523\", \"quote\": \"# don't use broadcast_to unless necessary so the result remains\"}\n      ]\n    },\n    {\n      \"id\": \"c3\",\n      \"text\": \"The public docstring says the result is a view and not a copy.\",\n      \"role\": \"other\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"xarray/core/dataarray.py:1919\", \"quote\": \"the corresponding position in the array shape. The new object is a\"}\n      ]\n    }\n  ],\n  \"ruledOut\": [\n    {\n      \"why\": \"Dataset.expand_dims does not mutate the input's flags. It calls set_dims, which builds a new Variable.\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"xarray/core/dataset.py:3722\", \"quote\": \"variables[k] = v.set_dims(dict(all_dims))\"}\n      ]\n    }\n  ]\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 8,
+  "inputTokens": {
+   "avg": 16176.625,
+   "max": 21013
+  },
+  "mainUsage": {
+   "inputTokens": 129413,
+   "cachedInputTokens": 115406,
+   "outputTokens": 4240
+  },
+  "cacheHitPercent": 89.17651240601795,
+  "wallSeconds": 34.37899994850159,
+  "tools": {
+   "read": 6,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 2
+  },
+  "reads": 6,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1004887,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1004887
+}

@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 45044,
+ "finalText": "Enum members used as default values in signatures now render as `MyEnum.ValueA` instead of `<MyEnum.ValueA: 10>`. The new regression test failed before the fix. After the fix, `tests/test_util_inspect.py`, `tests/test_ext_autodoc.py` and `tests/test_ext_autodoc_configs.py` pass together (135 tests). I did not build the docs for the example repo in the issue.\n\nThe investigation's cause was right. `stringify_signature` formats defaults through `object_description()` in `sphinx/util/inspect.py`, which fell back to `repr()` for Enum members. I added an `enum.Enum` case before that fallback, returning the class name and member name.\n\n- **Test:** `test_enum_description` in `tests/test_util_inspect.py` checks both `object_description` and a full signature string.\n- **Changelog:** I added a \"Bugs fixed\" entry to `CHANGES`. It has no issue number, since the evidence doesn't give one.\n- **Pull request text:** written to `.factory/pr-S3.md`. Nothing is committed or pushed, as the benchmark note required; the changes are left in the working tree.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"checks\": [\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest tests/test_util_inspect.py tests/test_ext_autodoc.py tests/test_ext_autodoc_configs.py -q\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"reproduction\": \"Call sphinx.util.inspect.object_description(MyEnum.ValueA) or stringify_signature on a function with `e: MyEnum = MyEnum.ValueA`; before the fix it yields '<MyEnum.ValueA: 10>'.\",\n  \"reproductionTest\": {\n    \"path\": \"tests/test_util_inspect.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest tests/test_util_inspect.py -k enum_description -q\",\n    \"signature\": \"FAILED tests/test_util_inspect.py::test_enum_description - AssertionError\"\n  },\n  \"noProofReason\": \"Benchmark run: no pull request opened; the fix is proven by the regression test.\"\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 12,
+  "inputTokens": {
+   "avg": 22968,
+   "max": 26591
+  },
+  "mainUsage": {
+   "inputTokens": 275616,
+   "cachedInputTokens": 262913,
+   "outputTokens": 4274
+  },
+  "cacheHitPercent": 95.39105131777545,
+  "wallSeconds": 43.67900013923645,
+  "tools": {
+   "read": 8,
+   "edit": 5,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 3
+  },
+  "reads": 8,
+  "edits": 5,
+  "runs": 3,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 5,
+  "editOperations": 5,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1270661,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1270661
+}

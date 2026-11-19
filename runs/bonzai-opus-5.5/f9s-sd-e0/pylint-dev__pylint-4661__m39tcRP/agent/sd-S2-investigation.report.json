@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 85697,
+ "finalText": "I checked the report against your request again. Everything is in place, so here is the final report.\n\nPylint stores its saved run data in a `.pylint.d` folder directly in your home directory. It never checks the standard Linux locations, so the reported problem still exists in the current code. A small change would fix it. One caveat: the home-folder location is also the documented behaviour, so moving it is partly a product decision.\n\n**The cause:** when `PYLINTHOME` isn't set, `pylint/config/__init__.py` (lines 58\u201366) uses `~/.pylint.d`, or `./.pylint.d` when no home folder is found. It never reads `XDG_CACHE_HOME` or `XDG_DATA_HOME`. It also creates the folder with `os.mkdir`, which can only make one folder level, so it can't create a nested standard path like `~/.cache/pylint`.\n\n**What I ran (in a throwaway copy):**\n- I set `HOME=/tmp/h`, `XDG_CACHE_HOME` and `XDG_DATA_HOME`, then saved a result. It was written to `/tmp/h/.pylint.d/mod1.stats`, not under `.cache` or `.local/share`.\n- The existing test `test_pylint_home` passes because it asserts the `~/.pylint.d` path itself. It confirms the current behaviour; it doesn't show a crash.\n\n**Why I called it fixable rather than a deliberate design:** the FAQ (`doc/faq.rst` section 3.2) and that test both describe `~/.pylint.d`, so the folder location was chosen. But no comment, changelog entry or test shows a decision to ignore the XDG standard, and a user reported the clutter themselves. If the team sees `~/.pylint.d` as a firm design choice, the verdict should be \"notActionable\" instead.\n\n**What the fix would take:**\n1. Default to the platform's standard cache folder, using `platformdirs.user_cache_dir(\"pylint\")`, and add `platformdirs` as a dependency.\n2. Keep `PYLINTHOME` as the override.\n3. Create the folder with `os.makedirs(..., exist_ok=True)`.\n4. Update the startup help text, the FAQ, the ChangeLog and `test_pylint_home`.\n5. Optionally tell people who still have an old `~/.pylint.d` that they can remove it.\n\nThe only risk is that existing users lose their previous scores once, the first time they run the new version.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Pylint clutters home folder with .pylint.d\",\n  \"cause\": \"pylint/config/__init__.py decides where to store run data once, when pylint starts: PYLINTHOME if set, otherwise ~/.pylint.d (or ./.pylint.d when no home folder is found). It never reads XDG_CACHE_HOME or XDG_DATA_HOME or uses the platform's standard cache folder, so every user without PYLINTHOME gets a .pylint.d folder in their home directory. save_results also uses os.mkdir, which cannot create a nested standard path.\",\n  \"files\": [\n    {\"path\": \"pylint/config/__init__.py\", \"why\": \"Sets PYLINT_HOME to ~/.pylint.d, creates it with os.mkdir, and contains the PYLINTHOME help text\"},\n    {\"path\": \"tests/lint/unittest_lint.py\", \"why\": \"test_pylint_home asserts the ~/.pylint.d default and must follow the new location\"},\n    {\"path\": \"doc/faq.rst\", \"why\": \"FAQ 3.2 documents where run data is stored\"},\n    {\"path\": \"setup.cfg\", \"why\": \"Add platformdirs to install_requires\"},\n    {\"path\": \"ChangeLog\", \"why\": \"Record the new storage location\"}\n  ],\n  \"plan\": [\n    \"Add platformdirs as a dependency in setup.cfg\",\n    \"Default PYLINT_HOME to platformdirs.user_cache_dir('pylint') (which respects XDG_CACHE_HOME on Linux); keep PYLINTHOME as the override\",\n    \"Create the folder in save_results with os.makedirs(PYLINT_HOME, exist_ok=True) so nested paths work\",\n    \"Optionally print a one-time notice when an old ~/.pylint.d exists, saying it can be removed\",\n    \"Update ENV_HELP, doc/faq.rst 3.2, the ChangeLog and test_pylint_home\"\n  ],\n  \"verification\": [\n    \"With HOME=/tmp/h and XDG_CACHE_HOME=/tmp/h/.cache, run config.save_results({'a':1}, 'mod'): the file is written to /tmp/h/.cache/pylint/mod1.stats and /tmp/h/.pylint.d does not exist\",\n    \"With PYLINTHOME set, data is still written there\",\n    \"Updated test_pylint_home and the rest of tests/lint/unittest_lint.py pass\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.75,\n  \"fixType\": \"frustration\",\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"When PYLINTHOME is unset, the storage folder is hard-coded to ~/.pylint.d and no XDG variable is ever read.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"pylint/config/__init__.py:66\", \"quote\": \"PYLINT_HOME = os.path.join(USER_HOME, \\\".pylint.d\\\")\"},\n      {\"type\": \"code\", \"ref\": \"pylint/config/__init__.py:64\", \"quote\": \"PYLINT_HOME = \\\".pylint.d\\\"\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"rootCause\", \"text\": \"The folder is created with a single-level os.mkdir, so a nested standard path like ~/.cache/pylint cannot be created as the code stands.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"pylint/config/__init__.py:86\", \"quote\": \"os.mkdir(PYLINT_HOME)\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"impact\", \"text\": \"Even with XDG_CACHE_HOME and XDG_DATA_HOME set, a saved run lands in a .pylint.d folder in the home directory.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:save_results with HOME=/tmp/h XDG_CACHE_HOME=/tmp/h/.cache\", \"quote\": \"/tmp/h/.pylint.d/mod1.stats\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"trigger\", \"text\": \"A user reported the .pylint.d folder in their home directory and asked for the XDG standard folders instead.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s2\", \"quote\": \"I have this really annoying `.pylint.d` directory in my home folder.\"}\n    ]},\n    {\"id\": \"c5\", \"role\": \"other\", \"text\": \"The current location is documented in the FAQ and asserted by an existing test, so the fix must update both.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"tests/lint/unittest_lint.py:634\", \"quote\": \"expected = os.path.join(uhome, \\\".pylint.d\\\")\"},\n      {\"type\": \"doc\", \"ref\": \"doc/faq.rst\", \"quote\": \"* \\\".pylint.d\\\" subdirectory of the user's home directory if it is found\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"Already fixed by a later change in this checkout\", \"why\": \"The current code still defaults to ~/.pylint.d, the probe wrote there, and the ChangeLog only mentions PYLINTHOME for an old change about creating the folder when needed.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"pylint/config/__init__.py:66\", \"quote\": \"PYLINT_HOME = os.path.join(USER_HOME, \\\".pylint.d\\\")\"}\n    ]},\n    {\"hypothesis\": \"Covered by an open pull request\", \"why\": \"No open pull requests are listed.\", \"citations\": []}\n  ],\n  \"intendedBehavior\": \"With PYLINTHOME unset and XDG_CACHE_HOME=/x/.cache on Linux, pylint saves run data under /x/.cache/pylint and creates no .pylint.d folder in the home directory.\",\n  \"intent\": {\n    \"deliberate\": false,\n    \"evidence\": \"The FAQ and test_pylint_home document and assert ~/.pylint.d, so the location was chosen. No comment, changelog entry or test shows a decision to ignore the platform's standard cache folder or the XDG variables, and the reported clutter in the home directory was not itself chosen. If the team treats ~/.pylint.d as a firm design choice, this becomes notActionable.\"\n  },\n  \"plain\": {\n    \"headline\": \"Pylint leaves a hidden data folder in people's home directory instead of the standard place Linux sets aside for app data.\",\n    \"happened\": \"Each time pylint runs, it saves scores so it can compare them with the next run. It always puts them in a folder of its own directly in the home directory. It ignores the settings Linux uses to say where apps should keep cached data.\",\n    \"matters\": \"Every Linux user who doesn't set pylint's own storage setting gets this extra folder in their home directory, and people who keep their home folder tidy find it annoying enough to report.\",\n    \"fix\": \"Store the saved scores in the standard cache folder by default, keep the existing setting as an override, and update the docs and test.\"\n  },\n  \"source\": \"S2\"\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 7,
+  "inputTokens": {
+   "avg": 16045.714285714286,
+   "max": 21171
+  },
+  "mainUsage": {
+   "inputTokens": 112320,
+   "cachedInputTokens": 98157,
+   "outputTokens": 8728
+  },
+  "cacheHitPercent": 87.39049145299145,
+  "wallSeconds": 84.59899997711182,
+  "tools": {
+   "read": 2,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 3
+  },
+  "reads": 2,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.2649884,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.2649884
+}

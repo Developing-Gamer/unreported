@@ -1,0 +1,8 @@
+[
+  {"source": "S1", "decision": "fix", "reason": "get_template_directories() still turns an empty string in TEMPLATES DIRS (or a loader's get_dirs()) into the current working directory, so template_changed() matches every non-.py file and blocks autoreload."},
+  {"source": "S2", "decision": "skip", "reason": "Already implemented: ModelAdmin.get_inlines(request, obj) exists in django/contrib/admin/options.py and get_inline_instances() uses it."},
+  {"source": "S3", "decision": "skip", "reason": "Too vague to act on: an Oracle CI chat message about test-schema visibility between aliases, with no configuration, reproduction, or pointer to defective Django code."},
+  {"source": "S4", "decision": "skip", "reason": "An OOMKilled export worker in an external service (export/worker.py, export/csv_writer.py), not code in this repository."},
+  {"source": "S5", "decision": "skip", "reason": "A customer-support report about an application's saved search filter, with no query or link to Django ORM code, so there is nothing actionable here."},
+  {"source": "S6", "decision": "skip", "reason": "Already fixed: django/utils/autoreload.py get_child_arguments() only uses spec.parent when spec.name is __main__ or ends with .__main__, and otherwise passes the full dotted module name."}
+]

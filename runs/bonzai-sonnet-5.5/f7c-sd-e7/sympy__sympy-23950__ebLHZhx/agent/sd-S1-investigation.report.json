@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 91098,
+ "finalText": "The cause is in this repository: a two-cohort mixture density loses its last cohort when it is computed. I fixed one citation, which pointed at line 1 instead of line 56, and re-read the code. The earlier probe runs still stand, and I made no new ones.\n\nI could not reach Sentry or PostHog in this run, so I did not see the production event or who else it affects. I also did not check whether the \"forecasting-support\" service builds its forecast this way. The link to the reported 0.75 rests on the reproduction.\n\n**Cause.** `CompoundDistribution._marginalise` in `sympy/stats/compound_rv.py` (line 204\u2013205) sums a discrete or finite parameter only up to `_sup - 1`. With two cohorts (values 0 and 1) it drops the last one, so the density totals only the remaining weight.\n\n**Evidence from probe.**\n- A `Bernoulli('B', 3/4, 0, 1)` parameter feeding a `NormalDistribution(B, 1)` gives the density `3*sqrt(2)*exp(-x**2/2)/(8*sqrt(pi))`.\n- That density integrates to `3/4`.\n- The existing test `test_bernoulli_CompoundDist` fails with an `AssertionError`. The other five tests in `sympy/stats/tests/test_compound_rv.py` pass.\n\n**Intent.** Nothing in the code or tests suggests dropping the last value was chosen. A density that integrates to less than 1 is outside what a probability density allows.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Two-cohort mixture density loses its last cohort\",\n  \"cause\": \"CompoundDistribution._marginalise sums a discrete/finite random parameter from its lower bound to its upper bound minus 1. The final value (the second cohort) is dropped, so the density integrates to the weight of the remaining cohorts only (0.75 for weights 0.75/0.25). Probe run: Bernoulli(3/4) parameter into a Normal gives a density integrating to 3/4, and test_bernoulli_CompoundDist fails.\",\n  \"files\": [\n    {\"path\": \"sympy/stats/compound_rv.py\", \"why\": \"_marginalise uses `rv_dom._sup - 1` as the Sum upper limit for discrete/finite parameters, omitting the last value\"}\n  ],\n  \"plan\": [\n    \"Change the Sum limits in CompoundDistribution._marginalise (lines 203-205) to (rv, rv_dom._inf, rv_dom._sup)\",\n    \"Add a regression test: compound of a two-valued finite parameter integrates to 1\"\n  ],\n  \"verification\": [\n    \"Run sympy/stats/tests/test_compound_rv.py; test_bernoulli_CompoundDist should pass\",\n    \"Integrate the Bernoulli(3/4) compound Normal density over the real line and confirm it equals 1\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.92,\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"The Sum over a discrete/finite parameter stops at _sup - 1, dropping the last value.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"sympy/stats/compound_rv.py:204\", \"quote\": \"expr = Sum(expr*rv_dens, (rv, rv_dom._inf,\"}, {\"type\": \"code\", \"ref\": \"sympy/stats/compound_rv.py:205\", \"quote\": \"rv_dom._sup - 1))\"}]},\n    {\"id\": \"c2\", \"text\": \"A probe run with Bernoulli(3/4) into a Normal gave a density integrating to 3/4, and the existing Bernoulli compound test failed.\", \"role\": \"impact\", \"citations\": [{\"type\": \"code\", \"ref\": \"sympy/stats/tests/test_compound_rv.py:56\", \"quote\": \"def test_bernoulli_CompoundDist():\"}]}\n  ],\n  \"intendedBehavior\": \"A compound distribution over a finite cohort parameter has a density that integrates to 1 when the cohort weights sum to 1.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"No comment or test supports excluding the last value. The existing Bernoulli compound test expects the correct, normalised result and fails.\"},\n  \"fixType\": \"error\",\n  \"plain\": {\n    \"headline\": \"The combined forecast for two groups only counted 75% of the probability because the last group was left out.\",\n    \"happened\": \"When the forecast blends several groups by their weights, the calculation adds up the groups one by one. It stops one group early, so the final group is never included. With two groups weighted 75% and 25%, only the 75% part is counted.\",\n    \"matters\": \"Any forecast built by blending a small number of groups gives wrong probabilities and totals.\",\n    \"fix\": \"Make the calculation include the last group, and add a check that the blended forecast always totals 100%.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 10,
+  "inputTokens": {
+   "avg": 16076.9,
+   "max": 20574
+  },
+  "mainUsage": {
+   "inputTokens": 160769,
+   "cachedInputTokens": 147195,
+   "outputTokens": 5569
+  },
+  "cacheHitPercent": 91.55682998588036,
+  "wallSeconds": 90.29900002479553,
+  "tools": {
+   "read": 6,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 1,
+   "subagent": 0,
+   "other": 2
+  },
+  "reads": 6,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.119052,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.119052
+}

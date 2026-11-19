@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 36595,
+ "finalText": "I checked the report against the request and added the fields it was missing: checkable claims, a plain-language section, the Python 3.11 probe result as a citation, and the title length. The cause and plan are unchanged. In `plain`, the \"fix\" line now avoids naming the setting.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Every request fails on Python 3.4+ (strict argument)\",\n  \"cause\": \"The bundled urllib3 creates connections with HTTPConnection(..., strict=self.strict). Python 3.4+ removed the strict parameter from http.client, so the first connection to any host raises TypeError. Only Python 2.6-3.3 are tested, so nothing caught it.\",\n  \"files\": [\n    {\"path\": \"requests/packages/urllib3/connectionpool.py\", \"why\": \"_new_conn in the HTTP pool and in the HTTPS pool pass strict= to HTTPConnection, HTTPSConnection and VerifiedHTTPSConnection (lines 196-198, 540-546).\"},\n    {\"path\": \"requests/packages/urllib3/response.py\", \"why\": \"Already reads strict with getattr, so it is safe; it only needs checking when the fix is made.\"},\n    {\"path\": \".travis.yml\", \"why\": \"CI lacks Python 3.4+, so the break was never exercised.\"}\n  ],\n  \"plan\": [\n    \"Add a helper in connectionpool.py that builds the connection kwargs and includes strict only on Python < 3.4. Alternatively, wrap the call so strict is dropped when it is False or unsupported.\",\n    \"Use it in HTTPConnectionPool._new_conn and in both HTTPSConnectionPool._new_conn branches.\",\n    \"Add a regression test that creates a pool and calls _new_conn without a network call.\",\n    \"Add Python 3.4+ to .travis.yml.\"\n  ],\n  \"verification\": [\n    \"On Python 3.4+, HTTPConnectionPool('localhost')._new_conn() and HTTPSConnectionPool(...)._new_conn() return a connection with no TypeError.\",\n    \"A request to a local test server succeeds.\",\n    \"Existing tests still pass on Python 2.7.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"likely\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.85,\n  \"fixType\": \"dependency\",\n  \"intendedBehavior\": \"Creating an HTTP or HTTPS connection from a pool succeeds on every supported Python version, including 3.4 and later, whatever the strict setting.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"strict was valid for http.client up to Python 3.3, and .travis.yml tests only 2.6-3.3. Nothing in the repository chose to break Python 3.4+; it is an unhandled case.\"},\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"The HTTP pool passes strict to HTTPConnection when creating a connection.\", \"role\": \"rootCause\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/packages/urllib3/connectionpool.py:196\", \"quote\": \"return HTTPConnection(host=self.host,\\n                              port=self.port,\\n                              strict=self.strict)\"}\n    ]},\n    {\"id\": \"c2\", \"text\": \"The HTTPS pool does the same for the secure connection classes.\", \"role\": \"rootCause\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/packages/urllib3/connectionpool.py:544\", \"quote\": \"connection = VerifiedHTTPSConnection(host=self.host,\\n                                             port=self.port,\\n                                             strict=self.strict)\"}\n    ]},\n    {\"id\": \"c3\", \"text\": \"The failing call is made when the pool needs a new connection, which matches the reported stack.\", \"role\": \"trigger\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/packages/urllib3/connectionpool.py:231\", \"quote\": \"return conn or self._new_conn()\"},\n      {\"type\": \"evidence\", \"ref\": \"ev_s2\", \"quote\": \"requests/packages/urllib3/connectionpool.py:231 in _get_conn\"}\n    ]},\n    {\"id\": \"c4\", \"text\": \"On Python 3.11, constructing HTTPConnection with strict raises the exact reported TypeError.\", \"role\": \"other\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s2\", \"quote\": \"TypeError: __init__() got an unexpected keyword argument 'strict'\"}\n    ]},\n    {\"id\": \"c5\", \"text\": \"CI only covers Python versions up to 3.3, so the break was never caught.\", \"role\": \"other\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \".travis.yml:2\", \"quote\": \"python:\\n  - 2.6\\n  - 2.7\\n  - 3.2\\n  - 3.3\"}\n    ]},\n    {\"id\": \"c6\", \"text\": \"Every request is affected on newer Python, because the head, put and post frames are only wrappers in api.py.\", \"role\": \"impact\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s2\", \"quote\": \"events: 766 in the last 7 days, users affected: 11\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"response.py strict handling causes the error\", \"why\": \"It reads strict with getattr, so it cannot raise this TypeError.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/packages/urllib3/response.py:199\", \"quote\": \"strict = getattr(r, 'strict', 0)\"}\n    ]}\n  ],\n  \"plain\": {\n    \"headline\": \"Some people's web requests failed outright because the library used an option that newer Python versions no longer accept.\",\n    \"happened\": \"When a request needed a new connection, the library passed a setting that Python 3.4 and later removed. Python rejected it with an error before anything was sent. This happened for every kind of request, on both plain and secure addresses.\",\n    \"matters\": \"It hits everyone running the product on a newer Python (about 11 people in the last week, 766 errors).\",\n    \"fix\": \"Pass that setting only on the old Python versions that support it, and start testing on newer Python versions.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 6,
+  "inputTokens": {
+   "avg": 15685.833333333334,
+   "max": 19022
+  },
+  "mainUsage": {
+   "inputTokens": 94115,
+   "cachedInputTokens": 82103,
+   "outputTokens": 4892
+  },
+  "cacheHitPercent": 87.23689103756043,
+  "wallSeconds": 35.949000120162964,
+  "tools": {
+   "read": 5,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 2
+  },
+  "reads": 5,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 3,
+   "readFileIgnoringRange": 3
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.0953626,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.0953626
+}

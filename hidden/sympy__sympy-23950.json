@@ -1,0 +1,46 @@
+{
+ "task": "sympy__sympy-23950",
+ "kept": [
+  {
+   "path": "sympy/stats/compound_rv.py",
+   "category": "silent wrong result (a value or output that is subtly wrong, no exception)",
+   "defect_patch": "diff --git a/sympy/stats/compound_rv.py b/sympy/stats/compound_rv.py\nindex bf5d77972f..3a834ccb10 100644\n--- a/sympy/stats/compound_rv.py\n+++ b/sympy/stats/compound_rv.py\n@@ -202,7 +202,7 @@ def _marginalise(self, expr, rv, evaluate):\n         rv_dom = rv.pspace.domain.set\n         if rv.pspace.is_Discrete or rv.pspace.is_Finite:\n             expr = Sum(expr*rv_dens, (rv, rv_dom._inf,\n-                    rv_dom._sup))\n+                    rv_dom._sup - 1))\n         else:\n             expr = Integral(expr*rv_dens, (rv, rv_dom._inf,\n                     rv_dom._sup))\n",
+   "test_code": "from sympy import Rational, exp, pi, simplify, sqrt\nfrom sympy.stats import Bernoulli, Normal, density\n\n\ndef test_normal_with_bernoulli_mean_density():\n    mean = Bernoulli('mean', Rational(1, 4))\n    observation = Normal('observation', mean, 1)\n\n    actual = density(observation)(0)\n    expected = (Rational(3, 4) + exp(-Rational(1, 2)) / 4) / sqrt(2*pi)\n\n    assert simplify(actual - expected) == 0\n",
+   "signal": {
+    "kind": "user",
+    "source": "forecasting-support",
+    "text": "The two-cohort forecast density now integrates to 0.75, even though the configured cohort weights still add up to 1."
+   },
+   "summary": "An off-by-one upper summation bound omits the largest outcome of finite-support random parameters, producing incorrect, unnormalized compound densities."
+  },
+  {
+   "path": "sympy/physics/optics/utils.py",
+   "category": "swallowed error (an exception caught and ignored, or an error path that returns a default)",
+   "defect_patch": "diff --git a/sympy/physics/optics/utils.py b/sympy/physics/optics/utils.py\nindex 4f1f612b21..fc5ac78330 100644\n--- a/sympy/physics/optics/utils.py\n+++ b/sympy/physics/optics/utils.py\n@@ -141,7 +141,7 @@ def refraction_angle(incident, medium1, medium2, normal=None, plane=None):\n             raise ValueError('Angle of incidence not in range [0:pi/2)')\n \n         if critical_angle_ and angle_of_incidence > critical_angle_:\n-            raise ValueError('Ray undergoes total internal reflection')\n+            return S.Zero\n         return asin(n1*sin(angle_of_incidence)/n2)\n \n     # Treat the incident as ray below\n",
+   "test_code": "from sympy import Rational, pi\nfrom sympy.physics.optics import refraction_angle\n\n\ndef test_scalar_total_internal_reflection_is_rejected():\n    error = None\n    try:\n        refraction_angle(pi/3, Rational(3, 2), 1)\n    except ValueError as exc:\n        error = exc\n\n    assert error is not None, 'Total internal reflection must not produce a transmitted angle'\n    assert 'total internal reflection' in str(error)\n",
+   "signal": {
+    "kind": "user",
+    "source": "Optical calculator support",
+    "text": "At steep glass-to-air angles, the calculator sometimes shows a zero-degree outgoing ray rather than marking it unavailable. Lower-angle cases still look normal."
+   },
+   "summary": "Scalar refraction silently returns zero instead of raising ValueError when the incident angle produces total internal reflection."
+  }
+ ],
+ "rejected": [
+  {
+   "path": "sympy/physics/quantum/operatorset.py",
+   "category": "silent wrong result (a value or output that is subtly wrong, no exception)",
+   "defect_patch": "--- a/sympy/physics/quantum/operatorset.py\n+++ b/sympy/physics/quantum/operatorset.py\n@@ -37,7 +37,7 @@\n                   JyKet: frozenset((J2Op, JyOp)),\n                   JzKet: frozenset((J2Op, JzOp)),\n                   Ket: Operator,\n-                  PositionKet3D: frozenset((XOp, YOp, ZOp)),\n+                  PositionKet3D: frozenset((XOp, YOp, YOp)),\n                   PxKet: PxOp,\n                   XKet: XOp }\n \n",
+   "test_code": "import pytest\n\nfrom sympy.physics.quantum.cartesian import PositionKet3D, XOp, YOp, ZOp\nfrom sympy.physics.quantum.operatorset import operators_to_state\n\n\n@pytest.mark.parametrize('use_instances', [False, True])\ndef test_complete_cartesian_basis_resolves_to_position_state(use_instances):\n    operators = {XOp, YOp, ZOp}\n    if use_instances:\n        operators = {operator() for operator in operators}\n\n    state = operators_to_state(operators)\n\n    assert state is PositionKet3D or isinstance(state, PositionKet3D)\n",
+   "signal": {
+    "kind": "user",
+    "source": "quantum-workbench support",
+    "text": "Choosing all three position coordinates now shows an unknown basis in the preview. Choosing just the x coordinate still works."
+   },
+   "summary": "A duplicated YOp entry drops ZOp from the three-dimensional position mapping, causing complete Cartesian operator sets to resolve to None.",
+   "reject": "test does not separate defect from original",
+   "on_defect": "5: AssertionError\n=========================== short test summary info ============================\nFAILED ../tmp/test_hidden_problem.py::test_complete_cartesian_basis_resolves_to_position_state[False]\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed in 0.26s\n",
+   "on_clean": "uteError\n=========================== short test summary info ============================\nFAILED ../tmp/test_hidden_problem.py::test_complete_cartesian_basis_resolves_to_position_state[True]\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 1 passed in 0.25s\n"
+  }
+ ]
+}

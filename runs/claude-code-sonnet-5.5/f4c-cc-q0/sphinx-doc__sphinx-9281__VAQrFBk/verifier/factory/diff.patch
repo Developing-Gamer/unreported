@@ -1,0 +1,95 @@
+diff --git a/CHANGES b/CHANGES
+index 64410011e..364afc27c 100644
+--- a/CHANGES
++++ b/CHANGES
+@@ -59,6 +59,10 @@ Bugs fixed
+   :confval:`man_make_section_directory` is not correct
+ * #9224: ``:param:`` and ``:type:`` fields does not support a type containing
+   whitespace (ex. ``Dict[str, str]``)
++* autodoc: Enum members used as default values are rendered as
++  ``<MyEnum.A: 1>`` instead of ``MyEnum.A``
++* LaTeX: the spacing fix after a period of an abbreviation was not applied if
++  the period was followed by a line break (or other whitespace than a space)
+ 
+ Testing
+ --------
+diff --git a/sphinx/util/inspect.py b/sphinx/util/inspect.py
+index a415a7074..95a7d534d 100644
+--- a/sphinx/util/inspect.py
++++ b/sphinx/util/inspect.py
+@@ -432,6 +432,8 @@ def safe_getattr(obj: Any, name: str, *defargs: Any) -> Any:
+ 
+ def object_description(object: Any) -> str:
+     """A repr() implementation that returns text safe to use in reST context."""
++    if isinstance(object, enum.Enum):
++        return "%s.%s" % (object.__class__.__name__, object.name)
+     if isinstance(object, dict):
+         try:
+             sorted_keys = sorted(object)
+diff --git a/sphinx/util/texescape.py b/sphinx/util/texescape.py
+index 3b80dcfa2..8dcc08a9b 100644
+--- a/sphinx/util/texescape.py
++++ b/sphinx/util/texescape.py
+@@ -128,7 +128,7 @@ def hlescape(s: str, latex_engine: str = None) -> str:
+ 
+ def escape_abbr(text: str) -> str:
+     """Adjust spacing after abbreviations. Works with @ letter or other."""
+-    return re.sub(r'\.(?= |$)', r'.\@{}', text)
++    return re.sub(r'\.(?=\s|$)', r'.\@{}', text)
+ 
+ 
+ def init() -> None:
+diff --git a/tests/test_util_inspect.py b/tests/test_util_inspect.py
+index de4ad9236..c848ca2a1 100644
+--- a/tests/test_util_inspect.py
++++ b/tests/test_util_inspect.py
+@@ -10,6 +10,7 @@
+ 
+ import ast
+ import datetime
++import enum
+ import functools
+ import sys
+ import types
+@@ -516,6 +517,14 @@ def test_dict_customtype():
+     assert "<CustomType(2)>: 2" in description
+ 
+ 
++def test_enum_description():
++    class MyEnum(enum.Enum):
++        a = 1
++
++    assert inspect.object_description(MyEnum.a) == "MyEnum.a"
++    assert inspect.object_description({MyEnum.a: MyEnum.a}) == "{MyEnum.a: MyEnum.a}"
++
++
+ def test_getslots():
+     class Foo:
+         pass
+diff --git a/tests/test_util_texescape.py b/tests/test_util_texescape.py
+new file mode 100644
+index 000000000..daedfd00f
+--- /dev/null
++++ b/tests/test_util_texescape.py
+@@ -0,0 +1,21 @@
++"""
++    test_util_texescape
++    ~~~~~~~~~~~~~~~~~~~
++
++    Test sphinx.util.texescape.
++
++    :copyright: Copyright 2007-2021 by the Sphinx team, see AUTHORS.
++    :license: BSD, see LICENSE for details.
++"""
++
++from sphinx.util import texescape
++
++
++def test_escape_abbr():
++    assert texescape.escape_abbr('Proj. name') == r'Proj.\@{} name'
++    assert texescape.escape_abbr('Proj.') == r'Proj.\@{}'
++    # a period before a line break must be handled like one before a space
++    assert texescape.escape_abbr('Proj.\nname') == 'Proj.\\@{}\nname'
++    assert texescape.escape_abbr('Proj.\tname') == 'Proj.\\@{}\tname'
++    # periods inside words are untouched
++    assert texescape.escape_abbr('a.b') == 'a.b'

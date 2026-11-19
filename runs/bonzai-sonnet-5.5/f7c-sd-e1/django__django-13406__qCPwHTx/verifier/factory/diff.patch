@@ -1,0 +1,114 @@
+diff --git a/django/db/models/query.py b/django/db/models/query.py
+index b48d0df9c0..85cd8311a7 100644
+--- a/django/db/models/query.py
++++ b/django/db/models/query.py
+@@ -210,6 +210,8 @@ class QuerySet:
+ 
+     @query.setter
+     def query(self, value):
++        if value.values_select:
++            self._iterable_class = ValuesIterable
+         self._query = value
+ 
+     def as_manager(cls):
+diff --git a/django/utils/dateformat.py b/django/utils/dateformat.py
+index 72b3aca7f2..afd36d79e0 100644
+--- a/django/utils/dateformat.py
++++ b/django/utils/dateformat.py
+@@ -277,7 +277,7 @@ class DateFormat(TimeFormat):
+ 
+     def o(self):
+         "ISO 8601 year number matching the ISO week number (W)"
+-        return self.data.year
++        return self.data.isocalendar()[0]
+ 
+     def r(self):
+         "RFC 5322 formatted date; e.g. 'Thu, 21 Dec 2000 16:01:07 +0200'"
+diff --git a/django/views/defaults.py b/django/views/defaults.py
+index 1873a40d56..2fb0d0b38c 100644
+--- a/django/views/defaults.py
++++ b/django/views/defaults.py
+@@ -86,7 +86,6 @@ def server_error(request, template_name=ERROR_500_TEMPLATE_NAME):
+     """
+     try:
+         template = loader.get_template(template_name)
+-        return HttpResponseServerError(template.render())
+     except TemplateDoesNotExist:
+         if template_name != ERROR_500_TEMPLATE_NAME:
+             # Reraise if it's a missing custom template.
+@@ -95,6 +94,7 @@ def server_error(request, template_name=ERROR_500_TEMPLATE_NAME):
+             ERROR_PAGE_TEMPLATE % {'title': 'Server Error (500)', 'details': ''},
+             content_type='text/html',
+         )
++    return HttpResponseServerError(template.render())
+ 
+ 
+ @requires_csrf_token
+diff --git a/tests/queryset_pickle/tests.py b/tests/queryset_pickle/tests.py
+index a58e45caed..d164b75606 100644
+--- a/tests/queryset_pickle/tests.py
++++ b/tests/queryset_pickle/tests.py
+@@ -297,3 +297,10 @@ class InLookupTests(TestCase):
+             reloaded_events.query = reloaded
+ 
+         self.assertSequenceEqual(reloaded_events, [self.e1])
++
++    def test_values_queryset_from_pickled_query(self):
++        group = Group.objects.get(name='Group 2')
++        qs = Event.objects.values('group').annotate(count=models.Count('id')).order_by('group')
++        reloaded_qs = Event.objects.all()
++        reloaded_qs.query = pickle.loads(pickle.dumps(qs.query))
++        self.assertSequenceEqual(reloaded_qs, [{'group': group.pk, 'count': 1}])
+diff --git a/tests/utils_tests/test_dateformat.py b/tests/utils_tests/test_dateformat.py
+index d050ac4352..215fc00679 100644
+--- a/tests/utils_tests/test_dateformat.py
++++ b/tests/utils_tests/test_dateformat.py
+@@ -116,6 +116,18 @@ class DateFormatTests(SimpleTestCase):
+         the_future = datetime(2100, 10, 25, 0, 00)
+         self.assertEqual(dateformat.format(the_future, r'Y'), '2100')
+ 
++    def test_iso_year(self):
++        # 'o' is the ISO 8601 year matching the ISO week number 'W'.
++        cases = [
++            (date(2021, 1, 1), '2020-53'),
++            (date(2020, 12, 31), '2020-53'),
++            (date(2018, 12, 31), '2019-1'),
++            (date(2021, 6, 15), '2021-24'),
++        ]
++        for value, expected in cases:
++            with self.subTest(value=value):
++                self.assertEqual(dateformat.format(value, 'o-W'), expected)
++
+     def test_day_of_year_leap(self):
+         self.assertEqual(dateformat.format(datetime(2000, 12, 31), 'z'), '366')
+ 
+diff --git a/tests/view_tests/tests/test_defaults.py b/tests/view_tests/tests/test_defaults.py
+index 94255e517c..db2bed151b 100644
+--- a/tests/view_tests/tests/test_defaults.py
++++ b/tests/view_tests/tests/test_defaults.py
+@@ -107,6 +107,25 @@ class DefaultsTests(TestCase):
+         response = self.client.get('/technical404/')
+         self.assertContains(response, 'exception: Testing technical 404.', status_code=404)
+ 
++    @override_settings(TEMPLATES=[{
++        'BACKEND': 'django.template.backends.django.DjangoTemplates',
++        'OPTIONS': {
++            'loaders': [
++                ('django.template.loaders.locmem.Loader', {
++                    '500.html': '{% extends "nonexistent_base.html" %}',
++                }),
++            ],
++        },
++    }])
++    def test_server_error_broken_template(self):
++        """
++        A missing template used by an existing 500.html isn't hidden behind the
++        generic 500 page.
++        """
++        request = self.request_factory.get('/')
++        with self.assertRaisesMessage(TemplateDoesNotExist, 'nonexistent_base.html'):
++            server_error(request)
++
+     def test_get_absolute_url_attributes(self):
+         "A model can set attributes on the get_absolute_url method"
+         self.assertTrue(getattr(UrlArticle.get_absolute_url, 'purge', False),

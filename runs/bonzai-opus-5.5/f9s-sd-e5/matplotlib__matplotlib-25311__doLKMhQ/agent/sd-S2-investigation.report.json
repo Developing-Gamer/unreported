@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 116314,
+ "finalText": "This bug is already fixed in this code (verdict: **covered**). Anyone on matplotlib 3.6.0 or 3.6.1 who draws a step-style histogram with `density=True` gets a y-axis that cuts off the top of the plot. This checkout is v3.7.0, and the fix shipped in 3.6.2.\n\n**Cause:** to set the axis limits, matplotlib read a thinned-out copy of each shape's points. A step outline with about 100 bins is long enough to be thinned, and the thinning could drop the peak, so the top of the axis ended below the tallest bar. That's also why rescaling the data changed how much was cut off. Bar histograms are made of small rectangles that are never thinned, so they always scaled correctly.\n\n**Fix:** upstream pull request #24177, \"Don't simplify paths used for autoscaling\" (backported as #24181), released in 3.6.2. The 3.6.2 release notes list it alongside the closed issue #24097, which has the same title as this report. In this repo, `lib/matplotlib/axes/_base.py` line 2401 now reads every point (`iter_bezier(simplify=False)`).\n\n**How I checked it:**\n- **Current code:** 100,000 normal samples, 100 bins, `density=True`, at scales 1, 1.2 and 5. Step and bar histograms got the same y-limits, each above the tallest bar (at scale 1.2: tallest bar 0.337, top of axis 0.354 for both).\n- **Old behaviour:** I patched the code to thin points again before computing limits. The bug came back: at scale 1.2 the step histogram's axis topped out at 0.292, below the 0.337 peak.\n- **Existing tests:** the regression test for issue #24097 (`test_small_autoscale`) and the `hist_step` tests all pass (10 passed).\n\nNo code change is needed. Anyone still affected should upgrade to 3.6.2 or later. This checkout is a single snapshot commit, so I couldn't give the fix's commit hash.\n\n```json\n{\n  \"verdict\": \"covered\",\n  \"title\": \"Step histograms clipped by y-axis (fixed in 3.6.2)\",\n  \"cause\": \"When computing data limits for a patch, Axes._update_patch_limits iterated the patch path with default simplification, so long paths such as a 100-bin step histogram outline (>128 vertices) were simplified and could lose their peak vertices, leaving the y-limit below the tallest bin. Upstream PR #24177 (backported as #24181, released in 3.6.2) made it iterate with simplify=False; this checkout (v3.7.0) already contains that change and a regression test.\",\n  \"files\": [\n    {\"path\": \"lib/matplotlib/axes/_base.py\", \"why\": \"_update_patch_limits now calls p.iter_bezier(simplify=False), which removed the cause\"},\n    {\"path\": \"lib/matplotlib/tests/test_axes.py\", \"why\": \"test_small_autoscale is the regression test for issue #24097 (this signal)\"},\n    {\"path\": \"doc/users/prev_whats_new/github_stats_3.6.2.rst\", \"why\": \"Release notes list the fix PR #24177/#24181 and closed issue #24097\"}\n  ],\n  \"plan\": [\"No code change needed; reporter should upgrade to matplotlib >= 3.6.2.\"],\n  \"verification\": [\n    \"On current code, hist(randn(100000)*1.2, bins=100, density=True, histtype='step') gives ylim (0, 0.354) above the 0.337 max bin, identical to histtype='bar'.\",\n    \"Patching iter_bezier back to simplifying brings the bug back: step ylim top 0.292 < max bin 0.337, while bar stays at 0.354.\",\n    \"pytest lib/matplotlib/tests/test_axes.py -k 'small_autoscale or hist_step': 10 passed.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"none\",\n  \"risk\": \"none\",\n  \"confidence\": 0.95,\n  \"coveredBy\": \"24177\",\n  \"fixedIn\": {\"commit\": \"upstream PR #24177 (backport #24181); sha not available in this single-snapshot checkout\", \"release\": \"3.6.2\"},\n  \"fixType\": \"error\",\n  \"intendedBehavior\": \"With density=True and histtype='step', the auto-scaled y-axis upper limit is at least the tallest bin height, matching histtype='bar' for the same data.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"Release notes for 3.6.2 list issue #24097 '[Bug]: ax.hist density not auto-scaled when using histtype='step'' as closed by PR #24177 'Don't simplify paths used for autoscaling'; the clipping was never chosen.\"},\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"Autoscaling of patches used path simplification, which dropped peak vertices of long step outlines; the current code disables simplification for limit computation.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/axes/_base.py:2401\", \"quote\": \"for curve, code in p.iter_bezier(simplify=False):\"},\n      {\"type\": \"doc\", \"ref\": \"doc/users/prev_whats_new/github_stats_3.6.2.rst\", \"quote\": \"* :ghpull:`24177`: Don't simplify paths used for autoscaling\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"other\", \"text\": \"The reported issue is upstream issue #24097, closed in the 3.6.2 release.\", \"citations\": [\n      {\"type\": \"doc\", \"ref\": \"doc/users/prev_whats_new/github_stats_3.6.2.rst\", \"quote\": \"* :ghissue:`24097`: [Bug]: ax.hist density not auto-scaled when using histtype='step'\"},\n      {\"type\": \"evidence\", \"ref\": \"ev_s2\", \"quote\": \"I noted that the histogram's density axis (when setting `density=True`) is not automatically adjusted to fit the whole histogram.\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"other\", \"text\": \"A regression test for #24097 exists and passes on the current code.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/tests/test_axes.py:8270\", \"quote\": \"# Check that paths with small values autoscale correctly #24097.\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"impact\", \"text\": \"Users on matplotlib 3.6.0/3.6.1 saw step histograms cut off at the top, with the cut-off depending on data scale.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s2\", \"quote\": \"noted that the densities changes if you rescale the whole data array\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"The current code still clips step histograms\", \"why\": \"Probe on v3.7.0 with 100k normal samples at scales 1, 1.2 and 5 gives the same y-limits for step and bar, each above the max bin; it only fails when simplification is forced back on.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/axes/_base.py:2401\", \"quote\": \"for curve, code in p.iter_bezier(simplify=False):\"}\n    ]}\n  ],\n  \"plain\": {\n    \"headline\": \"Step-style histograms were cut off at the top because the axis sizing skipped some of the outline's points; this was fixed in version 3.6.2.\",\n    \"happened\": \"To pick the axis range, the library used a thinned-out copy of the histogram outline. With many bars, the thinning could drop the highest point, so the top of the plot was cut off. A 2022 fix made axis sizing use every point.\",\n    \"matters\": \"Only people still on versions 3.6.0 or 3.6.1 see clipped step histograms; this version is not affected.\",\n    \"fix\": \"No change needed here; anyone still affected should upgrade to version 3.6.2 or newer.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 13,
+  "inputTokens": {
+   "avg": 15844.153846153846,
+   "max": 21381
+  },
+  "mainUsage": {
+   "inputTokens": 205974,
+   "cachedInputTokens": 191589,
+   "outputTokens": 8914
+  },
+  "cacheHitPercent": 93.01610882926971,
+  "wallSeconds": 115.29299998283386,
+  "tools": {
+   "read": 2,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 9
+  },
+  "reads": 2,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.2884928,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.2884928
+}

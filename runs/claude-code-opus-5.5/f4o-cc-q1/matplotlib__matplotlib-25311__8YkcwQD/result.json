@@ -1,0 +1,137 @@
+{
+    "schema_version": 1,
+    "id": "e6d4d4a0-f8c3-443b-a908-807012393f7a",
+    "task_name": "swe-bench/matplotlib__matplotlib-25311",
+    "trial_name": "matplotlib__matplotlib-25311__8YkcwQD",
+    "trial_uri": "file:///home/user/bench/jobs/f4o-cc-q1/matplotlib__matplotlib-25311__8YkcwQD",
+    "task_id": {
+        "path": "/home/user/bench/factory-tasks-v3f/matplotlib__matplotlib-25311"
+    },
+    "source": "factory-tasks-v3f",
+    "task_checksum": "f7d571113ed99d6ab21f4285c2411ac3af890649dfb1131061fe038755aee26f",
+    "config": {
+        "schema_version": 1,
+        "task": {
+            "path": "/home/user/bench/factory-tasks-v3f/matplotlib__matplotlib-25311",
+            "git_url": null,
+            "git_commit_id": null,
+            "name": null,
+            "ref": null,
+            "overwrite": false,
+            "download_dir": null,
+            "source": "factory-tasks-v3f"
+        },
+        "trial_name": "matplotlib__matplotlib-25311__8YkcwQD",
+        "trials_dir": "jobs/f4o-cc-q1",
+        "install_only": false,
+        "timeout_multiplier": 1.0,
+        "agent_timeout_multiplier": null,
+        "verifier_timeout_multiplier": null,
+        "agent_setup_timeout_multiplier": 4.0,
+        "environment_build_timeout_multiplier": null,
+        "agent": {
+            "name": "claude-code",
+            "import_path": null,
+            "model_name": "anthropic/claude-opus-5-5",
+            "base_url": null,
+            "model_api_key_name": null,
+            "model_api_format": null,
+            "skip_model_parsing": false,
+            "n_concurrent": null,
+            "concurrency_group": null,
+            "skills": [],
+            "override_timeout_sec": null,
+            "override_setup_timeout_sec": null,
+            "max_timeout_sec": null,
+            "resume_trajectory": false,
+            "load_trajectory": null,
+            "extra_allowed_hosts": [],
+            "kwargs": {
+                "reasoning_effort": "high",
+                "version": "2.1.325"
+            },
+            "mcp_servers": []
+        },
+        "user_agent": null,
+        "environment": {
+            "type": "docker",
+            "import_path": null,
+            "force_build": false,
+            "delete": true,
+            "stream": false,
+            "cpu_enforcement_policy": "auto",
+            "memory_enforcement_policy": "auto",
+            "override_cpus": null,
+            "override_memory_mb": null,
+            "override_storage_mb": null,
+            "override_gpus": null,
+            "override_tpu": null,
+            "mounts": null,
+            "extra_docker_compose": [],
+            "kwargs": {},
+            "extra_allowed_hosts": []
+        },
+        "verifier": {
+            "override_timeout_sec": null,
+            "max_timeout_sec": null,
+            "disable": false
+        },
+        "override_error_policy": {},
+        "artifacts": [],
+        "extra_instruction_paths": [],
+        "extra_instructions": [],
+        "job_id": "ead2a783-3126-411e-9582-7b39b40b48ee",
+        "source_trial": null
+    },
+    "agent_info": {
+        "name": "claude-code",
+        "version": "2.1.325",
+        "model_info": {
+            "name": "claude-opus-5-5",
+            "provider": "anthropic"
+        }
+    },
+    "agent_result": {
+        "n_input_tokens": 190489,
+        "n_cache_tokens": 175376,
+        "n_output_tokens": 4312,
+        "cost_usd": 0.24215520000000001,
+        "model_usage": {
+            "claude-opus-5-5": {
+                "n_input_tokens": 190489,
+                "n_cache_tokens": 175376,
+                "n_output_tokens": 4312,
+                "cost_usd": 0.19686420000000002
+            }
+        },
+        "rollout_details": null,
+        "metadata": null
+    },
+    "verifier_result": {
+        "rewards": {
+            "reward": 0.0
+        }
+    },
+    "verifier_environment_mode": "shared",
+    "exception_info": null,
+    "started_at": "2026-11-18T08:23:21.028821Z",
+    "finished_at": "2026-11-18T08:26:38.574220Z",
+    "environment_setup": {
+        "started_at": "2026-11-18T08:23:21.040431Z",
+        "finished_at": "2026-11-18T08:24:05.100010Z"
+    },
+    "agent_setup": {
+        "started_at": "2026-11-18T08:24:05.100141Z",
+        "finished_at": "2026-11-18T08:24:28.485805Z"
+    },
+    "agent_execution": {
+        "started_at": "2026-11-18T08:24:28.486154Z",
+        "finished_at": "2026-11-18T08:25:38.189207Z"
+    },
+    "verifier": {
+        "started_at": "2026-11-18T08:25:38.427166Z",
+        "finished_at": "2026-11-18T08:26:27.716175Z"
+    },
+    "step_results": null,
+    "reward_valid": true
+}

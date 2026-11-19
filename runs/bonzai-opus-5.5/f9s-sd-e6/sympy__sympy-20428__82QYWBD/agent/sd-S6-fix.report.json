@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 121739,
+ "finalText": "The fix is in place, and the final check turned up nothing to change. `apart(1/((x+1)*(x+2)), x)` returns `-1/(x + 2) + 1/(x + 1)`, and `apart(sin(x)/(x+1), x)` raises `PolynomialError`.\n\nThe working tree also shows changes to `densearith.py`, `orthopolys.py`, `test_orthopolys.py` and `test_polytools.py`. I did not make them, so I left them alone. My change is limited to `partfrac.py`, `test_partfrac.py` and `.factory/pr-S6.md`.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"command\": \"python -m pytest sympy/polys/tests/test_partfrac.py\", \"passed\": true},\n    {\"command\": \"python -m pytest sympy/polys sympy/integrals/tests/test_rationaltools.py sympy/integrals/tests/test_risch.py -q -x\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"reproductionSteps\": [\n    \"Run apart(sin(x)/(x + 1), x) on the base commit: it returns the input unchanged instead of raising PolynomialError\"\n  ],\n  \"reproductionTest\": {\n    \"path\": \"sympy/polys/tests/test_partfrac.py\",\n    \"command\": \"python -m pytest sympy/polys/tests/test_partfrac.py -q\",\n    \"signature\": \"Failed: DID NOT RAISE\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 12,
+  "inputTokens": {
+   "avg": 22975,
+   "max": 26092
+  },
+  "mainUsage": {
+   "inputTokens": 275700,
+   "cachedInputTokens": 263496,
+   "outputTokens": 3956
+  },
+  "cacheHitPercent": 95.57344940152339,
+  "wallSeconds": 120.5680000782013,
+  "tools": {
+   "read": 5,
+   "edit": 5,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 2,
+   "subagent": 0,
+   "other": 3
+  },
+  "reads": 5,
+  "edits": 5,
+  "runs": 3,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 4,
+  "editOperations": 5,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.12275519999999998,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.12275519999999998
+}

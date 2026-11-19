@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 84556,
+ "finalText": "Malformed font patterns such as `Sans-abc` now raise `ValueError` again instead of being accepted as a made-up family name. I deleted the `if \":\" not in pattern` fallback in `parse_fontconfig_pattern` in `lib/matplotlib/_fontconfig_pattern.py`. `python -c \"from matplotlib.rcsetup import validate_font_properties as v; v('Sans-abc')\"` now fails with a parse error that points at the `-` in the pattern.\n\nThe new test in `lib/matplotlib/tests/test_fontconfig_pattern.py` failed with \"DID NOT RAISE\" before the fix and passes now. `test_font_manager.py` and `test_mathtext.py` also pass.\n\n- **Pre-existing failures:** `test_rcparams_update` and `test_rcparams_init` in `test_rcparams.py` fail because a `UserWarning` is not emitted. They fail the same way without my changes, so I left them alone.\n- **Test cases:** The investigation suggested `foo=bar` as a malformed pattern, but it is a valid family name because the parser allows `=` there. I used `Sans:` and `Sans-12:Bold=1` instead, alongside `Sans-abc` and `DejaVu Sans-12-`.\n- **State of the change:** Nothing is committed. The PR text is in `.factory/pr-S5.md`. I ran the tests with `/opt/miniconda3/envs/testbed/bin/python`, since the default `python` has no `pytest` or `matplotlib`.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"checks\": [\n    {\"command\": \"pytest lib/matplotlib/tests/test_fontconfig_pattern.py\", \"passed\": true},\n    {\"command\": \"pytest lib/matplotlib/tests/test_font_manager.py lib/matplotlib/tests/test_mathtext.py\", \"passed\": true},\n    {\"command\": \"pytest lib/matplotlib/tests/test_rcparams.py\", \"passed\": false, \"alsoOnBase\": true, \"note\": \"test_rcparams_update and test_rcparams_init fail the same way on the base commit (missing UserWarning), unrelated\"}\n  ],\n  \"visual\": false,\n  \"reproductionSteps\": \"Call matplotlib.rcsetup.validate_font_properties('Sans-abc') or parse_fontconfig_pattern('Sans-abc') on the base commit: no ValueError is raised and {'family': ['Sans-abc']} is returned, so size and style are lost and the default font is used.\",\n  \"reproductionTest\": {\n    \"path\": \"lib/matplotlib/tests/test_fontconfig_pattern.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest lib/matplotlib/tests/test_fontconfig_pattern.py -q\",\n    \"signature\": \"Failed: DID NOT RAISE <class 'ValueError'>\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 13,
+  "inputTokens": {
+   "avg": 23939.153846153848,
+   "max": 29584
+  },
+  "mainUsage": {
+   "inputTokens": 311209,
+   "cachedInputTokens": 295511,
+   "outputTokens": 5136
+  },
+  "cacheHitPercent": 94.95580140677166,
+  "wallSeconds": 83.6340000629425,
+  "tools": {
+   "read": 4,
+   "edit": 4,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 1,
+   "subagent": 0,
+   "other": 4
+  },
+  "reads": 4,
+  "edits": 4,
+  "runs": 4,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 1,
+  "editOperations": 1,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1496922,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1496922
+}

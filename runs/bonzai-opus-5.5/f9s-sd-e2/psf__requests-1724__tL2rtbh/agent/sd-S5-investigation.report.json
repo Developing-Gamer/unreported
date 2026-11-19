@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 83151,
+ "finalText": "I traced the crash to this repository and reproduced it. On Python 2.7, if a caller gives the request method as unicode text (`u'POST'`), any upload whose body contains non-ASCII bytes crashes before it is sent. The fix is small.\n\n**Cause:** Requests never converts the method to a plain Python 2 `str`. `Session.request` only upper-cases it (`requests/sessions.py:314`), and `PreparedRequest.prepare_method` does the same (`requests/models.py:306-310`). So a unicode method reaches Python 2.7's `httplib` still as unicode, and `httplib` builds the headers as unicode text. When it adds the body (`msg += message_body`), Python tries to read the body as ASCII and fails on the first byte above 127, such as `0xc3`. That is why only some uploads fail: callers that pass a plain `'POST'`, or send ASCII-only bodies, never hit it. `models.py` already imports a helper for this conversion (`to_native_string`), but doesn't use it for the method.\n\n**What I checked:**\n- **Reproduction:** in the testbed's Python 2.7, sending a multipart upload containing `\\xc3\\xa9` to a local server:\n  - `method='POST'` returned 200.\n  - `method=u'POST'` raised the same error, `UnicodeDecodeError: 'ascii' codec can't decode byte 0xc3`, with the same frames as the Sentry event: `api.py:44` \u2192 `sessions.py:361` \u2192 `adapters.py:321` \u2192 `connectionpool.py:471/285` \u2192 `httplib.py:1082/1122/1078`.\n  - A prepared request built from `u'post'` keeps its method as `<type 'unicode'>`.\n- **Existing tests:** the 10 offline tests about preparing requests, methods, headers and unicode pass (77 others were deselected, most of which need the network). None of them sends a unicode method, so the suite has never covered this case.\n\n**Fix:**\n1. In `prepare_method`, set `self.method = to_native_string(self.method.upper())`.\n2. Convert the method the same way in `Session.request`.\n3. Add a regression test that sends `method=u'POST'` with a non-ASCII file, and checks that the request goes through and that the prepared method is a plain `str`.\n\nPython 3 behaviour doesn't change.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Uploads crash on Python 2 when method is unicode\",\n  \"cause\": \"On Python 2.7, requests keeps the HTTP method in whatever string type the caller passed: Session.request only calls method.upper() and PreparedRequest.prepare_method only upper-cases it, never converting it to the native str. httplib then builds its header block as unicode from the unicode method, and `msg += message_body` implicitly ASCII-decodes the byte body, raising UnicodeDecodeError on the first non-ASCII byte (e.g. 0xc3 in a UTF-8 file).\",\n  \"files\": [\n    {\"path\": \"requests/models.py\", \"why\": \"PreparedRequest.prepare_method upper-cases the method but leaves a unicode method as unicode; it should convert it with to_native_string (already imported).\"},\n    {\"path\": \"requests/sessions.py\", \"why\": \"Session.request builds the Request with method.upper(), keeping the caller's unicode type.\"},\n    {\"path\": \"test_requests.py\", \"why\": \"No test covers a unicode method name with a binary/non-ASCII body; add a regression test.\"}\n  ],\n  \"plan\": [\n    \"In PreparedRequest.prepare_method set self.method = to_native_string(self.method.upper()) so the prepared method is always the native str.\",\n    \"In Session.request convert the method the same way (to_native_string(method.upper())), so Request.method is native as well.\",\n    \"Add a test sending method=u'POST' with files containing non-ASCII bytes (e.g. b'\\\\xc3\\\\xa9') and assert the request succeeds and that prep.method is a builtin str.\"\n  ],\n  \"verification\": [\n    \"On Python 2.7, requests.request(method=u'POST', url=..., files={'f': ('x.bin', b'\\\\xc3\\\\xa9'*10)}) returns a response instead of raising UnicodeDecodeError.\",\n    \"type(Session().prepare_request(Request(u'post', 'http://x/')).method) is str on Python 2 and on Python 3.\",\n    \"Run test_requests.py on Python 2.7 and Python 3 (offline subset already passes: 10 passed).\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.93,\n  \"fixType\": \"error\",\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"prepare_method only upper-cases the method and never converts it to the native string type, so a unicode method stays unicode in the prepared request.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/models.py:306\", \"quote\": \"def prepare_method(self, method):\"},\n      {\"type\": \"code\", \"ref\": \"requests/models.py:310\", \"quote\": \"self.method = self.method.upper()\"},\n      {\"type\": \"query\", \"ref\": \"probe:python2.7\", \"quote\": \"('prepared method type:', <type 'unicode'>)\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"rootCause\", \"text\": \"Session.request passes the caller's method through only with .upper(), keeping its unicode type.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/sessions.py:314\", \"quote\": \"method = method.upper(),\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"trigger\", \"text\": \"A unicode method with a body containing non-ASCII bytes reproduces the Sentry stack exactly, failing inside httplib when it appends the body to the unicode header block.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:python2.7\", \"quote\": \"msg += message_body\\nUnicodeDecodeError: 'ascii' codec can't decode byte 0xc3 in position 98: ordinal not in range(128)\"},\n      {\"type\": \"evidence\", \"ref\": \"ev_s5\", \"quote\": \"UnicodeDecodeError: 'ascii' codec can't decode byte 0xc3 in position 12331: ordinal not in range(128)\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"other\", \"text\": \"The same upload with a native str method succeeds, so the method's string type is what triggers the crash.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:python2.7\", \"quote\": \"('str method:', 200)\"}\n    ]},\n    {\"id\": \"c5\", \"role\": \"other\", \"text\": \"A helper that converts any string to the native type is already present and imported into models.py, so the fix is a one-line change.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/utils.py:567\", \"quote\": \"def to_native_string(string, encoding='ascii'):\"},\n      {\"type\": \"code\", \"ref\": \"requests/models.py:29\", \"quote\": \"iter_slices, guess_json_utf, super_len, to_native_string)\"}\n    ]},\n    {\"id\": \"c6\", \"role\": \"impact\", \"text\": \"Production saw 359 events from 7 users in a week; each is a request (typically a file upload) that never reaches the server.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s5\", \"quote\": \"events: 359 in the last 7 days, users affected: 7\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"The body encoding itself is broken (requests mis-encodes non-ASCII file contents).\", \"why\": \"The identical body sends fine with a native str method; only the method's type changes the outcome.\", \"citations\": [{\"type\": \"query\", \"ref\": \"probe:python2.7\", \"quote\": \"('str method:', 200)\"}]},\n    {\"hypothesis\": \"Already fixed in the current code.\", \"why\": \"The current checkout (6dd55ba) reproduces the crash with the same frames and line numbers as the Sentry event.\", \"citations\": [{\"type\": \"query\", \"ref\": \"probe:python2.7\", \"quote\": \"requests/sessions.py\\\", line 361, in request\\n    resp = self.send(prep, **send_kwargs)\"}]},\n    {\"hypothesis\": \"An existing test already covers this and fails.\", \"why\": \"The offline tests on prepare/method/header/unicode all pass; none sends a unicode method with a binary body, so the case is simply untested.\", \"citations\": [{\"type\": \"query\", \"ref\": \"probe:pytest\", \"quote\": \"10 passed, 77 deselected in 4.39 seconds\"}]}\n  ],\n  \"intendedBehavior\": \"On Python 2.7, requests.request(method=u'POST', files={'f': ('x.bin', b'\\\\xc3\\\\xa9')}) sends the request and returns a response instead of raising UnicodeDecodeError.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"prepare_method's docstring is only 'Prepares the given HTTP method.' and the code already normalizes other header values to builtin_str (e.g. Content-Length); nothing chooses to keep a unicode method, and no test asserts it.\"},\n  \"plain\": {\n    \"headline\": \"Some file uploads crash before they are sent because the request type was given as a text value that Python 2 can't combine with the file's bytes.\",\n    \"happened\": \"An app on Python 2 asked the library to send an upload and named the request type (\\\"POST\\\") as unicode text instead of a plain string. The library passed that text along without converting it. When Python's own web code joined it with a file containing accented or other non-English characters, it crashed and nothing was sent.\",\n    \"matters\": \"Every upload with non-English characters from code that names the request type this way fails, which hit 7 users 359 times in a week.\",\n    \"fix\": \"Always convert the request type to a plain string before sending, and add a test that uploads a file with accented characters this way.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 9,
+  "inputTokens": {
+   "avg": 17475.88888888889,
+   "max": 22721
+  },
+  "mainUsage": {
+   "inputTokens": 157283,
+   "cachedInputTokens": 141564,
+   "outputTokens": 8778
+  },
+  "cacheHitPercent": 90.00591290857881,
+  "wallSeconds": 82.35000014305115,
+  "tools": {
+   "read": 5,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 4
+  },
+  "reads": 5,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.2824458,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.2824458
+}

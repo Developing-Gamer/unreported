@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 55993,
+ "finalText": "The reported bug is already fixed in this code, so I'm calling it covered. I made no edits. I only ran probe commands.\n\nOn the reporter's inputs the weighted mean now returns 1.0, not 2.0. The sum of weights comes out as 2, which is correct. I did not run the existing test suite.\n\nThe old code took a dot product of a boolean mask with boolean weights to get the sum of weights. That returns `True` (1) instead of 2, so the mean was 2 / 1 = 2. The current code casts boolean weights to integers first (`_sum_of_weights` in `xarray/core/weighted.py`, line 239), with a comment pointing to issue 4074. The weighted-mean test for boolean weights asserts the corrected result. The release notes list the fix under v0.16.0 (2020-07-11), so the reporter is on an older xarray. The checkout has only a single `Snapshot` commit, so I couldn't name the individual fix commit.\n\nI also tried a NaN in the data, a zero weight, and dask arrays. Boolean weights gave the same results as the equivalent 0/1 integer weights for `mean`, `sum`, `var`, `std` and `sum_of_weights`.\n\n```json\n{\n  \"verdict\": \"covered\",\n  \"title\": \"Boolean weights gave a wrong weighted mean\",\n  \"cause\": \"The sum of weights was a dot product of a boolean mask with boolean weights, which returns True (1) instead of the count, so the mean was 2/1 = 2. The current code casts boolean weights to int before that step (GH4074), so the reported example now returns 1.0. The fix shipped in v0.16.0.\",\n  \"files\": [\n    {\"path\": \"xarray/core/weighted.py\", \"why\": \"_sum_of_weights casts boolean weights to int (line 239), which fixes the wrong sum of weights\"},\n    {\"path\": \"xarray/tests/test_weighted.py\", \"why\": \"test_weighted_mean_bool asserts the corrected result\"},\n    {\"path\": \"doc/whats-new.rst\", \"why\": \"v0.16.0 entry: 'Fix weighted mean when passing boolean weights (:issue:`4074`)'\"}\n  ],\n  \"plan\": [\"No change needed; tell the reporter to upgrade to xarray 0.16.0 or later, or cast weights with .astype(int).\"],\n  \"verification\": [\n    \"Ran the reporter's example on this checkout: weighted mean 1.0 and sum of weights 2.0.\",\n    \"Boolean weights matched integer weights for mean, sum, var, std and sum_of_weights, including with a NaN in the data and with dask arrays.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"none\",\n  \"risk\": \"none\",\n  \"confidence\": 0.93,\n  \"fixedIn\": {\"release\": \"v0.16.0\"},\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"Boolean weights are cast to int before the sum-of-weights dot product, which removes the cause of the wrong mean.\", \"role\": \"rootCause\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"xarray/core/weighted.py:237\", \"quote\": \"# bool -> int, because ``xr.dot([True, True], [True, True])`` -> True\"}\n    ]},\n    {\"id\": \"c2\", \"text\": \"The release notes record the fix in v0.16.0.\", \"role\": \"other\", \"citations\": [\n      {\"type\": \"doc\", \"ref\": \"doc/whats-new.rst\", \"quote\": \"Fix weighted mean when passing boolean weights (:issue:`4074`).\"}\n    ]}\n  ],\n  \"intendedBehavior\": \"Weighted mean with boolean weights equals the weighted mean with the same weights as 0/1 integers.\",\n  \"intent\": {\"deliberate\": false, \"note\": \"The old output was a defect, fixed in v0.16.0 and recorded in the release notes.\"},\n  \"fixType\": \"error\",\n  \"plain\": {\n    \"headline\": \"Averages weighted by yes/no values came out wrong in an old version, and the current version already fixes this.\",\n    \"happened\": \"The reporter weighted an average with true/false values. The old code counted the total weight as 1 rather than 2, so the average came out as 2 instead of 1. The current code converts true/false to 1/0 first and gives the right answer.\",\n    \"matters\": \"Anyone on an xarray older than 0.16.0 who uses true/false weights gets wrong averages.\",\n    \"fix\": \"Nothing to change in the code; have the reporter upgrade to xarray 0.16.0 or later.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 11,
+  "inputTokens": {
+   "avg": 16650.454545454544,
+   "max": 21561
+  },
+  "mainUsage": {
+   "inputTokens": 183155,
+   "cachedInputTokens": 168594,
+   "outputTokens": 5310
+  },
+  "cacheHitPercent": 92.0499030875488,
+  "wallSeconds": 55.71000003814697,
+  "tools": {
+   "read": 6,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 5
+  },
+  "reads": 6,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1232083,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1232083
+}

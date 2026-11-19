@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 146699,
+ "finalText": "Staticmethods that create an instance of their own class and set or read a private or protected attribute on it no longer trigger `protected-access`. This also fixes the issue's `Clazz.create` snippet. The new test cases pass with the fix and fail without it.\n\n**Cause and fix.** The check in `_check_protected_attribute_access` in `pylint/checkers/classes.py` that allows access on a fresh instance of the enclosing class only ran for classmethods. I replaced the old classmethod-only helper, which nothing else used, with `_is_classmethod_or_staticmethod`. The checks that the expression is an instance of the enclosing class and that the attribute exists on it are unchanged. Access on another class's instance, or to an undefined attribute, still warns.\n\n**Tests.** I extended `tests/functional/a/access/access_to_protected_members.py` and its `.txt` with three staticmethod cases:\n- setting a private attribute on its own instance: no message;\n- reading a protected attribute on its own instance: no message;\n- setting a protected attribute on another class's instance: still `protected-access`.\n\n**Final cleanup.** The earlier ChangeLog entry and test class name used an issue number (4031) that I had guessed. I removed it; the ChangeLog entry now has no `Closes` line, and the test class is `StaticMethodAccess`. The focused test still passes after that rename.\n\n**Checks.**\n- `/opt/miniconda3/envs/testbed/bin/python -m pytest tests/test_functional.py -k access_to_protected` fails on the starting code and passes now.\n- A wider run of `tests/test_functional.py` and `tests/checkers` has three failures in code I didn't touch. `recursion_error_3152` also fails on the base commit when run alone. I did not re-run the two `unittest_imports` wildcard-import failures on the base.\n\n**`unused-private-member`.** The issue's snippet also triggers this message from a separate heuristic that only counts `self.` reads. I left that checker alone and put an inline disable on that one line of the test.\n\nAs instructed, nothing is committed, pushed or opened as a pull request. The PR text is in `/testbed/.factory/pr-S1.md`. It doesn't mention the issue number, so the guessed-number cleanup left it consistent.\n\n```json\n{\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest tests/test_functional.py -k access_to_protected\", \"passed\": true},\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest tests/test_functional.py tests/checkers -q\", \"passed\": false, \"alsoOnBase\": true, \"note\": \"only unrelated failures: recursion_error_3152 (confirmed failing on base), unittest_imports wildcard tests (not re-run on base)\"}\n  ],\n  \"visual\": false,\n  \"missingEnv\": [],\n  \"reproductionSteps\": \"Run pylint --disable=all --enable=protected-access on a class whose @staticmethod does `instance = Clazz(); instance.__value = value` with `self.__value = None` set in __init__; protected-access is emitted on the base commit.\",\n  \"reproductionTest\": {\n    \"path\": \"tests/functional/a/access/access_to_protected_members.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest tests/test_functional.py -k access_to_protected\",\n    \"signature\": \"AssertionError: Wrong results for file \\\"access_to_protected_members\\\"\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 27,
+  "inputTokens": {
+   "avg": 28418.814814814814,
+   "max": 37166
+  },
+  "mainUsage": {
+   "inputTokens": 767308,
+   "cachedInputTokens": 744000,
+   "outputTokens": 8670
+  },
+  "cacheHitPercent": 96.96236713288536,
+  "wallSeconds": 145.89000010490417,
+  "tools": {
+   "read": 14,
+   "edit": 8,
+   "test": 3,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 2,
+   "subagent": 0,
+   "other": 3
+  },
+  "reads": 14,
+  "edits": 8,
+  "runs": 6,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 3,
+   "readFileIgnoringRange": 3
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 1,
+  "editOperations": 1,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.293741,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.293741
+}

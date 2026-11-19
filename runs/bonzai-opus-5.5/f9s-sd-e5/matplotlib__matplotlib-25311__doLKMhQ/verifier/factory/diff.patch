@@ -1,0 +1,103 @@
+diff --git a/lib/matplotlib/_fontconfig_pattern.py b/lib/matplotlib/_fontconfig_pattern.py
+index b94a1760d3..d3933b9f39 100755
+--- a/lib/matplotlib/_fontconfig_pattern.py
++++ b/lib/matplotlib/_fontconfig_pattern.py
+@@ -87,8 +87,6 @@ def parse_fontconfig_pattern(pattern):
+     try:
+         parse = parser.parseString(pattern)
+     except ParseException as err:
+-        if ":" not in pattern:
+-            return {"family": [pattern]}
+         # explain becomes a plain method on pyparsing 3 (err.explain(0)).
+         raise ValueError("\n" + ParseException.explain(err, 0)) from None
+     parser.resetCache()
+diff --git a/lib/matplotlib/offsetbox.py b/lib/matplotlib/offsetbox.py
+index 1dee8a23d9..08b0d217f7 100755
+--- a/lib/matplotlib/offsetbox.py
++++ b/lib/matplotlib/offsetbox.py
+@@ -1500,12 +1500,15 @@ class DraggableBase:
+     coordinate and set a relevant attribute.
+     """
+ 
++    # A property, not an attribute, to maintain picklability: the canvas may
++    # not be picklable, and Figure.__getstate__ drops it.
++    canvas = property(lambda self: self.ref_artist.figure.canvas)
++
+     def __init__(self, ref_artist, use_blit=False):
+         self.ref_artist = ref_artist
+         if not ref_artist.pickable():
+             ref_artist.set_picker(True)
+         self.got_artist = False
+-        self.canvas = self.ref_artist.figure.canvas
+         self._use_blit = use_blit and self.canvas.supports_blit
+         self.cids = [
+             self.canvas.callbacks._connect_picklable(
+@@ -1562,6 +1565,11 @@ class DraggableBase:
+ 
+     def disconnect(self):
+         """Disconnect the callbacks."""
++        if self.ref_artist.figure is None:
++            # The artist was removed from its figure, so the canvas is no
++            # longer reachable; the callbacks only hold weak references to
++            # this helper and are discarded along with it.
++            return
+         for cid in self.cids:
+             self.canvas.mpl_disconnect(cid)
+         try:
+diff --git a/lib/matplotlib/tests/test_fontconfig_pattern.py b/lib/matplotlib/tests/test_fontconfig_pattern.py
+index 792a8ed517..71e154a49e 100755
+--- a/lib/matplotlib/tests/test_fontconfig_pattern.py
++++ b/lib/matplotlib/tests/test_fontconfig_pattern.py
+@@ -75,3 +75,14 @@ def test_fontconfig_str():
+ def test_fontconfig_unknown_constant():
+     with pytest.warns(DeprecationWarning):
+         FontProperties(":unknown")
++
++
++@pytest.mark.parametrize(
++    "pattern", ["Sans-abc", "DejaVu Sans-12-", "Sans:", "Sans-12:Bold=1"])
++def test_fontconfig_invalid_pattern(pattern):
++    from matplotlib._fontconfig_pattern import parse_fontconfig_pattern
++    from matplotlib.rcsetup import validate_font_properties
++    with pytest.raises(ValueError):
++        parse_fontconfig_pattern(pattern)
++    with pytest.raises(ValueError):
++        validate_font_properties(pattern)
+diff --git a/lib/matplotlib/tests/test_pickle.py b/lib/matplotlib/tests/test_pickle.py
+index ec6bdcc2fe..1ff7fa2e3b 100755
+--- a/lib/matplotlib/tests/test_pickle.py
++++ b/lib/matplotlib/tests/test_pickle.py
+@@ -7,6 +7,7 @@ import pytest
+ 
+ import matplotlib as mpl
+ from matplotlib import cm
++from matplotlib.backend_bases import FigureCanvasBase
+ from matplotlib.testing import subprocess_run_helper
+ from matplotlib.testing.decorators import check_figures_equal
+ from matplotlib.dates import rrulewrapper
+@@ -282,3 +283,25 @@ def test_dynamic_norm():
+ def test_vertexselector():
+     line, = plt.plot([0, 1], picker=True)
+     pickle.loads(pickle.dumps(VertexSelector(line)))
++
++
++def test_draggable_pickle():
++    # Draggable helpers must not hold on to the (possibly unpicklable) canvas.
++    class UnpicklableCanvas(FigureCanvasBase):
++        def __reduce__(self):
++            raise TypeError("cannot pickle 'UnpicklableCanvas' object")
++
++    fig = mfigure.Figure()
++    UnpicklableCanvas(fig)
++    ax = fig.add_subplot()
++    ax.plot([0, 1], label="line")
++    leg = ax.legend()
++    leg.set_draggable(True)
++    ann = ax.annotate("text", (0, 0))
++    ann.draggable(True)
++
++    fig2 = pickle.loads(pickle.dumps(fig))
++    ax2 = fig2.axes[0]
++    assert ax2.get_legend().get_draggable()
++    assert ax2.texts[0]._draggable is not None
++    assert ax2.get_legend()._draggable.canvas is fig2.canvas

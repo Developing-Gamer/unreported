@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 129025,
+ "finalText": "The cause is in this repository: in a project that sets both its own template folders and app templates, the Jinja2 template engine now uses an app's bundled template over the project's own custom one with the same name. The custom receipt files are still on disk but get skipped, with no error. I edited nothing, as asked.\n\n**Why only some emails changed:** The code that builds the list of folders to search puts the apps' bundled folders before the project's own (`django/template/backends/base.py`, line 65). The Jinja2 engine and the simple TemplateStrings engine both use that list. Django's own template engine finds templates a different way, project folders first, so emails rendered with it keep their custom branding.\n\n**What I ran (probe):** I set up an app with a bundled `receipt.txt` and a project folder with a custom `receipt.txt` of the same name.\n- **Django's own engine:** used the custom file, which is correct.\n- **Jinja2:** used the bundled file, which is the reported problem.\n- **TemplateStrings:** used the custom file, but only because the test app had no bundled folder for it. It reads the same folder list, so it would have the same problem.\n- **Existing tests:** the 47 template-backend tests pass, 2 skipped. None of them checks which folder wins, which is how this got through.\n\n**Not deliberate:** The docs (`docs/topics/templates.txt`, line 79) say the project's folders are searched \"in search order\". No release note mentions changing this. The repository has a single snapshot commit, so I couldn't find which change introduced it.\n\n**Fix:** Search the project's own folders first and the apps' folders after. Add a test in `tests/template_backends` where both have a template with the same name, and check that the custom one wins.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Custom Jinja2 templates lose to bundled app templates\",\n  \"cause\": \"BaseEngine.template_dirs prepends the installed apps' template folders to the configured DIRS (`get_app_template_dirs(self.app_dirname) + template_dirs`), so the Jinja2 and TemplateStrings backends find the bundled app template before the project's custom one with the same name. The DjangoTemplates engine uses its own loader chain (filesystem, then app_directories), so only emails rendered through Jinja2/TemplateStrings fall back to the bundled branding.\",\n  \"files\": [\n    {\"path\": \"django/template/backends/base.py\", \"why\": \"template_dirs puts app template dirs ahead of DIRS (line 65); should append them after\"},\n    {\"path\": \"django/template/backends/jinja2.py\", \"why\": \"Builds its FileSystemLoader from self.template_dirs, so it inherits the wrong precedence\"},\n    {\"path\": \"django/template/backends/dummy.py\", \"why\": \"TemplateStrings iterates iter_template_filenames over the same ordered dirs\"},\n    {\"path\": \"tests/template_backends/\", \"why\": \"No test covers DIRS-over-app precedence; add a regression test here\"}\n  ],\n  \"plan\": [\n    \"In BaseEngine.template_dirs, build `template_dirs = tuple(self.dirs)` and then `template_dirs += get_app_template_dirs(self.app_dirname)` when app_dirs is set, so DIRS are searched first.\",\n    \"Add a test in tests/template_backends where a template exists both in a DIRS folder and in an installed app's jinja2/ (and template_strings/) folder, and assert the DIRS version is returned and template_dirs lists DIRS first.\",\n    \"Run the template_backends and template_tests suites.\"\n  ],\n  \"verification\": [\n    \"New regression test fails before the change (Jinja2 returns the app template) and passes after.\",\n    \"Probe script: with DIRS=[custom] and APP_DIRS=True, engines['jinja2'].get_template('receipt.txt').render({}) returns 'CUSTOM' instead of 'BUNDLED'.\",\n    \"cd tests && python runtests.py template_backends template_tests passes.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.85,\n  \"fixType\": \"silentFailure\",\n  \"intendedBehavior\": \"With DIRS=[custom_dir] and APP_DIRS=True, a Jinja2 engine asked for a template that exists in both custom_dir and an installed app's jinja2 folder returns the custom_dir version.\",\n  \"intent\": {\n    \"deliberate\": false,\n    \"evidence\": \"The docs say DIRS lists directories 'in search order', and the DjangoTemplates engine still searches DIRS before app dirs. No release note records a precedence change, and the template_backends tests do not assert this ordering. The single snapshot commit hides the commit that introduced it.\"\n  },\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"BaseEngine.template_dirs places installed-app template directories before the configured DIRS, so app (bundled) templates take precedence.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"django/template/backends/base.py:65\", \"quote\": \"template_dirs = get_app_template_dirs(self.app_dirname) + template_dirs\"},\n      {\"type\": \"code\", \"ref\": \"django/template/backends/base.py:63\", \"quote\": \"template_dirs = tuple(self.dirs)\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"rootCause\", \"text\": \"The Jinja2 backend builds its file loader from that ordered list, so it serves the bundled template.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"django/template/backends/jinja2.py:26\", \"quote\": \"options['loader'] = jinja2.FileSystemLoader(self.template_dirs)\"},\n      {\"type\": \"query\", \"ref\": \"probe\", \"quote\": \"dummy CUSTOM\\njinja2 BUNDLED\\ndjango CUSTOM\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"other\", \"text\": \"The DjangoTemplates engine is unaffected because it searches the filesystem (DIRS) loader before the app_directories loader, which is why only some emails changed.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"django/template/engine.py:28\", \"quote\": \"loaders = ['django.template.loaders.filesystem.Loader']\"},\n      {\"type\": \"code\", \"ref\": \"django/template/engine.py:30\", \"quote\": \"loaders += ['django.template.loaders.app_directories.Loader']\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"other\", \"text\": \"The documented contract is that DIRS is the search order.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"docs/topics/templates.txt:79\", \"quote\": \"engine should look for template source files, in search order.\"}\n    ]},\n    {\"id\": \"c5\", \"role\": \"impact\", \"text\": \"Customers report receipt emails reverting to bundled branding although their custom templates are unchanged.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s3\", \"quote\": \"Some receipt emails switched back to the bundled branding after the upgrade, even though our custom receipt templates are still present and unchanged.\"}\n    ]},\n    {\"id\": \"c6\", \"role\": \"other\", \"text\": \"Existing backend tests pass, so the ordering is untested.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe\", \"quote\": \"Ran 47 tests in 0.157s\\n\\nOK (skipped=2)\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"Django template engine loader chain or cached loader serves stale/bundled templates\", \"why\": \"Engine loaders are filesystem first then app_directories, and the probe shows the django engine returns the custom template.\", \"citations\": [{\"type\": \"query\", \"ref\": \"probe\", \"quote\": \"dummy CUSTOM\\njinja2 BUNDLED\\ndjango CUSTOM\"}]},\n    {\"hypothesis\": \"extends recursion/skip logic (Origin equality) skips the custom template\", \"why\": \"Origin equality compares name and loader, and ExtendsNode only skips origins already in the history; this does not affect a plain get_template lookup.\", \"citations\": [{\"type\": \"code\", \"ref\": \"django/template/base.py:128\", \"quote\": \"self.name == other.name and\"}]},\n    {\"hypothesis\": \"Intentional precedence change recorded in release notes\", \"why\": \"No release note mentions DIRS/APP_DIRS order or precedence; the docs still say DIRS is the search order.\", \"citations\": [{\"type\": \"doc\", \"ref\": \"docs/topics/templates.txt\", \"quote\": \"engine should look for template source files, in search order.\"}]}\n  ],\n  \"plain\": {\n    \"headline\": \"Some receipt emails show the built-in branding because one template system now checks the built-in templates before the customer's own.\",\n    \"happened\": \"Projects can keep their own email templates in a folder that should take priority over the built-in ones. After the upgrade, one of the two template systems (Jinja2) started looking in the built-in templates first. Emails rendered with it pick up the built-in receipt, and the custom one is ignored.\",\n    \"matters\": \"Every email rendered with that template system shows the default branding instead of the customer's, with no error, so customers only find out from their own users.\",\n    \"fix\": \"Put the customer's own template folders back ahead of the built-in ones, and add a test that checks this order.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 17,
+  "inputTokens": {
+   "avg": 24229.41176470588,
+   "max": 35062
+  },
+  "mainUsage": {
+   "inputTokens": 411900,
+   "cachedInputTokens": 383826,
+   "outputTokens": 11542
+  },
+  "cacheHitPercent": 93.18426802621995,
+  "wallSeconds": 128.19899988174438,
+  "tools": {
+   "read": 18,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 4
+  },
+  "reads": 18,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.4479372,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.4479372
+}

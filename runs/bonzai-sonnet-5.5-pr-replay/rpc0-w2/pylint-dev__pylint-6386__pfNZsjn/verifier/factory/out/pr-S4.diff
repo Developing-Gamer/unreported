@@ -1,0 +1,55 @@
+diff --git a/ChangeLog b/ChangeLog
+index 539a393f..a67c7604 100644
+--- a/ChangeLog
++++ b/ChangeLog
+@@ -15,6 +15,9 @@ Release date: TBA
+ 
+ * ``BaseChecker`` classes now require the ``linter`` argument to be passed.
+ 
++* Fix ``-v`` (the short form of ``--verbose``) failing with "expected one argument"
++  or swallowing the following file name.
++
+ * Fix a failure to respect inline disables for ``fixme`` occurring on the last line
+   of a module when pylint is launched with ``--enable=fixme``.
+ 
+diff --git a/pylint/config/utils.py b/pylint/config/utils.py
+index 8c790416..c0b862b4 100644
+--- a/pylint/config/utils.py
++++ b/pylint/config/utils.py
+@@ -207,6 +207,7 @@ PREPROCESSABLE_OPTIONS: dict[
+     "--output": (True, _set_output),
+     "--load-plugins": (True, _add_plugins),
+     "--verbose": (False, _set_verbose_mode),
++    "-v": (False, _set_verbose_mode),
+     "--enable-all-extensions": (False, _enable_all_extensions),
+ }
+ 
+@@ -218,7 +219,7 @@ def _preprocess_options(run: Run, args: Sequence[str]) -> list[str]:
+     i = 0
+     while i < len(args):
+         argument = args[i]
+-        if not argument.startswith("--"):
++        if not argument.startswith("-"):
+             processed_args.append(argument)
+             i += 1
+             continue
+diff --git a/tests/test_self.py b/tests/test_self.py
+index 18dcf7d6..fb2e0982 100644
+--- a/tests/test_self.py
++++ b/tests/test_self.py
+@@ -1429,6 +1429,15 @@ class TestCallbackOptions:
+             run = Run(["--verbose=True"])
+             assert run.verbose
+ 
++    @staticmethod
++    @pytest.mark.parametrize("position", ["before", "after"])
++    def test_verbose_short_flag(position: str) -> None:
++        """Test that the short -v flag is preprocessed like --verbose."""
++        module = join(HERE, "regrtest_data", "empty.py")
++        args = ["-v", module] if position == "before" else [module, "-v"]
++        run = Run(args, exit=False)
++        assert run.verbose
++
+     @staticmethod
+     def test_enable_all_extensions() -> None:
+         """Test to see if --enable-all-extensions does indeed load all extensions."""

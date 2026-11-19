@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 78370,
+ "finalText": "An explicit `--ignore=` now excludes nothing in pyreverse, so a package named `CVS` is no longer dropped from the diagrams. The new test file passes (2 tests), and the four pyreverse test files passed together earlier (37 tests). I re-checked the working tree and re-ran only the new test file. Nothing is committed, pushed or opened as a pull request, as the benchmark note says.\n\n**Cause:** the investigation was right. `Run.run` in `pylint/pyreverse/main.py` passed `self.config.ignore_list or (\"CVS\",)`. An empty list is falsy, so `or` swapped in the default. The `--ignore` option already defaults to `(\"CVS\",)`, so I passed `self.config.ignore_list` directly.\n\n**Changes:**\n- **Fix:** the one-line change in `pylint/pyreverse/main.py`.\n- **Tests:** new `tests/unittest_pyreverse_main.py`, which builds a package with a `CVS` subpackage. One test checks the default run still excludes it. The other checks `--ignore=` includes it. The second one failed before the fix.\n- **ChangeLog:** one new entry.\n- **PR text:** written to `.factory/pr-S1.md`.\n\n**Test setup:** `Run` reads its arguments from `sys.argv`, so the test patches `sys.argv`. It also needed `toml`, `astroid==2.6.0`, `pytest~=6.2`, `isort` and `mccabe`, which I installed.\n\n```json\n{\n  \"outcome\": \"ready\",\n  \"checks\": [\n    {\"name\": \"python -m pytest tests/unittest_pyreverse_main.py tests/unittest_pyreverse_diadefs.py tests/unittest_pyreverse_inspector.py tests/unittest_pyreverse_writer.py\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"reproduction\": \"Create a package containing a CVS subpackage with a module, run `pyreverse --ignore= <pkg>`; the CVS module is missing from the project because Run.run replaces the empty ignore list with ('CVS',).\",\n  \"reproductionTest\": {\n    \"path\": \"tests/unittest_pyreverse_main.py\",\n    \"command\": \"python -m pytest tests/unittest_pyreverse_main.py -q\",\n    \"signature\": \"AssertionError: assert 'legacy_pkg.CVS.old_module' in dict_keys(['legacy_pkg', 'legacy_pkg.current'])\"\n  },\n  \"prFile\": \".factory/pr-S1.md\"\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 21,
+  "inputTokens": {
+   "avg": 23980.52380952381,
+   "max": 30735
+  },
+  "mainUsage": {
+   "inputTokens": 503591,
+   "cachedInputTokens": 486726,
+   "outputTokens": 6844
+  },
+  "cacheHitPercent": 96.65105214350534,
+  "wallSeconds": 77.30800008773804,
+  "tools": {
+   "read": 10,
+   "edit": 5,
+   "test": 1,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 10
+  },
+  "reads": 10,
+  "edits": 5,
+  "runs": 11,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 4,
+  "editOperations": 4,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.20792470000000002,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.20792470000000002
+}

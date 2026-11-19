@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 248569,
+ "finalText": "I re-checked the report against the request. Everything it asks for is there: the code was only read, commands ran only in probe, the cause is confirmed with a call on valid input, and the report is a single JSON block. I made two small fixes: one citation quote was too short to check, so I swapped it for a longer one, and I dropped an empty `question` field, which the request only wants when the verdict is inconclusive.\n\nThe cause is in this repository: one wrong entry in the bundled text-encoding detector's list of common Traditional Chinese characters.\n\n- **What's wrong:** in `requests/packages/charade/euctwfreq.py` (line 55), the entry for \u4ecd (\"still\") has rank 705 where the requests 2.0.1 release and upstream charade 1.0.3 both have 507. Ranks under 512 count as common, so the detector now treats this everyday word as rare. Each rank should appear once, but 705 now appears twice and 507 not at all, so the change looks accidental.\n- **Effect:** the detector rejects EUC-TW (an older Traditional Chinese encoding) unless it finds more than 3 common characters. Short notices that reached 4 only because of \u4ecd now drop to 3. Requests then falls back to a single-byte guess and the text comes out garbled:\n\n  | Notice text | Released table | This repo |\n  |---|---|---|\n  | \u672c\u4ecd\u6709\u6548 | EUC-TW | ISO-8859-5 (Cyrillic) |\n  | \u516c\u53f8\u4ecd\u71df | EUC-TW | ISO-8859-7 (Greek) |\n\n- **Why only a few notices:** longer notices have enough other common characters to still be detected correctly. Big5 notices use a separate table and still detect correctly.\n- **How I checked:** I compared the bundled detector with the requests 2.0.1 package and upstream charade 1.0.3; this entry is its only difference from the requests 2.0.1 release. I then ran both versions on notices converted to EUC-TW. There are no existing tests for the detector. Requests 2.0.1 won't import on Python 3.11, so I called the detector directly and confirmed from the code that `apparent_encoding` uses it.\n- **Caveat:** Python has no built-in EUC-TW decoder. If the preview decodes through requests' own `.text`, EUC-TW notices come out garbled even when detected correctly. The regression matters most where the app decodes the detected encoding itself.\n- **Fix:** set the entry back to 507. Add a test that short EUC-TW notices containing \u4ecd are detected as EUC-TW, and one that the table has no repeated ranks.\n- **Not checked:** there were no monitoring sources or deploy data in this run, and git has a single snapshot commit. So I can't say when the entry changed or who else is affected.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Corrupted Chinese frequency entry garbles short notices\",\n  \"cause\": \"The vendored charade EUC-TW frequency table has entry 82 (the common character \u4ecd) changed from rank 507 to 705, so the detector treats it as rare (ranks under 512 count as frequent). Short EUC-TW notices with exactly 4 frequent characters, one of them \u4ecd, drop to 3, which is at or below MINIMUM_DATA_THRESHOLD, so EUC-TW confidence becomes SURE_NO. Response.apparent_encoding then returns a single-byte guess (ISO-8859-5/7), and the notice text comes out garbled.\",\n  \"files\": [\n    {\"path\": \"requests/packages/charade/euctwfreq.py\", \"why\": \"Line 55 has 705 where the released charade/requests 2.0.1 table has 507 (index 82, character \u4ecd); 705 is now duplicated and 507 missing.\"},\n    {\"path\": \"requests/packages/charade/chardistribution.py\", \"why\": \"The frequency cutoff (512) and the minimum-frequent-chars threshold (3) turn the wrong rank into a SURE_NO result for EUC-TW.\"},\n    {\"path\": \"requests/models.py\", \"why\": \"apparent_encoding uses this detector when the server sends no charset, and Response.text decodes with that guess.\"}\n  ],\n  \"plan\": [\n    \"Restore entry 82 of EUCTWCharToFreqOrder in requests/packages/charade/euctwfreq.py from 705 to 507, matching upstream charade 1.0.3 / requests 2.0.1.\",\n    \"Add a regression test: charade.detect on iconv-encoded EUC-TW '\u672c\u4ecd\u6709\u6548' and '\u516c\u53f8\u4ecd\u71df' returns 'EUC-TW'.\",\n    \"Add a sanity test that EUCTWCharToFreqOrder has no duplicated rank values.\"\n  ],\n  \"verification\": [\n    \"charade.detect(EUC-TW bytes of '\u672c\u4ecd\u6709\u6548') returns {'encoding': 'EUC-TW', 'confidence': 0.99} instead of ISO-8859-5.\",\n    \"A recursive diff of requests/packages/charade against the requests 2.0.1 wheel shows no differences.\",\n    \"Big5 and long EUC-TW samples still detect as before.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"likely\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.65,\n  \"fixType\": \"silentFailure\",\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"The vendored EUC-TW frequency table has a corrupted entry: 705 where the release has 507, for the character \u4ecd at table index 82.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/packages/charade/euctwfreq.py:55\", \"quote\": \"4297,2051, 705, 252, 682,7316, 142,1914, 124, 206,2932,  34,3501,3173,  64, 604, # 2822\"},\n      {\"type\": \"query\", \"ref\": \"probe:diff requests-2.0.1 wheel charade vs repo\", \"quote\": \"< 4297,2051, 507, 252, 682,7316, 142,1914, 124, 206,2932,  34,3501,3173,  64, 604, # 2822\"},\n      {\"type\": \"query\", \"ref\": \"probe:chk.py\", \"quote\": \"idx [] count705 2 count507 0 size 8102\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"rootCause\", \"text\": \"Only ranks below 512 count as frequent, and with 3 or fewer frequent characters the EUC-TW confidence is forced to SURE_NO.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/packages/charade/chardistribution.py:79\", \"quote\": \"if 512 > self._mCharToFreqOrder[order]:\"},\n      {\"type\": \"code\", \"ref\": \"requests/packages/charade/chardistribution.py:86\", \"quote\": \"if self._mTotalChars <= 0 or self._mFreqChars <= MINIMUM_DATA_THRESHOLD:\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"impact\", \"text\": \"Short EUC-TW notices containing \u4ecd are detected as EUC-TW by the released table but as Cyrillic/Greek single-byte encodings by the repo's table.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:dbg.py\", \"quote\": \"/testbed \u672c\u4ecd\u6709\u6548 euctw conf 0.01 freq 3 tot 4 {'encoding': 'ISO-8859-5', 'confidence': 0.36105105055539966}\"},\n      {\"type\": \"query\", \"ref\": \"probe:dbg.py\", \"quote\": \"/tmp/r/r \u672c\u4ecd\u6709\u6548 euctw conf 0.99 freq 4 tot 4 {'encoding': 'EUC-TW', 'confidence': 0.99}\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"other\", \"text\": \"Response.apparent_encoding and .text use this vendored detector when no charset is declared.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/compat.py:7\", \"quote\": \"from .packages import charade as chardet\"},\n      {\"type\": \"code\", \"ref\": \"requests/models.py:558\", \"quote\": \"return chardet.detect(self.content)['encoding']\"}\n    ]},\n    {\"id\": \"c5\", \"role\": \"trigger\", \"text\": \"Users reported only a few Traditional Chinese notices garbled, which matches the change only mattering for notices near the minimum frequent-character count.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s6\", \"quote\": \"A few archived Traditional Chinese notices now show garbled characters in the preview\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"Big5 detection or decoding is broken\", \"why\": \"Big5, big5hkscs and cp950 samples detect as Big5 with 0.99 and round-trip; Big5 uses its own table, which matches the release.\", \"citations\": [{\"type\": \"query\", \"ref\": \"probe:t.py\", \"quote\": \"big5 {'encoding': 'Big5', 'confidence': 0.99} True\"}]},\n    {\"hypothesis\": \"Other vendored charade files (state machines, probers) were altered\", \"why\": \"A recursive diff against the requests 2.0.1 wheel's charade shows only the euctwfreq.py line.\", \"citations\": [{\"type\": \"query\", \"ref\": \"probe:diff -r charade\", \"quote\": \"diff -r --strip-trailing-cr -x __pycache__ requests/packages/charade/euctwfreq.py /testbed/requests/packages/charade/euctwfreq.py\"}]},\n    {\"hypothesis\": \"Response.text decode logic changed\", \"why\": \"Response.text decodes with self.encoding or apparent_encoding using errors='replace', the standard 2.0.x logic, and the code shows no regression there.\", \"citations\": [{\"type\": \"code\", \"ref\": \"requests/models.py:668\", \"quote\": \"content = str(self.content, encoding, errors='replace')\"}]}\n  ],\n  \"intendedBehavior\": \"charade.detect on a short EUC-TW notice such as '\u672c\u4ecd\u6709\u6548' returns 'EUC-TW', as the released requests 2.0.1 detector does, not a Greek or Cyrillic single-byte encoding.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"Frequency ranks are meant to appear once each; after the change 705 appears twice and 507 not at all, and both upstream charade 1.0.3 and requests 2.0.1 have 507. No changelog or comment records the change, and the single snapshot commit gives no history.\"},\n  \"plain\": {\n    \"headline\": \"Some short Traditional Chinese notices show gibberish because the part that guesses their text encoding now treats one everyday word as rare.\",\n    \"happened\": \"When a notice doesn't say how its text is encoded, the product guesses from how common its characters are. One entry in its list of common Traditional Chinese characters, the word for 'still', was changed so that word now counts as rare. Short notices that relied on it now fall below the guesser's minimum and are read as Greek or Russian letters instead.\",\n    \"matters\": \"Any short older notice in this Traditional Chinese encoding that uses that word can show up unreadable in previews.\",\n    \"fix\": \"Put the original value back in the list of common characters and add a test that short notices with that word are recognised as Chinese.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 24,
+  "inputTokens": {
+   "avg": 28702.958333333332,
+   "max": 46878
+  },
+  "mainUsage": {
+   "inputTokens": 688871,
+   "cachedInputTokens": 648967,
+   "outputTokens": 21982
+  },
+  "cacheHitPercent": 94.20733344849761,
+  "wallSeconds": 247.3840000629425,
+  "tools": {
+   "read": 8,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 17
+  },
+  "reads": 8,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.7689014000000001,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.7689014000000001
+}

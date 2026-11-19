@@ -1,0 +1,228 @@
+diff --git a/changelog/5792.bugfix.rst b/changelog/5792.bugfix.rst
+new file mode 100644
+index 000000000..2cf3fd65f
+--- /dev/null
++++ b/changelog/5792.bugfix.rst
+@@ -0,0 +1 @@
++Fix regression on Windows where loading conftest.py failed when the working directory casing differed from the one stored in the filesystem.
+diff --git a/changelog/5973.bugfix.rst b/changelog/5973.bugfix.rst
+new file mode 100644
+index 000000000..b8e80e89f
+--- /dev/null
++++ b/changelog/5973.bugfix.rst
+@@ -0,0 +1 @@
++Fix pytest_make_parametrize_id returning an empty string being ignored; only None now falls back to the default id.
+diff --git a/changelog/6000.bugfix.rst b/changelog/6000.bugfix.rst
+new file mode 100644
+index 000000000..949fd214f
+--- /dev/null
++++ b/changelog/6000.bugfix.rst
+@@ -0,0 +1 @@
++Fix ``--pastebin=failed`` labeling each paste with the outer test call location instead of the location of the failing assertion.
+diff --git a/src/_pytest/config/__init__.py b/src/_pytest/config/__init__.py
+index 3a0eca546..4be48cc2e 100644
+--- a/src/_pytest/config/__init__.py
++++ b/src/_pytest/config/__init__.py
+@@ -30,7 +30,6 @@ from _pytest._code import filter_traceback
+ from _pytest.compat import importlib_metadata
+ from _pytest.outcomes import fail
+ from _pytest.outcomes import Skipped
+-from _pytest.pathlib import unique_path
+ from _pytest.warning_types import PytestConfigWarning
+ 
+ hookimpl = HookimplMarker("pytest")
+@@ -367,7 +366,7 @@ class PytestPluginManager(PluginManager):
+         """
+         current = py.path.local()
+         self._confcutdir = (
+-            unique_path(current.join(namespace.confcutdir, abs=True))
++            current.join(namespace.confcutdir, abs=True)
+             if namespace.confcutdir
+             else None
+         )
+@@ -406,7 +405,7 @@ class PytestPluginManager(PluginManager):
+         else:
+             directory = path
+ 
+-        directory = unique_path(directory)
++        directory = directory.realpath()
+ 
+         # XXX these days we may rather want to use config.rootdir
+         # and allow users to opt into looking into the rootdir parent
+@@ -432,12 +431,14 @@ class PytestPluginManager(PluginManager):
+         raise KeyError(name)
+ 
+     def _importconftest(self, conftestpath):
+-        # Use realpath to avoid loading the same conftest twice
++        # Use a resolved Path object as key to avoid loading the same conftest twice
+         # with build systems that create build directories containing
+         # symlinks to actual files.
+-        conftestpath = unique_path(conftestpath)
++        # Using Path().resolve() is better than py.path.realpath because
++        # it resolves to the correct path/drive in case-insensitive file systems (#5792)
++        key = Path(str(conftestpath)).resolve()
+         try:
+-            return self._conftestpath2mod[conftestpath]
++            return self._conftestpath2mod[key]
+         except KeyError:
+             pkgpath = conftestpath.pypkgpath()
+             if pkgpath is None:
+@@ -454,7 +455,7 @@ class PytestPluginManager(PluginManager):
+                 raise ConftestImportFailure(conftestpath, sys.exc_info())
+ 
+             self._conftest_plugins.add(mod)
+-            self._conftestpath2mod[conftestpath] = mod
++            self._conftestpath2mod[key] = mod
+             dirpath = conftestpath.dirpath()
+             if dirpath in self._dirpath2confmods:
+                 for path, mods in self._dirpath2confmods.items():
+diff --git a/src/_pytest/pastebin.py b/src/_pytest/pastebin.py
+index 41d612f02..91aa5f1fd 100644
+--- a/src/_pytest/pastebin.py
++++ b/src/_pytest/pastebin.py
+@@ -85,7 +85,7 @@ def pytest_terminal_summary(terminalreporter):
+         terminalreporter.write_sep("=", "Sending information to Paste Service")
+         for rep in terminalreporter.stats.get("failed"):
+             try:
+-                msg = rep.longrepr.reprtraceback.reprentries[0].reprfileloc
++                msg = rep.longrepr.reprtraceback.reprentries[-1].reprfileloc
+             except AttributeError:
+                 msg = tr._getfailureheadline(rep)
+             tw = _pytest.config.create_terminal_writer(
+diff --git a/src/_pytest/pathlib.py b/src/_pytest/pathlib.py
+index 0403b6947..19f9c062f 100644
+--- a/src/_pytest/pathlib.py
++++ b/src/_pytest/pathlib.py
+@@ -11,7 +11,6 @@ from functools import partial
+ from os.path import expanduser
+ from os.path import expandvars
+ from os.path import isabs
+-from os.path import normcase
+ from os.path import sep
+ from posixpath import sep as posix_sep
+ 
+@@ -335,12 +334,3 @@ def fnmatch_ex(pattern, path):
+ def parts(s):
+     parts = s.split(sep)
+     return {sep.join(parts[: i + 1]) or sep for i in range(len(parts))}
+-
+-
+-def unique_path(path):
+-    """Returns a unique path in case-insensitive (but case-preserving) file
+-    systems such as Windows.
+-
+-    This is needed only for ``py.path.local``; ``pathlib.Path`` handles this
+-    natively with ``resolve()``."""
+-    return type(path)(normcase(str(path.realpath())))
+diff --git a/src/_pytest/python.py b/src/_pytest/python.py
+index 913a93bc0..b83681e91 100644
+--- a/src/_pytest/python.py
++++ b/src/_pytest/python.py
+@@ -1150,7 +1150,7 @@ def _idval(val, argname, idx, idfn, item, config):
+         hook_id = config.hook.pytest_make_parametrize_id(
+             config=config, val=val, argname=argname
+         )
+-        if hook_id:
++        if hook_id is not None:
+             return hook_id
+ 
+     if isinstance(val, STRING_TYPES):
+diff --git a/testing/python/metafunc.py b/testing/python/metafunc.py
+index 4273ab796..daa593c4a 100644
+--- a/testing/python/metafunc.py
++++ b/testing/python/metafunc.py
+@@ -1747,6 +1747,25 @@ class TestMarkersWithParametrization:
+         result = testdir.runpytest("-v")
+         result.stdout.fnmatch_lines(["*test_func*0*PASS*", "*test_func*2*PASS*"])
+ 
++    def test_pytest_make_parametrize_id_empty_string(self, testdir):
++        testdir.makeconftest(
++            """
++            def pytest_make_parametrize_id(config, val, argname):
++                return ""
++        """
++        )
++        testdir.makepyfile(
++            """
++                import pytest
++
++                @pytest.mark.parametrize("x", ["a", "b"])
++                def test_func(x):
++                    pass
++                """
++        )
++        result = testdir.runpytest("--collect-only", "-q")
++        assert "test_func[a]" not in result.stdout.str()
++
+     def test_pytest_make_parametrize_id_with_argname(self, testdir):
+         testdir.makeconftest(
+             """
+diff --git a/testing/test_conftest.py b/testing/test_conftest.py
+index 9888f5457..2db0beae5 100644
+--- a/testing/test_conftest.py
++++ b/testing/test_conftest.py
+@@ -6,7 +6,7 @@ import py
+ import pytest
+ from _pytest.config import PytestPluginManager
+ from _pytest.main import ExitCode
+-from _pytest.pathlib import unique_path
++from _pytest.pathlib import Path
+ 
+ 
+ def ConftestWithSetinitial(path):
+@@ -143,11 +143,11 @@ def test_conftestcutdir(testdir):
+     # but we can still import a conftest directly
+     conftest._importconftest(conf)
+     values = conftest._getconftestmodules(conf.dirpath())
+-    assert values[0].__file__.startswith(str(unique_path(conf)))
++    assert values[0].__file__.startswith(str(conf.realpath()))
+     # and all sub paths get updated properly
+     values = conftest._getconftestmodules(p)
+     assert len(values) == 1
+-    assert values[0].__file__.startswith(str(unique_path(conf)))
++    assert values[0].__file__.startswith(str(conf.realpath()))
+ 
+ 
+ def test_conftestcutdir_inplace_considered(testdir):
+@@ -156,7 +156,7 @@ def test_conftestcutdir_inplace_considered(testdir):
+     conftest_setinitial(conftest, [conf.dirpath()], confcutdir=conf.dirpath())
+     values = conftest._getconftestmodules(conf.dirpath())
+     assert len(values) == 1
+-    assert values[0].__file__.startswith(str(unique_path(conf)))
++    assert values[0].__file__.startswith(str(conf.realpath()))
+ 
+ 
+ @pytest.mark.parametrize("name", "test tests whatever .dotdir".split())
+@@ -166,7 +166,7 @@ def test_setinitial_conftest_subdirs(testdir, name):
+     conftest = PytestPluginManager()
+     conftest_setinitial(conftest, [sub.dirpath()], confcutdir=testdir.tmpdir)
+     if name not in ("whatever", ".dotdir"):
+-        assert unique_path(subconftest) in conftest._conftestpath2mod
++        assert Path(str(subconftest)).resolve() in conftest._conftestpath2mod
+         assert len(conftest._conftestpath2mod) == 1
+     else:
+         assert subconftest not in conftest._conftestpath2mod
+diff --git a/testing/test_pastebin.py b/testing/test_pastebin.py
+index 4e8bac56c..437958198 100644
+--- a/testing/test_pastebin.py
++++ b/testing/test_pastebin.py
+@@ -27,6 +27,19 @@ class TestPasteCapture:
+         assert s.find("def test_fail") != -1
+         assert reprec.countoutcomes() == [1, 1, 1]
+ 
++    def test_failed_helper_label_uses_assertion_location(self, testdir, pastebinlist):
++        testdir.makepyfile(
++            """
++            def helper():
++                assert 0
++            def test_fail():
++                helper()
++        """
++        )
++        result = testdir.runpytest("--pastebin=failed")
++        # label must point to the assertion inside the helper (line 2), not the call (line 4)
++        result.stdout.fnmatch_lines(["*test_failed_helper_label*.py:2: *"])
++
+     def test_all(self, testdir, pastebinlist):
+         from _pytest.pytester import LineMatcher
+ 

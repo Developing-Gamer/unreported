@@ -1,0 +1,14 @@
+diff --git a/pylint/testutils/lint_module_test.py b/pylint/testutils/lint_module_test.py
+index 8f24daf8..3f11f746 100644
+--- a/pylint/testutils/lint_module_test.py
++++ b/pylint/testutils/lint_module_test.py
+@@ -128,8 +128,7 @@ class LintModuleTest:
+         """Takes two multisets and compares them.
+ 
+         A multiset is a dict with the cardinality of the key as the value."""
+-        missing = expected_entries.copy()
+-        missing.subtract(actual_entries)
++        missing = expected_entries - actual_entries
+         unexpected = {}
+         for key, value in list(missing.items()):
+             if value <= 0:

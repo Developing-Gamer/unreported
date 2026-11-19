@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 37304,
+ "finalText": "The fix is in the working tree and `.factory/pr-S2.md` is written, as the request asked. Nothing is committed or pushed, per the benchmark note. `migrations.test_commands` passes, all 90 tests.\n\n`showmigrations --plan <app_label>` now includes dependency migrations from other apps. The cause was that `show_plan` dropped every migration whose app wasn't named on the command line. I removed that filter in `django/core/management/commands/showmigrations.py`. The plan targets were already limited to the requested apps' latest migrations, so nothing else needed to change.\n\nI reproduced the bug on the starting commit with the existing tests `test_showmigrations_plan_single_app_label` and `test_showmigrations_plan_multiple_app_labels`, which both failed on the missing `book_app.0001_initial`. I added no new test because those two already assert the expected output.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"checks\": [\n    {\n      \"command\": \"cd tests && PYTHONPATH=/testbed python runtests.py migrations.test_commands\",\n      \"passed\": true\n    }\n  ],\n  \"visual\": false,\n  \"reproduction\": [\n    \"Use INSTALLED_APPS with author_app (alter_fk) and book_app, where author_app.0002 depends on book_app.0001\",\n    \"Run `showmigrations --plan author_app`\",\n    \"Before the fix, book_app.0001_initial is missing between author_app.0001_initial and author_app.0002_alter_id\"\n  ],\n  \"reproductionTest\": {\n    \"path\": \"tests/migrations/test_commands.py\",\n    \"command\": \"cd tests && PYTHONPATH=/testbed python runtests.py migrations.test_commands.MigrateTests.test_showmigrations_plan_single_app_label migrations.test_commands.MigrateTests.test_showmigrations_plan_multiple_app_labels\",\n    \"signature\": \"AssertionError: '[ ]  author_app.0001_initial\\\\n[ ]  author_app.0002_alter_id\\\\n...' != '[ ]  author_app.0001_initial\\\\n[ ]  book_app.0001_initial\\\\n[ ]  author_app.0002_alter_id\\\\n...'\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 9,
+  "inputTokens": {
+   "avg": 22155,
+   "max": 24881
+  },
+  "mainUsage": {
+   "inputTokens": 199395,
+   "cachedInputTokens": 188408,
+   "outputTokens": 3583
+  },
+  "cacheHitPercent": 94.48983174101657,
+  "wallSeconds": 35.43399977684021,
+  "tools": {
+   "read": 4,
+   "edit": 3,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 4
+  },
+  "reads": 4,
+  "edits": 3,
+  "runs": 4,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 3,
+  "editOperations": 3,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.10096810000000002,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.10096810000000002
+}

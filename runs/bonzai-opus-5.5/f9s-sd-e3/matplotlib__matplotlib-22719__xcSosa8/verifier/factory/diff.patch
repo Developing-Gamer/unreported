@@ -1,0 +1,127 @@
+diff --git a/lib/matplotlib/_afm.py b/lib/matplotlib/_afm.py
+index eb11078dbc..3d02d7f9c1 100644
+--- a/lib/matplotlib/_afm.py
++++ b/lib/matplotlib/_afm.py
+@@ -219,7 +219,7 @@ def _parse_char_metrics(fh):
+         if not required_keys.issubset(vals):
+             raise RuntimeError('Bad char metrics line: %s' % line)
+         num = _to_int(vals['C'])
+-        wx = _to_int(vals['WX'])
++        wx = _to_float(vals['WX'])
+         name = vals['N']
+         bbox = _to_list_of_floats(vals['B'])
+         bbox = list(map(int, bbox))
+diff --git a/lib/matplotlib/bezier.py b/lib/matplotlib/bezier.py
+index 60f344d39f..1c92487b9b 100644
+--- a/lib/matplotlib/bezier.py
++++ b/lib/matplotlib/bezier.py
+@@ -161,8 +161,7 @@ def find_bezier_t_intersecting_with_closedpath(
+     while True:
+ 
+         # return if the distance is smaller than the tolerance
+-        if ((start[0] - end[0]) ** 2
+-                + (start[1] - end[1]) ** 2) < tolerance:
++        if np.hypot(start[0] - end[0], start[1] - end[1]) < tolerance:
+             return t0, t1
+ 
+         # calculate the middle point
+diff --git a/lib/matplotlib/category.py b/lib/matplotlib/category.py
+index c823b68fd9..001581515c 100644
+--- a/lib/matplotlib/category.py
++++ b/lib/matplotlib/category.py
+@@ -58,7 +58,8 @@ class StrCategoryConverter(units.ConversionInterface):
+             is_numlike = all(units.ConversionInterface.is_numlike(v)
+                              and not isinstance(v, (str, bytes))
+                              for v in values)
+-        if is_numlike:
++        # all() is vacuously true for empty input, which is not numbers.
++        if values.size and is_numlike:
+             _api.warn_deprecated(
+                 "3.5", message="Support for passing numbers through unit "
+                 "converters is deprecated since %(since)s and support will be "
+diff --git a/lib/matplotlib/tests/test_afm.py b/lib/matplotlib/tests/test_afm.py
+index e5c6a83937..cf159c0233 100644
+--- a/lib/matplotlib/tests/test_afm.py
++++ b/lib/matplotlib/tests/test_afm.py
+@@ -79,6 +79,16 @@ def test_parse_char_metrics():
+          })
+ 
+ 
++def test_fractional_char_widths():
++    # Fractional WX values must not be truncated, otherwise string widths
++    # (used for text alignment in the PS/PDF backends) are too small.
++    data = AFM_TEST_DATA.replace(b"WX 1141 ", b"WX 611.9 ")
++    font = _afm.AFM(BytesIO(data))
++    assert font.get_width_char('*') == pytest.approx(611.9)
++    w, h = font.string_width_height('**' * 20)
++    assert w == pytest.approx(40 * 611.9)
++
++
+ def test_get_familyname_guessed():
+     fh = BytesIO(AFM_TEST_DATA)
+     font = _afm.AFM(fh)
+diff --git a/lib/matplotlib/tests/test_bezier.py b/lib/matplotlib/tests/test_bezier.py
+new file mode 100644
+index 0000000000..3fdf4df61a
+--- /dev/null
++++ b/lib/matplotlib/tests/test_bezier.py
+@@ -0,0 +1,26 @@
++"""
++Tests specific to the bezier module.
++"""
++
++import numpy as np
++from numpy.testing import assert_allclose
++
++from matplotlib.bezier import find_bezier_t_intersecting_with_closedpath
++from matplotlib.bezier import inside_circle
++
++
++def test_find_bezier_t_intersecting_with_closedpath_tolerance():
++    # The tolerance is a distance: the returned bracket must be narrower
++    # than it, so the split point is within *tolerance* of the circle edge.
++    radius = 37.3
++    tolerance = 0.01
++    p0, p1 = np.array([0., 0.]), np.array([100., 0.])
++
++    def point_at_t(t):
++        return tuple((1 - t) * p0 + t * p1)
++
++    t0, t1 = find_bezier_t_intersecting_with_closedpath(
++        point_at_t, inside_circle(0, 0, radius), tolerance=tolerance)
++    x0, x1 = point_at_t(t0)[0], point_at_t(t1)[0]
++    assert x1 - x0 < tolerance
++    assert_allclose(point_at_t(0.5 * (t0 + t1))[0], radius, atol=tolerance)
+diff --git a/lib/matplotlib/tests/test_category.py b/lib/matplotlib/tests/test_category.py
+index f0e424bd8e..31a2f62077 100644
+--- a/lib/matplotlib/tests/test_category.py
++++ b/lib/matplotlib/tests/test_category.py
+@@ -1,4 +1,6 @@
+ """Catch all for categorical functions"""
++import warnings
++
+ import pytest
+ import numpy as np
+ 
+@@ -112,6 +114,21 @@ class TestStrCategoryConverter:
+             actual = self.cc.convert(data, self.unit, self.ax)
+         np.testing.assert_allclose(actual, np.array([1., 2., 3.]))
+ 
++    def test_convert_empty_array(self):
++        # Empty data is not "numbers passed through"; no deprecation warning.
++        with warnings.catch_warnings():
++            warnings.simplefilter("error")
++            actual = self.cc.convert(np.array([]), self.unit, self.ax)
++        assert actual.shape == (0,)
++        assert actual.dtype == float
++
++    def test_plot_empty_after_categories(self):
++        fig, ax = plt.subplots()
++        ax.xaxis.update_units(['a', 'b'])
++        with warnings.catch_warnings():
++            warnings.simplefilter("error")
++            ax.plot([], [])
++
+     @pytest.mark.parametrize("fvals", fvalues, ids=fids)
+     def test_convert_fail(self, fvals):
+         with pytest.raises(TypeError):

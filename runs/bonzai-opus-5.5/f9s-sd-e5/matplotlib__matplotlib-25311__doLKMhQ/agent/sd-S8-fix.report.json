@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 130170,
+ "finalText": "Pickling a figure with a draggable legend or annotation now works. The new regression test `test_draggable_pickle` fails with `TypeError: cannot pickle 'UnpicklableCanvas' object` before the fix and passes after it. I re-ran it just now to confirm. The PR text is in `/testbed/.factory/pr-S8.md`, and nothing is committed.\n\n- **Cause:** `DraggableBase.__init__` stored the canvas as `self.canvas`. The draggable helper held by the legend or annotation then pulled the canvas into the pickle, even though `Figure.__getstate__` drops it.\n- **Fix (`lib/matplotlib/offsetbox.py`):** `canvas` is now a read-only property that returns `self.ref_artist.figure.canvas`. I also added a guard in `DraggableBase.disconnect()`. When the artist has no figure, there is no canvas to reach, so it returns early.\n- **Test:** `test_draggable_pickle` in `lib/matplotlib/tests/test_pickle.py` uses a canvas whose `__reduce__` raises. It pickles and unpickles a figure with a draggable legend and a draggable annotation. It then checks both are still draggable and that the helper's `canvas` is the new figure's canvas.\n- **Checks:** I ran `test_pickle.py`, `test_legend.py`, `test_offsetbox.py` and `test_text.py`. Everything passes except `test_pickle_load_from_subprocess[png]`, which fails the same way on the base commit with a matplotlib version-mismatch warning.\n- **Not run:** I didn't run the issue's reproduction on a real Qt backend. I also didn't try dragging after unpickling and re-showing.\n- **Existing changes:** The working tree already had uncommitted changes to `_fontconfig_pattern.py` and `test_fontconfig_pattern.py` before I started. I left them alone, and they are unrelated to this bug.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"visual\": false,\n  \"checks\": [\n    {\"command\": \"pytest lib/matplotlib/tests/test_pickle.py lib/matplotlib/tests/test_legend.py lib/matplotlib/tests/test_offsetbox.py lib/matplotlib/tests/test_text.py\", \"passed\": true, \"note\": \"only test_pickle_load_from_subprocess[png] fails, identically on base (alsoOnBase true)\"}\n  ],\n  \"reproductionSteps\": \"Create a figure whose canvas cannot be pickled, add a legend, call leg.set_draggable(True) (or annotation.draggable(True)), then pickle.dumps(fig): raises TypeError cannot pickle canvas.\",\n  \"reproductionTest\": {\n    \"path\": \"lib/matplotlib/tests/test_pickle.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest lib/matplotlib/tests/test_pickle.py -k draggable -q\",\n    \"signature\": \"TypeError: cannot pickle 'UnpicklableCanvas' object\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 19,
+  "inputTokens": {
+   "avg": 27041.315789473683,
+   "max": 33747
+  },
+  "mainUsage": {
+   "inputTokens": 513785,
+   "cachedInputTokens": 493912,
+   "outputTokens": 7723
+  },
+  "cacheHitPercent": 96.13203966639742,
+  "wallSeconds": 129.6340000629425,
+  "tools": {
+   "read": 9,
+   "edit": 5,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 1,
+   "subagent": 0,
+   "other": 4
+  },
+  "reads": 9,
+  "edits": 5,
+  "runs": 4,
+  "reReads": {
+   "total": 1,
+   "readFile": 1,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.22567389999999998,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.22567389999999998
+}

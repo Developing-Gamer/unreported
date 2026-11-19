@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 31389,
+ "finalText": "The cause is in this repository, and a small fix would handle it. I only read the code. I did not run probe or any tests, so I have not reproduced the crash.\n\n**Cause.** `QuerySet.query` is a property with a setter. The setter at `django/db/models/query.py:211-213` only stores the query. A queryset always starts with `_iterable_class = ModelIterable` (line 198). Only `values()` and `values_list()` switch that to a values-style iterable on the queryset itself.\n\nThe documented way to rebuild a queryset from a pickled query is `qs = Model.objects.all(); qs.query = pickle.loads(s)`. The restored query still has its `values_select` and annotations, so the SQL selects only the grouped columns. But the queryset still builds model instances, and each instance is missing its other columns. Reading `.id` on one then raises the error the reporter describes.\n\n**Fix.** In the setter, if `value.values_select` is set, also set `self._iterable_class = ValuesIterable`. Upstream Django did the same thing for this report. The queryset then yields dicts, as it did before pickling.\n\n**Limits of the fix.** It restores dict output only. A pickled `values_list()` comes back as dicts rather than tuples, because the query does not record which values-style iterable was used. A bare `values()` with no field names and no annotations also leaves `values_select` empty, so the setter would not detect it. Upstream has the same limits.\n\n**Who feels it.** Anyone who stores a queryset's query and later reruns it. The reporter did this for a GROUP BY report.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Pickled values() query returns broken model objects\",\n  \"cause\": \"QuerySet.query's setter only stores the query and leaves _iterable_class as ModelIterable. When a pickled values()/annotate() query is assigned to a fresh queryset, the SQL selects only the values columns but ModelIterable builds model instances from them, so the instances are missing fields and attribute access fails.\",\n  \"files\": [{\"path\": \"django/db/models/query.py\", \"why\": \"The query setter (line 211) must switch _iterable_class to ValuesIterable when the assigned query has values_select.\"}],\n  \"plan\": [\n    \"In the QuerySet.query setter, if value.values_select is non-empty, set self._iterable_class = ValuesIterable before assigning self._query.\",\n    \"Add a regression test in tests/queryset_pickle that pickles Model.objects.values('x').annotate(c=Count('id')).query, assigns it to a fresh queryset, and asserts the results are dicts.\",\n    \"Note in the docs on pickling querysets that values_list() results come back as dicts.\"\n  ],\n  \"verification\": [\n    \"Run the new regression test; it fails before the change and passes after.\",\n    \"Run the queryset_pickle and queries test suites.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"likely\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.85,\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"The query setter only assigns the query and does not update the iterable class.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"django/db/models/query.py:211\", \"quote\": \"def query(self, value):\\n        self._query = value\"}]},\n    {\"id\": \"c2\", \"text\": \"A fresh QuerySet always defaults to ModelIterable.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"django/db/models/query.py:198\", \"quote\": \"self._iterable_class = ModelIterable\"}]},\n    {\"id\": \"c3\", \"text\": \"ValuesIterable builds its dicts from query.values_select, which survives pickling, so it can be selected from the assigned query.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"django/db/models/query.py:107\", \"quote\": \"*query.values_select,\"}]}\n  ],\n  \"intendedBehavior\": \"Assigning a pickled values()/annotate() query to a fresh queryset and evaluating it yields dicts, not model instances.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"The documentation describes assigning a pickled query to a fresh queryset; no code or test says model instances should come back for a values query.\"},\n  \"fixType\": \"error\",\n  \"plain\": {\n    \"headline\": \"Saved report queries came back as broken records instead of grouped results after being reloaded.\",\n    \"happened\": \"A user saved a grouped query and later reloaded it as the documentation describes. The reloaded query still asked the database for grouped columns, but the app treated each row as a full record. Those records were missing most of their data, so reading even their ID failed.\",\n    \"matters\": \"It hits anyone who stores and later reruns grouped or column-limited queries.\",\n    \"fix\": \"When a reloaded query is limited to specific columns, have it return plain column data again, as it did before it was saved.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 3,
+  "inputTokens": {
+   "avg": 12952.666666666666,
+   "max": 14484
+  },
+  "mainUsage": {
+   "inputTokens": 38858,
+   "cachedInputTokens": 31390,
+   "outputTokens": 2246
+  },
+  "cacheHitPercent": 80.78130629471408,
+  "wallSeconds": 30.288000106811523,
+  "tools": {
+   "read": 3,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 0
+  },
+  "reads": 3,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.047404,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.047404
+}

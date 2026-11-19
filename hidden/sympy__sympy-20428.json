@@ -1,0 +1,48 @@
+{
+ "task": "sympy__sympy-20428",
+ "kept": [
+  {
+   "path": "sympy/polys/partfrac.py",
+   "category": "swallowed error (an exception caught and ignored, or an error path that returns a default)",
+   "defect_patch": "diff --git a/sympy/polys/partfrac.py b/sympy/polys/partfrac.py\nindex fb6d323653..104885e4fc 100644\n--- a/sympy/polys/partfrac.py\n+++ b/sympy/polys/partfrac.py\n@@ -81,7 +81,7 @@ def apart(f, x=None, full=False, **options):\n         (P, Q), opt = parallel_poly_from_expr((P, Q), x, **options)\n     except PolynomialError as msg:\n         if f.is_commutative:\n-            raise PolynomialError(msg)\n+            return f\n         # non-commutative\n         if f.is_Mul:\n             c, nc = f.args_cnc(split_1=False)\n",
+   "test_code": "from sympy import Symbol, apart, sin\nfrom sympy.polys.polyerrors import PolynomialError\n\n\ndef test_nonpolynomial_denominator_reports_unsupported_input():\n    x = Symbol('x')\n    expr = 1/(x + sin(x))\n    error = None\n\n    try:\n        apart(expr, x)\n    except PolynomialError as exc:\n        error = exc\n\n    assert error is not None, 'Unsupported input was silently accepted'\n",
+   "signal": {
+    "kind": "user",
+    "source": "symbolic-processing support channel",
+    "text": "A few formulas now come back exactly as entered with a success status, instead of the validation error we used to see. Ordinary rational formulas still look fine."
+   },
+   "summary": "The commutative-input error handler silently returns the original expression instead of propagating PolynomialError for unsupported inputs."
+  },
+  {
+   "path": "sympy/polys/orthopolys.py",
+   "category": "swallowed error (an exception caught and ignored, or an error path that returns a default)",
+   "defect_patch": "diff --git a/sympy/polys/orthopolys.py b/sympy/polys/orthopolys.py\nindex d2c56739f1..deb78155d8 100644\n--- a/sympy/polys/orthopolys.py\n+++ b/sympy/polys/orthopolys.py\n@@ -302,8 +302,11 @@ def laguerre_poly(n, x=None, alpha=None, polys=False):\n         raise ValueError(\"can't generate Laguerre polynomial of degree %s\" % n)\n \n     if alpha is not None:\n-        K, alpha = construct_domain(\n-            alpha, field=True)  # XXX: ground_field=True\n+        try:\n+            K, alpha = construct_domain(\n+                alpha, field=True)  # XXX: ground_field=True\n+        except (TypeError, ValueError):\n+            K, alpha = QQ, QQ(0)\n     else:\n         K, alpha = QQ, QQ(0)\n \n",
+   "test_code": "from sympy import Symbol\nfrom sympy.polys.orthopolys import laguerre_poly\n\n\ndef test_laguerre_parameter_validation():\n    x = Symbol('x')\n    assert laguerre_poly(2, x) == x**2/2 - 2*x + 1\n    assert laguerre_poly(2, x, alpha=2) == x**2/2 - 4*x + 6\n\n    rejected = False\n    try:\n        laguerre_poly(2, x, alpha=object())\n    except (TypeError, ValueError):\n        rejected = True\n\n    assert rejected, 'An invalid parameter must not silently select the default basis'\n",
+   "signal": {
+    "kind": "user",
+    "source": "Spectral fitting support",
+    "text": "A malformed shape parameter no longer causes a validation failure; the exported coefficients are identical to leaving the parameter blank."
+   },
+   "summary": "Laguerre parameter domain-construction errors are swallowed and replaced with alpha=0, silently accepting invalid parameters."
+  }
+ ],
+ "rejected": [
+  {
+   "path": "sympy/polys/domains/pythonintegerring.py",
+   "category": "silent wrong result (a value or output that is subtly wrong, no exception)",
+   "defect_patch": "--- a/sympy/polys/domains/pythonintegerring.py\n+++ b/sympy/polys/domains/pythonintegerring.py\n@@ -36,7 +36,7 @@\n \n     def from_FF_python(K1, a, K0):\n         \"\"\"Convert ``ModularInteger(int)`` to Python's ``int``. \"\"\"\n-        return a.to_int()\n+        return a.val\n \n     def from_ZZ_python(K1, a, K0):\n         \"\"\"Convert Python's ``int`` to Python's ``int``. \"\"\"\n",
+   "test_code": "from sympy.polys.domains.pythonfinitefield import PythonFiniteField\nfrom sympy.polys.domains.pythonintegerring import PythonIntegerRing\n\n\ndef test_integer_conversion_preserves_symmetric_representatives():\n    integers = PythonIntegerRing()\n    field = PythonFiniteField(11, symmetric=True)\n\n    assert integers.convert(field(5), field) == 5\n    assert integers.convert(field(8), field) == -3\n    assert integers.convert(field(10), field) == -1\n",
+   "signal": {
+    "kind": "user",
+    "source": "algebra-service support",
+    "text": "Some reconstructed coefficients have changed from -3 and -1 to 8 and 10. The modular checks still pass, but the exported integer coefficients no longer match earlier runs."
+   },
+   "summary": "Conversion from Python-backed finite fields to integers returns the raw nonnegative residue instead of respecting symmetric representatives.",
+   "reject": "changes the reported bug's test results",
+   "diff": [
+    "test_Poly_from_poly F",
+    "test_Poly_from_poly ok"
+   ]
+  }
+ ]
+}

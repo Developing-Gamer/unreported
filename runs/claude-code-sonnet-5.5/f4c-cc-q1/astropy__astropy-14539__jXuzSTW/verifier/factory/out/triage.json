@@ -1,0 +1,9 @@
+[
+{"source":"S1","decision":"skip","reason":"Report is about a catalog-ingest service's configuration and gives no reproducible defect in this repository's code."},
+{"source":"S2","decision":"fix","reason":"TableDataDiff only treated 'P' format columns as VLAs, so 'Q' (64-bit descriptor) columns fell through to a plain array comparison and failed/reported spurious diffs."},
+{"source":"S3","decision":"skip","reason":"OOMKilled worker in an unrelated export service; no code in this repository is implicated."},
+{"source":"S4","decision":"skip","reason":"Already fixed: minversion now uses packaging.version.Version instead of LooseVersion."},
+{"source":"S5","decision":"skip","reason":"Already done: the structured-ndarray to NdarrayMixin auto-conversion no longer exists in Table."},
+{"source":"S6","decision":"skip","reason":"Plain-text ascii formats carry no type information and by design only auto-convert to int/float/str; bool can be requested via converters or ECSV, so this is a feature request rather than a defect."},
+{"source":"S7","decision":"skip","reason":"Report concerns a simulation-export job's output units in an external service; nothing actionable in this repository."}
+]

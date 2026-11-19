@@ -1,0 +1,10 @@
+[
+{"source":"S1","decision":"skip","reason":"Too vague (no reproducer, no identifiable code path) to attribute to a defect in this repository."},
+{"source":"S2","decision":"skip","reason":"Already fixed: dates.py wraps usetex date labels in _wrap_in_tex (with test_date_formatter_usetex / test_concise_formatter_usetex covering it)."},
+{"source":"S3","decision":"skip","reason":"Too vague (no reproducer or identifiable code path) to act on."},
+{"source":"S4","decision":"skip","reason":"Stripe connection error in an external billing service; unrelated to this repository."},
+{"source":"S5","decision":"skip","reason":"Already fixed: legend.py accepts FigureBase as parent and test_subfigure_legend exists."},
+{"source":"S6","decision":"skip","reason":"Report is against mpl 3.0.2; uneven date grid reflects calendar-based tick locations, not an actionable defect in this checkout."},
+{"source":"S7","decision":"fix","reason":"StrCategoryConverter.convert treated empty input as numeric pass-through, emitting the deprecation warning (an error under -W error) and ConversionError; same root cause as S8."},
+{"source":"S8","decision":"fix","reason":"Same root cause as S7: empty data on a category axis wrongly hit the deprecated numeric pass-through branch."}
+]

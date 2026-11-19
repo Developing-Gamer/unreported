@@ -1,0 +1,13 @@
+diff --git a/sphinx/util/texescape.py b/sphinx/util/texescape.py
+index 8dcc08a9b..3b80dcfa2 100644
+--- a/sphinx/util/texescape.py
++++ b/sphinx/util/texescape.py
+@@ -128,7 +128,7 @@ def hlescape(s: str, latex_engine: str = None) -> str:
+ 
+ def escape_abbr(text: str) -> str:
+     """Adjust spacing after abbreviations. Works with @ letter or other."""
+-    return re.sub(r'\.(?=\s|$)', r'.\@{}', text)
++    return re.sub(r'\.(?= |$)', r'.\@{}', text)
+ 
+ 
+ def init() -> None:

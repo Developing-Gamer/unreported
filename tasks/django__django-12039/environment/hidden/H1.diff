@@ -1,0 +1,13 @@
+diff --git a/django/template/backends/base.py b/django/template/backends/base.py
+index 22628c6355..1e17281707 100644
+--- a/django/template/backends/base.py
++++ b/django/template/backends/base.py
+@@ -62,7 +62,7 @@ class BaseEngine:
+         # Immutable return value because it's cached and shared by callers.
+         template_dirs = tuple(self.dirs)
+         if self.app_dirs:
+-            template_dirs += get_app_template_dirs(self.app_dirname)
++            template_dirs = get_app_template_dirs(self.app_dirname) + template_dirs
+         return template_dirs
+ 
+     def iter_template_filenames(self, template_name):

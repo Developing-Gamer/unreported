@@ -1,0 +1,91 @@
+FFF                                                                      [100%]
+=================================== FAILURES ===================================
+________________ test_allclose_checks_dimension_order[variable] ________________
+
+kind = 'variable'
+
+    @pytest.mark.parametrize("kind", ["variable", "dataarray", "dataset"])
+    def test_allclose_checks_dimension_order(kind):
+        values = np.array([[1.0, 2.0], [3.0, 4.0]])
+        left = xr.Variable(("row", "column"), values)
+        right = xr.Variable(("column", "row"), values.copy())
+    
+        if kind == "dataarray":
+            left = xr.DataArray(left)
+            right = xr.DataArray(right)
+        elif kind == "dataset":
+            left = xr.Dataset({"reading": left})
+            right = xr.Dataset({"reading": right})
+    
+        rejected = False
+        try:
+            assert_allclose(left, right)
+        except AssertionError:
+            rejected = True
+    
+>       assert rejected, "Different dimension orders must not compare equal positionally"
+E       AssertionError: Different dimension orders must not compare equal positionally
+E       assert False
+
+/tmp/test_hidden_S3.py:26: AssertionError
+_______________ test_allclose_checks_dimension_order[dataarray] ________________
+
+kind = 'dataarray'
+
+    @pytest.mark.parametrize("kind", ["variable", "dataarray", "dataset"])
+    def test_allclose_checks_dimension_order(kind):
+        values = np.array([[1.0, 2.0], [3.0, 4.0]])
+        left = xr.Variable(("row", "column"), values)
+        right = xr.Variable(("column", "row"), values.copy())
+    
+        if kind == "dataarray":
+            left = xr.DataArray(left)
+            right = xr.DataArray(right)
+        elif kind == "dataset":
+            left = xr.Dataset({"reading": left})
+            right = xr.Dataset({"reading": right})
+    
+        rejected = False
+        try:
+            assert_allclose(left, right)
+        except AssertionError:
+            rejected = True
+    
+>       assert rejected, "Different dimension orders must not compare equal positionally"
+E       AssertionError: Different dimension orders must not compare equal positionally
+E       assert False
+
+/tmp/test_hidden_S3.py:26: AssertionError
+________________ test_allclose_checks_dimension_order[dataset] _________________
+
+kind = 'dataset'
+
+    @pytest.mark.parametrize("kind", ["variable", "dataarray", "dataset"])
+    def test_allclose_checks_dimension_order(kind):
+        values = np.array([[1.0, 2.0], [3.0, 4.0]])
+        left = xr.Variable(("row", "column"), values)
+        right = xr.Variable(("column", "row"), values.copy())
+    
+        if kind == "dataarray":
+            left = xr.DataArray(left)
+            right = xr.DataArray(right)
+        elif kind == "dataset":
+            left = xr.Dataset({"reading": left})
+            right = xr.Dataset({"reading": right})
+    
+        rejected = False
+        try:
+            assert_allclose(left, right)
+        except AssertionError:
+            rejected = True
+    
+>       assert rejected, "Different dimension orders must not compare equal positionally"
+E       AssertionError: Different dimension orders must not compare equal positionally
+E       assert False
+
+/tmp/test_hidden_S3.py:26: AssertionError
+=========================== short test summary info ============================
+FAILED ../tmp/test_hidden_S3.py::test_allclose_checks_dimension_order[variable]
+FAILED ../tmp/test_hidden_S3.py::test_allclose_checks_dimension_order[dataarray]
+FAILED ../tmp/test_hidden_S3.py::test_allclose_checks_dimension_order[dataset]
+3 failed in 1.27s

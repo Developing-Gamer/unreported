@@ -1,0 +1,37 @@
+[
+  {
+    "source": "S1",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The signal is an out-of-memory kill of the `export-job` service's nightly CSV export, in export/worker.py `run` and export/csv_writer.py `flush`. Neither file exists in this repository (Matplotlib) or"
+  },
+  {
+    "source": "S2",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: In 3.4, dates._wrap_in_tex put the whole date label in TeX math mode and only protected dashes. TeX drops plain spaces in math mode and spaces ':' like an operator, so usetex date tick labels looked c"
+  },
+  {
+    "source": "S3",
+    "decision": "fix",
+    "reason": "The deprecation shim rename_parameter in lib/matplotlib/_api/deprecation.py maps an old (renamed) keyword to the new one with kwargs.setdefault(new, kwargs.pop(old)). When the new keyword is also pres"
+  },
+  {
+    "source": "S4",
+    "decision": "fix",
+    "reason": "The 'already imported' check in qt_compat.py tests sys.modules for PyQt5.QtCore before PySide6.QtCore, contrary to the module's documented order (PyQt6, PySide6, PyQt5, PySide2). When both PySide6 and"
+  },
+  {
+    "source": "S5",
+    "decision": "fix",
+    "reason": "mlab._spectral_helper normalizes amplitude by np.abs(window).sum() instead of window.sum() (psd/csd without scale_by_freq at line 430, magnitude at 398, complex at 403). For windows with negative samp"
+  },
+  {
+    "source": "S6",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: In older matplotlib releases, AnnotationBbox.draw did not open a renderer group carrying the artist's gid, so the SVG backend never wrote the id. The current code opens a group with gid=self.get_gid()"
+  },
+  {
+    "source": "S7",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: hist2d draws its bins with pcolormesh, which since Matplotlib 3.4 defaults to snapping mesh cells to pixel boundaries (rcParams['pcolormesh.snap'] = True). When bins are narrower than a pixel (the rep"
+  }
+]

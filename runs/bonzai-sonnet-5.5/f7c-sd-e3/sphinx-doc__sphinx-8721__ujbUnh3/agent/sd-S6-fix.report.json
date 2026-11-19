@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 53448,
+ "finalText": "The fix is in the working tree, uncommitted, and the PR text is at `.factory/pr-S6.md`.\n\n`collect_pages` in `sphinx/ext/viewcode.py` now returns early for `singlehtml`, and for epub builders when `viewcode_enable_epub` is False. This mirrors the guard `doctree_read` already had. I also added a `CHANGES` entry.\n\nThe new test `test_viewcode_epub_after_html` in `tests/test_ext_viewcode.py` builds html and then epub from the same source directory. Before the fix it failed with `assert not True` because `_modules` existed in the epub output. It passes now. `test_viewcode` in the same file fails, but it fails the same way on the base commit.\n\nI did not run `make html epub` on a real project. I did not check that `viewcode_enable_epub=True` still produces the pages. flake8 isn't installed here, so I didn't run it.\n\n`sphinx/builders/gettext.py`, `tests/test_build_gettext.py` and `tests/roots/test-gettext-locations/` also show as changed in the working tree. They are the gettext changes from open PR #1000, not part of this fix.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"checks\": [\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest tests/test_ext_viewcode.py -q -W ignore\", \"passed\": true, \"note\": \"new test passes; test_viewcode fails identically on base (alsoOnBase true)\"}\n  ],\n  \"visual\": false,\n  \"reproduction\": \"Build html then epub with sphinx.ext.viewcode in the same srcdir/doctreedir (make html epub); the epub outdir contains _modules/ although viewcode_enable_epub=False.\",\n  \"reproductionTest\": {\n    \"path\": \"tests/test_ext_viewcode.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest tests/test_ext_viewcode.py -q -W ignore\",\n    \"signature\": \"AssertionError: assert not True (where True = exists() on epub outdir '_modules')\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 15,
+  "inputTokens": {
+   "avg": 27080.333333333332,
+   "max": 32565
+  },
+  "mainUsage": {
+   "inputTokens": 406205,
+   "cachedInputTokens": 387522,
+   "outputTokens": 5477
+  },
+  "cacheHitPercent": 95.40059822011054,
+  "wallSeconds": 51.4520001411438,
+  "tools": {
+   "read": 9,
+   "edit": 5,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 4
+  },
+  "reads": 9,
+  "edits": 5,
+  "runs": 4,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 5,
+  "editOperations": 5,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1789649,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1789649
+}

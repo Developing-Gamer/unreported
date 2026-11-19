@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 202701,
+ "finalText": "I re-checked the report against the request and found one problem. The citation for my root-cause claim pointed at `typecheck.py` line 1, which is only a licence header. I corrected the citations below and changed nothing else.\n\nThe cause is in astroid, not in this repository, so there is no code citation for it here. The nearest in-repo evidence is the astroid version pin and the checker's own description of what it does. What shows the cause is the reproduction. I ran it with astroid 2.11.7 installed in the probe sandbox, plus a temporary patch that made star-imports honour `__all__`, which gave the expected output.\n\nThe verdict is \"outsideCode\". The pylint no-member check only reports what astroid infers, and astroid is what gets this wrong. The fix belongs in astroid: its star-import expansion should honour `__all__`. After that, raise the astroid pin in `setup.cfg`.\n\n```json\n{\n  \"verdict\": \"outsideCode\",\n  \"title\": \"no-member checks wrong module for asyncio.subprocess\",\n  \"cause\": \"Pylint infers attributes through astroid. When astroid expands `from .x import *` inside a package such as asyncio, it adds every public name of the imported module and ignores `__all__`. The `import subprocess` in asyncio/base_events.py therefore leaks the name `subprocess` into the `asyncio` package, so `asyncio.subprocess` resolves to the stdlib subprocess module instead of the asyncio.subprocess submodule. This causes the false positive (`Process`) and the false negative (`pwd`). The bug is in astroid's AstroidBuilder.add_from_names_to_locals (builder.py), not in this repository.\",\n  \"files\": [\n    {\"path\": \"pylint/checkers/typecheck.py\", \"why\": \"The no-member check only reports what astroid infers; it is correct given its input and needs no change.\"},\n    {\"path\": \"setup.cfg\", \"why\": \"Pins astroid to >=2.11.2,<=2.12.0-dev0; the fix has to come in a newer astroid and then this pin must be raised.\"}\n  ],\n  \"plan\": [\n    \"Fix astroid's AstroidBuilder.add_from_names_to_locals (astroid/builder.py) to use imported.wildcard_import_names(), which honours __all__, instead of imported.public_names().\",\n    \"Release astroid, then raise the astroid pin in pylint's setup.cfg and requirements_test_min.txt.\",\n    \"Add a pylint functional test for asyncio.subprocess attribute access (Process valid, pwd flagged).\"\n  ],\n  \"verification\": [\n    \"Run pylint on a file with `import asyncio; print(asyncio.subprocess.Process); print(asyncio.subprocess.pwd)` with only no-member enabled.\",\n    \"Expect no error on Process and `Module 'asyncio.subprocess' has no 'pwd' member` on pwd.\",\n    \"Reproduced here with astroid 2.11.7 (wrong output); with a one-function monkeypatch to wildcard_import_names() the expected output appeared.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.85,\n  \"deliberate\": false,\n  \"fixType\": \"dependency\",\n  \"action\": \"Report or fix this in the astroid project (github.com/PyCQA/astroid): make star-import handling in astroid/builder.py use wildcard_import_names() so __all__ is respected, then bump the astroid version pylint depends on.\",\n  \"intendedBehavior\": \"For `import asyncio`, `asyncio.subprocess.Process` is accepted and `asyncio.subprocess.pwd` is reported as a no-member error naming module 'asyncio.subprocess'.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"Issue #4223 was closed as won't fix/not planned; nothing in the code or ChangeLog says leaking non-__all__ names through star imports was chosen.\"},\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"Pylint reports Module 'subprocess' has no 'Process' member for asyncio.subprocess.Process and misses the invalid pwd access (reproduced).\", \"role\": \"impact\", \"citations\": [{\"type\": \"evidence\", \"ref\": \"ev_s3\", \"quote\": \"False positive and negative for E1101 with similarly named (sub-)modules.\"}]},\n    {\"id\": \"c2\", \"text\": \"The no-member checker in this repository only reports what astroid infers, so the wrong module comes from astroid's inference, which this repository depends on through a pinned version.\", \"role\": \"rootCause\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"pylint/checkers/typecheck.py:5\", \"quote\": \"\\\"\\\"\\\"Try to find more bugs in the code using astroid inference capabilities.\\\"\\\"\\\"\"},\n      {\"type\": \"code\", \"ref\": \"setup.cfg:50\", \"quote\": \"astroid>=2.11.2,<=2.12.0-dev0\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"Pylint's module-name or sys.path handling in pylint/lint picks a top-level module over a submodule.\", \"why\": \"Same-named top-level and sub-modules in several layouts resolved correctly. The one exception is a directory without __init__.py, where its siblings win (a documented limitation, not this case).\", \"citations\": [{\"type\": \"code\", \"ref\": \"pylint/lint/expand_modules.py:26\", \"quote\": \"TODO This get the python path with the (bad) assumption that there is always\"}]}\n  ]\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 25,
+  "inputTokens": {
+   "avg": 27391.84,
+   "max": 44831
+  },
+  "mainUsage": {
+   "inputTokens": 684796,
+   "cachedInputTokens": 646935,
+   "outputTokens": 17525
+  },
+  "cacheHitPercent": 94.47120018224406,
+  "wallSeconds": 202.27100014686584,
+  "tools": {
+   "read": 12,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 13
+  },
+  "reads": 12,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.380359,
+   "partial": false,
+   "estimated": true
+  }
+ },
+ "costUsd": 0.380359
+}

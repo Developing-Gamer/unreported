@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 41116,
+ "finalText": "A message that appears on several pages now keeps every source location in its `.pot` entry. The new regression test failed before the fix and passes after it.\n\nThe cause was as the investigation said. In `Catalog.add` (`sphinx/builders/gettext.py`), the line that records `(source, line, uid)` sat inside the `if msg not in self.metadata:` block. Only the first occurrence of a message was recorded. I dedented that line so it runs on every call. The message itself is still registered once.\n\nThe test, `test_catalog_keeps_all_locations_of_repeated_message` in `tests/test_build_gettext.py`, adds `Hello` from `/p/a.rst` and `/p/b.rst`. It expects both locations and two distinct uuids. I did not add the optional build test with two documents sharing a paragraph.\n\n`tests/test_build_gettext.py` passes (7 passed, 1 skipped). `tests/test_intl.py` has 3 failures (`test_html_meta` and the two `test_additional_targets_*` tests). They fail the same way on the base commit, so this change did not cause them.\n\nNothing is committed. The PR title and description are in `/testbed/.factory/pr-S2.md`.\n\n```json\n{\n  \"outcome\": \"ready\",\n  \"checks\": [\n    {\"name\": \"pytest tests/test_build_gettext.py\", \"passed\": true},\n    {\"name\": \"pytest tests/test_intl.py\", \"passed\": false, \"alsoOnBase\": true}\n  ],\n  \"visual\": false,\n  \"reproductionSteps\": \"Add the same msg to one Catalog from two MsgOrigin objects in different files (Catalog().add('Hello', MsgOrigin('/p/a.rst',3)); add('Hello', MsgOrigin('/p/b.rst',7))), then iterate: only the first location is returned.\",\n  \"reproductionTest\": {\n    \"path\": \"tests/test_build_gettext.py\",\n    \"command\": \"python -m pytest tests/test_build_gettext.py -k catalog_keeps -q\",\n    \"signature\": \"FAILED tests/test_build_gettext.py::test_catalog_keeps_all_locations_of_repeated_message\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 10,
+  "inputTokens": {
+   "avg": 21107.8,
+   "max": 24234
+  },
+  "mainUsage": {
+   "inputTokens": 211078,
+   "cachedInputTokens": 200736,
+   "outputTokens": 3147
+  },
+  "cacheHitPercent": 95.1003894295,
+  "wallSeconds": 39.39400005340576,
+  "tools": {
+   "read": 6,
+   "edit": 3,
+   "test": 0,
+   "verify": 0,
+   "git": 1,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 1
+  },
+  "reads": 6,
+  "edits": 3,
+  "runs": 2,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 1,
+  "editOperations": 1,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.0974602,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.0974602
+}

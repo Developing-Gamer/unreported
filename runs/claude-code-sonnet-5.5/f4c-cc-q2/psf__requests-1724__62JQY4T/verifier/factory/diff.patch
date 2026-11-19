@@ -1,0 +1,68 @@
+diff --git a/requests/models.py b/requests/models.py
+index f82f56a..d09d97c 100644
+--- a/requests/models.py
++++ b/requests/models.py
+@@ -307,7 +307,8 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):
+         """Prepares the given HTTP method."""
+         self.method = method
+         if self.method is not None:
+-            self.method = self.method.upper()
++            # Keep the method a native string (see Session.request).
++            self.method = builtin_str(self.method).upper()
+ 
+     def prepare_url(self, url, params):
+         """Prepares the given HTTP URL."""
+diff --git a/requests/sessions.py b/requests/sessions.py
+index cc72f65..d6d0ba9 100644
+--- a/requests/sessions.py
++++ b/requests/sessions.py
+@@ -12,7 +12,7 @@ import os
+ from collections import Mapping
+ from datetime import datetime
+ 
+-from .compat import cookielib, OrderedDict, urljoin, urlparse, urlunparse
++from .compat import cookielib, OrderedDict, urljoin, urlparse, urlunparse, builtin_str
+ from .cookies import cookiejar_from_dict, extract_cookies_to_jar, RequestsCookieJar
+ from .models import Request, PreparedRequest
+ from .hooks import default_hooks, dispatch_hook
+@@ -309,6 +309,10 @@ class Session(SessionRedirectMixin):
+         :param cert: (optional) if String, path to ssl client cert file (.pem).
+             If Tuple, ('cert', 'key') pair.
+         """
++        # Native-string method: a unicode method would make httplib coerce the
++        # whole request (including a binary body) to unicode on Python 2.
++        method = builtin_str(method)
++
+         # Create the Request.
+         req = Request(
+             method = method.upper(),
+diff --git a/test_requests.py b/test_requests.py
+index a593db3..3a45834 100755
+--- a/test_requests.py
++++ b/test_requests.py
+@@ -13,7 +13,7 @@ import requests
+ import pytest
+ from requests.auth import HTTPDigestAuth
+ from requests.adapters import HTTPAdapter
+-from requests.compat import str, cookielib, getproxies, urljoin, urlparse
++from requests.compat import str, cookielib, getproxies, urljoin, urlparse, builtin_str
+ from requests.cookies import cookiejar_from_dict
+ from requests.exceptions import InvalidURL, MissingSchema
+ from requests.structures import CaseInsensitiveDict
+@@ -386,6 +386,16 @@ class RequestsTestCase(unittest.TestCase):
+         requests.get(url, params={'foo': 'foo'})
+         requests.get(httpbin('ø'), params={'foo': 'foo'})
+ 
++    def test_unicode_method_name_is_native_string(self):
++        req = requests.Request(method=u'POST', url='http://example.com/',
++                               files={u'file': ('f', b'\xcf\xff')})
++        prep = req.prepare()
++        assert prep.method == 'POST'
++        assert type(prep.method) is builtin_str
++        s = requests.Session()
++        prep = s.prepare_request(req)
++        assert type(prep.method) is builtin_str
++
+     def test_unicode_header_name(self):
+         requests.put(httpbin('put'), headers={str('Content-Type'): 'application/octet-stream'}, data='\xff') # compat.str is unicode.
+ 

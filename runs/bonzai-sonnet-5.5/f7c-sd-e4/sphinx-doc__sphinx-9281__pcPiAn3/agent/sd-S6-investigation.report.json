@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 52793,
+ "finalText": "The cause is in this repository, and it is a small fix. I did not run Sphinx itself, because it fails to import on the probe's Python 3.11. I checked the regexes directly on sample strings instead. This was a read-only investigation, so nothing was edited.\n\nThe helper in `sphinx/util/texescape.py` that adds the abbreviation-spacing fix after a period only matches a literal space or the end of the string. A period followed by a newline or tab is left alone, so TeX treats it as a sentence end and adds a wider gap. The matching helper in `sphinx/writers/latex.py` already uses `\\s` and handles those cases. The `texescape` helper is used for the project and author names on the title page and for the \"Fig.\" and \"Table.\" caption names. HTML is unaffected because this code only runs for LaTeX.\n\nI found no test that covers the `texescape` helper. The report doesn't say which strings are wrapped, so I assumed they are the project or author text, or caption names, with a line break or tab after the period.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"PDF abbreviations followed by a newline get a wide gap\",\n  \"cause\": \"texescape.escape_abbr only adds the inter-word-space fix (\\\\@) when a period is followed by a literal space or end of string. A period followed by a newline or tab is left alone, so TeX treats it as a sentence end and adds a wider gap. The sibling helper in the LaTeX writer already uses \\\\s, so the two have drifted apart.\",\n  \"files\": [\n    {\"path\": \"sphinx/util/texescape.py\", \"why\": \"escape_abbr regex uses (?= |$) and misses newline/tab after the period\"},\n    {\"path\": \"sphinx/writers/latex.py\", \"why\": \"has a second escape_abbr with the correct \\\\s lookahead; could be unified\"},\n    {\"path\": \"sphinx/util/template.py\", \"why\": \"registers the eabbr filter that uses texescape.escape_abbr\"},\n    {\"path\": \"sphinx/builders/latex/__init__.py\", \"why\": \"applies texescape.escape_abbr to project and author names for the title page\"}\n  ],\n  \"plan\": [\n    \"Change the regex in texescape.escape_abbr to r'\\\\.(?=\\\\s|$)', keeping the .\\\\@{} replacement.\",\n    \"Add a unit test that covers a period followed by space, newline, tab and end of string.\",\n    \"Optionally make the writer's escape_abbr reuse the texescape one to stop the two copies drifting.\"\n  ],\n  \"verification\": [\n    \"New test: escape_abbr('e.g.\\\\nfoo') == 'e.g.\\\\\\\\@{}\\\\nfoo' and the same for a tab.\",\n    \"Run tests/test_build_latex.py to confirm the existing .\\\\@{} assertions still pass.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.85,\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"texescape.escape_abbr only matches a period followed by a literal space or end of string.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"sphinx/util/texescape.py:131\", \"quote\": \"return re.sub(r'\\\\.(?= |$)', r'.\\\\@{}', text)\"}]},\n    {\"id\": \"c2\", \"text\": \"The writer's own escape_abbr handles all whitespace, showing the intended behaviour.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"sphinx/writers/latex.py:241\", \"quote\": \"return re.sub(r'\\\\.(?=\\\\s|$)', r'.\\\\@', text)\"}]},\n    {\"id\": \"c3\", \"text\": \"The texescape helper is used for the title page and the Fig./Table. caption names.\", \"role\": \"impact\", \"citations\": [{\"type\": \"code\", \"ref\": \"sphinx/templates/latex/sphinxmessages.sty_t:15\", \"quote\": \"figurename[0] | e | eabbr\"}]}\n  ],\n  \"intendedBehavior\": \"escape_abbr('e.g.\\\\nfoo') and escape_abbr('etc.\\\\tfoo') insert \\\\@{} after the period, the same as for a period followed by a space.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"The function's docstring says it adjusts spacing after abbreviations, and the writer's sibling helper treats all whitespace the same way. Nothing in CHANGES or the tests says newline and tab were meant to be excluded.\"},\n  \"fixType\": \"frustration\",\n  \"ruledOut\": [\n    {\"hypothesis\": \"visit_abbreviation in the LaTeX writer causes the gap\", \"why\": \"It only wraps the text in \\\\sphinxstyleabbreviation and does not touch the spacing after a period.\", \"citations\": [{\"type\": \"code\", \"ref\": \"sphinx/writers/latex.py:1687\", \"quote\": \"self.body.append(r'\\\\sphinxstyleabbreviation{')\"}]}\n  ],\n  \"plain\": {\n    \"headline\": \"Some abbreviations in the PDF are followed by a too-wide gap because the spacing fix ignores line breaks and tabs after the period.\",\n    \"happened\": \"The PDF builder adds a small correction after abbreviation periods so the next word isn't pushed away. That correction only runs when a plain space follows the period. When a line break or tab follows, the correction is skipped and the PDF engine treats the period as the end of a sentence.\",\n    \"matters\": \"Anyone reading the PDF sees uneven spacing in titles, author lines and figure or table labels.\",\n    \"fix\": \"Make the correction apply after any whitespace, the same as the other copy of this logic already does.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 7,
+  "inputTokens": {
+   "avg": 16135.285714285714,
+   "max": 20748
+  },
+  "mainUsage": {
+   "inputTokens": 112947,
+   "cachedInputTokens": 99207,
+   "outputTokens": 6818
+  },
+  "cacheHitPercent": 87.83500225769609,
+  "wallSeconds": 51.847999811172485,
+  "tools": {
+   "read": 7,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 2
+  },
+  "reads": 7,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1223624,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1223624
+}

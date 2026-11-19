@@ -1,0 +1,8 @@
+[
+  {"source": "S1", "decision": "skip", "reason": "Describes a job-completion API's response semantics, which is not code in this HTTP client library."},
+  {"source": "S2", "decision": "skip", "reason": "Connection refused by api.stripe.com is a network/remote-service condition correctly surfaced as ConnectionError, not a defect in requests."},
+  {"source": "S3", "decision": "fix", "reason": "PreparedRequest.prepare_method kept a unicode method on Python 2, which makes httplib build a unicode header block that fails to concatenate with a non-ASCII byte body."},
+  {"source": "S4", "decision": "skip", "reason": "Already fixed: prepare_content_length no longer adds Content-Length for body-less GET/HEAD requests."},
+  {"source": "S5", "decision": "fix", "reason": "Same root cause as S3 (UnicodeDecodeError in httplib endheaders on Python 2.7 from a unicode method name), fixed by the S3 change."},
+  {"source": "S6", "decision": "skip", "reason": "Vague report of garbled Traditional Chinese previews with no request, response, encoding, or stack detail to tie it to a defect in this repository."}
+]

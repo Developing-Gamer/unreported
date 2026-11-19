@@ -1,0 +1,15 @@
+diff --git a/xarray/testing.py b/xarray/testing.py
+index 59737e1d..bdb55623 100644
+--- a/xarray/testing.py
++++ b/xarray/testing.py
+@@ -155,7 +155,9 @@ def assert_allclose(a, b, rtol=1e-05, atol=1e-08, decode_bytes=True):
+         a = getattr(a, "variable", a)
+         b = getattr(b, "variable", b)
+ 
+-        return a.dims == b.dims and (a._data is b._data or equiv(a.data, b.data))
++        return set(a.dims) == set(b.dims) and (
++            a._data is b._data or equiv(a.data, b.data)
++        )
+ 
+     if isinstance(a, Variable):
+         allclose = compat_variable(a, b)

@@ -1,0 +1,32 @@
+[
+  {
+    "source": "S1",
+    "decision": "fix",
+    "reason": "When a gzip or deflate response body fails to decompress, `stream_decompress` in `requests/utils.py` catches the zlib error and silently switches to passing through the remaining raw chunks. The chunk"
+  },
+  {
+    "source": "S2",
+    "decision": "fix",
+    "reason": "The bundled urllib3 creates connections with HTTPConnection(..., strict=self.strict). Python 3.4+ removed the strict parameter from http.client, so the first connection to any host raises TypeError. O"
+  },
+  {
+    "source": "S3",
+    "decision": "skip",
+    "reason": "Self-Driving verdict outsideCode: The requests library raised ConnectionError because the TCP connection to api.stripe.com:443 was refused (Errno 111). adapters.py only wraps socket and urllib3 MaxRetryError into requests.ConnectionEr"
+  },
+  {
+    "source": "S4",
+    "decision": "fix",
+    "reason": "When a request is prepared, the code sets 'Content-Length: 0' before it checks whether there is a body. That means every request without a body, including GET and HEAD, gets the header. Some servers, "
+  },
+  {
+    "source": "S5",
+    "decision": "fix",
+    "reason": "Each top-level call (requests.get, head, post and so on) goes through requests.api.request. That function builds a new Session and returns session.request(...) without ever closing the session. With t"
+  },
+  {
+    "source": "S6",
+    "decision": "fix",
+    "reason": "Before every request, PreparedRequest.prepare_url runs the whole URL through requote_uri, which calls unquote_unreserved. That function silently decodes percent-escapes of unreserved characters: %7E b"
+  }
+]

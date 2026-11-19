@@ -1,0 +1,15 @@
+diff --git a/pylint/message/message_id_store.py b/pylint/message/message_id_store.py
+index 9b89c876..1dbb9a95 100644
+--- a/pylint/message/message_id_store.py
++++ b/pylint/message/message_id_store.py
+@@ -71,9 +71,7 @@ class MessageIdStore:
+         """
+         self.__msgid_to_symbol[msgid] = symbol
+         self.__symbol_to_msgid[symbol] = msgid
+-        existing_old_names = self.__old_names.get(msgid, [])
+-        existing_old_names.append(new_msgid)
+-        self.__old_names[msgid] = existing_old_names
++        self.__old_names[msgid] = [new_msgid]
+ 
+     def check_msgid_and_symbol(self, msgid: str, symbol: str) -> None:
+         existing_msgid: str | None = self.__symbol_to_msgid.get(symbol)

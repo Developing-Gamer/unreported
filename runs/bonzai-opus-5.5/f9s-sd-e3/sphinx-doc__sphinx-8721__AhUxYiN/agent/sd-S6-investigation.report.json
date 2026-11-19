@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 73314,
+ "finalText": "I checked the work against the request again and it holds. I made no edits. The only command I ran was the reproduction in probe's throwaway copy. Every quote in the report matches the code, the issue text or the reproduction output word for word.\n\n**Cause:** in Sphinx's viewcode extension, the step that writes the source-code pages (`collect_pages`, sphinx/ext/viewcode.py:181-188) never checks which builder is running or whether `viewcode_enable_epub` is on. Only the step that reads documents (`doctree_read`, lines 57-60) skips epub. `make html epub` builds HTML and then epub with the same saved build data. The epub run loads that data, re-reads no documents, so the skip never runs, and it writes the `_modules` pages into the e-book.\n\n**Reproduction (current code, Sphinx 3.5.0):** a small project with autodoc and viewcode, built with html and then epub using the same build data folder, puts `index.xhtml` and `mymod.xhtml` in `_build/epub/_modules`. A clean epub-only build doesn't create that folder.\n\n**Existing tests:** in `tests/test_ext_viewcode.py`, 2 tests pass and 1 fails: `test_viewcode`, on an HTML-snippet comparison. That test builds with the HTML builder, where the fix changes nothing, so the failure is unrelated.\n\n**Fix:** add the same two early returns to `collect_pages` that `doctree_read` has (for `singlehtml`, and for `epub*` when the option is off). Add a test that builds html then epub with the same folders and checks there are no `_modules` pages in the epub.\n\n**Who feels it:** anyone who builds the website and the e-book together, as Sphinx's default build script does, gets source-code pages in the e-book that they never turned on.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Epub gets source pages after an HTML build\",\n  \"cause\": \"viewcode's doctree_read skips epub builders when viewcode_enable_epub is False, but collect_pages (the html-collect-pages handler) has no such check and only tests whether env._viewcode_modules exists. When `make html epub` reuses the pickled environment from the HTML build, no documents are re-read, so the module data the HTML build collected is loaded and collect_pages writes the _modules pages into the epub.\",\n  \"files\": [\n    {\"path\": \"sphinx/ext/viewcode.py\", \"why\": \"collect_pages lacks the singlehtml/epub + viewcode_enable_epub guard that doctree_read has\"},\n    {\"path\": \"tests/test_ext_viewcode.py\", \"why\": \"add a regression test building html then epub with a shared doctree dir\"}\n  ],\n  \"plan\": [\n    \"At the top of collect_pages, return early when app.builder.name == 'singlehtml', or when it starts with 'epub' and env.config.viewcode_enable_epub is False\",\n    \"Add a test that runs the html builder then the epub builder on the same srcdir/doctreedir and asserts no _modules output in the epub\"\n  ],\n  \"verification\": [\n    \"Build html then epub with a shared -d doctrees dir; _build/epub/_modules must not exist (it does today)\",\n    \"With viewcode_enable_epub=True the epub still contains _modules pages\",\n    \"tests/test_ext_viewcode.py passes apart from the existing test_viewcode HTML-snippet failure, which this change does not affect\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.93,\n  \"fixType\": \"silentFailure\",\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"collect_pages only checks that the module map exists, never the builder name or viewcode_enable_epub, so it emits module pages for epub builders.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"sphinx/ext/viewcode.py:181\", \"quote\": \"def collect_pages(app: Sphinx) -> Generator[Tuple[str, Dict[str, Any], str], None, None]:\"},\n      {\"type\": \"code\", \"ref\": \"sphinx/ext/viewcode.py:183\", \"quote\": \"if not hasattr(env, '_viewcode_modules'):\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"rootCause\", \"text\": \"The epub opt-out lives only in doctree_read, which does not run for documents loaded from the pickled environment of a previous HTML build.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"sphinx/ext/viewcode.py:59\", \"quote\": \"if app.builder.name.startswith(\\\"epub\\\") and not env.config.viewcode_enable_epub:\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"trigger\", \"text\": \"Running html then epub with a shared doctree dir produced epub module pages, while a clean epub-only build did not.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:sphinx-build html then epub\", \"quote\": \"--- epub _modules after html+epub:\\n_build/epub/_modules:\\nindex.xhtml\\nmymod.xhtml\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"impact\", \"text\": \"Users running `make html epub` get source-code pages in their epub despite the default opting out.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s6\", \"quote\": \"module pages should not be created for epub by default\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"The default for viewcode_enable_epub is True\", \"why\": \"It is registered with default False\", \"citations\": [{\"type\": \"code\", \"ref\": \"sphinx/ext/viewcode.py:281\", \"quote\": \"app.add_config_value('viewcode_enable_epub', False, False)\"}]}\n  ],\n  \"intendedBehavior\": \"Building html and then epub with a shared doctree directory and viewcode_enable_epub=False produces no _modules pages in the epub output.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"viewcode_enable_epub defaults to False and doctree_read explicitly skips epub builders; generating pages for epub via a reused environment is an unhandled case, not a chosen outcome.\"},\n  \"plain\": {\n    \"headline\": \"E-books get source-code pages people turned off, because the e-book build reuses data saved by the web build.\",\n    \"happened\": \"When someone builds the website and then the e-book in one go, the web build records which source code to show and saves it. The e-book build loads that saved record instead of re-reading the documents. The step that writes the source-code pages never checks whether the e-book option is on, so it adds them anyway.\",\n    \"matters\": \"Anyone who builds both formats together, as the default build script does, gets bigger e-books with pages they didn't ask for.\",\n    \"fix\": \"Have the step that writes source-code pages skip e-books unless the e-book option is turned on, the same check the earlier step already makes.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 7,
+  "inputTokens": {
+   "avg": 14967.57142857143,
+   "max": 18842
+  },
+  "mainUsage": {
+   "inputTokens": 104773,
+   "cachedInputTokens": 92939,
+   "outputTokens": 6634
+  },
+  "cacheHitPercent": 88.70510532293625,
+  "wallSeconds": 73.00300002098083,
+  "tools": {
+   "read": 2,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 4
+  },
+  "reads": 2,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.2104198,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.2104198
+}

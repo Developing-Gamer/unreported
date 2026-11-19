@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 72998,
+ "finalText": "I rechecked the work against the request and it holds. I made no edits, ran commands only through probe, and the report is the JSON block below. Its quotes are copied exactly from the code, the probe output and the evidence.\n\nThe error comes from this repository's code and is fixable. On Python 3.4 and later, requests 1.1.0 cannot send any HTTP or HTTPS request. Every `get`, `head`, `post` and `put` fails with this TypeError before it reaches the network.\n\n**Cause.** The copy of urllib3 bundled with requests always passes `strict=` when it opens a new connection: in `HTTPConnectionPool._new_conn` (connectionpool.py:196\u2013198) and in `HTTPSConnectionPool._new_conn` (lines 541\u2013546). Python removed that keyword in 3.4. The first request to any host therefore breaks inside `_get_conn` (line 231), which matches the Sentry stack line for line.\n\n**Confirmed with probe.** I ran Python 3.11, with a small shim for a separate import problem. These calls each raised the TypeError, with the same traceback as Sentry:\n- `requests.head('http://example.com')`\n- `requests.post('http://example.com', data='x')`\n- `requests.get('https://example.com')` (the HTTPS connection gave the same error)\n\nThe only commit is the v1.1.0 snapshot, so no later change here fixes it. `test_requests.py` has no test for this.\n\n**What it means for people.** 766 events from 11 users in 7 days: every request their app makes fails, so it can't reach any server.\n\n**Fix.** Pass `strict` only on Python 2 (`if not six.PY3`). `six` is already imported in that file. Add a regression test that opens a connection from a pool.\n\n**Separate problem found on the way.** On Python 3.10 and later, `import requests` fails before any request is made. The bundled `_collections.py` runs `from collections import MutableMapping`, which those versions removed. The users in this report got past the import, so they are probably on Python 3.4\u20133.9. It is worth fixing (importing from `collections.abc`) in the same change.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Requests fail on Python 3.4+ due to 'strict' argument\",\n  \"cause\": \"The bundled urllib3 connection pools always pass strict=self.strict to http.client.HTTPConnection / HTTPSConnection when opening a new connection (connectionpool.py:196-198 and 541-546). Python 3.4 removed the 'strict' parameter, so on 3.4+ every new connection raises TypeError, and every requests call (get/head/post/put) fails before reaching the network.\",\n  \"files\": [\n    {\"path\": \"requests/packages/urllib3/connectionpool.py\", \"why\": \"HTTPConnectionPool._new_conn and HTTPSConnectionPool._new_conn pass strict= unconditionally to stdlib connection classes\"},\n    {\"path\": \"requests/packages/urllib3/_collections.py\", \"why\": \"Related: `from collections import MutableMapping` breaks import on Python 3.10+; worth fixing alongside\"},\n    {\"path\": \"test_requests.py\", \"why\": \"Add a regression test that opens a connection via a pool\"}\n  ],\n  \"plan\": [\n    \"In HTTPConnectionPool._new_conn build kwargs {host, port} and add strict=self.strict only when not six.PY3 (six is already imported in connectionpool.py).\",\n    \"Apply the same conditional to both HTTPSConnection and VerifiedHTTPSConnection construction in HTTPSConnectionPool._new_conn.\",\n    \"Optionally change _collections.py to import MutableMapping from collections.abc with a fallback to collections, so the package imports on Python 3.10+.\",\n    \"Add a test that calls HTTPConnectionPool('localhost', 80)._new_conn() and HTTPSConnectionPool(...)._new_conn() without error.\"\n  ],\n  \"verification\": [\n    \"On Python 3.4+ run: from requests.packages.urllib3.connectionpool import HTTPConnectionPool; HTTPConnectionPool('example.com', 80)._get_conn() returns a connection instead of raising TypeError.\",\n    \"requests.head/get/post against a local test server succeed on Python 3 and still pass strict on Python 2.\",\n    \"Run test_requests.py on Python 2 and 3.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.95,\n  \"fixType\": \"dependency\",\n  \"intendedBehavior\": \"On Python 3.4 and newer, requests.head('http://host/') opens a connection and returns a response instead of raising TypeError about 'strict'.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"'strict' is a Python 2 httplib parameter that urllib3 forwarded unconditionally; Python later removed it. No comment, test or changelog entry says this outcome was chosen. response.py already guards for Python 3 lacking .strict (\\\"HTTPResponse objects in Python 3 don't have a .strict attribute\\\"), which shows the code is meant to run on Python 3.\"},\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"HTTPConnectionPool._new_conn always passes strict= to the stdlib HTTPConnection.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/packages/urllib3/connectionpool.py:196\", \"quote\": \"return HTTPConnection(host=self.host,\"},\n      {\"type\": \"code\", \"ref\": \"requests/packages/urllib3/connectionpool.py:198\", \"quote\": \"strict=self.strict)\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"rootCause\", \"text\": \"The stdlib HTTPConnection on current Python 3 has no strict parameter, so the call raises TypeError; a probe reproduced the exact Sentry stack.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:python requests.head\", \"quote\": \"TypeError: HTTPConnection.__init__() got an unexpected keyword argument 'strict'\"},\n      {\"type\": \"query\", \"ref\": \"probe:inspect.signature\", \"quote\": \"(self, host, port=None, timeout=<object object at 0x7f23ca11c4a0>, source_address=None, blocksize=8192)\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"impact\", \"text\": \"HTTPS requests fail the same way, so every request type is broken on Python 3.4+.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:python requests.get https\", \"quote\": \"TypeError HTTPSConnection.__init__() got an unexpected keyword argument 'strict'\"},\n      {\"type\": \"code\", \"ref\": \"requests/packages/urllib3/connectionpool.py:545\", \"quote\": \"connection = VerifiedHTTPSConnection(host=self.host,\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"trigger\", \"text\": \"The failure happens on the first request to any host, when _get_conn finds no pooled connection and calls _new_conn.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/packages/urllib3/connectionpool.py:231\", \"quote\": \"return conn or self._new_conn()\"},\n      {\"type\": \"evidence\", \"ref\": \"ev_s2\", \"quote\": \"requests/packages/urllib3/connectionpool.py:231 in _get_conn\"}\n    ]},\n    {\"id\": \"c5\", \"role\": \"impact\", \"text\": \"Sentry counts 766 events from 11 users in 7 days.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s2\", \"quote\": \"events: 766 in the last 7 days, users affected: 11\"}\n    ]},\n    {\"id\": \"c6\", \"role\": \"other\", \"text\": \"six is already imported in connectionpool.py, so a PY3 guard needs no new dependency.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/packages/urllib3/connectionpool.py:57\", \"quote\": \"from .packages import six\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"Caller code passes 'strict' into requests\", \"why\": \"strict is never exposed by the requests API; the pool's own default strict=False is forwarded internally\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/packages/urllib3/connectionpool.py:171\", \"quote\": \"def __init__(self, host, port=None, strict=False, timeout=None, maxsize=1,\"}\n    ]},\n    {\"hypothesis\": \"Already fixed by a later commit in this repository\", \"why\": \"The only commit is the v1.1.0 snapshot (6da81e4) and the current code still passes strict\", \"citations\": [\n      {\"type\": \"commit\", \"ref\": \"6da81e4\", \"quote\": \"Snapshot\"}\n    ]}\n  ],\n  \"plain\": {\n    \"headline\": \"Apps using this library on newer Python versions can't make any web request, because it sends a setting Python no longer accepts.\",\n    \"happened\": \"When the app opens a connection to a website, the library passes Python an old option that Python dropped in version 3.4. Python rejects it, so the request fails before anything is sent. This happens on every first connection, for plain and secure sites alike.\",\n    \"matters\": \"Everyone running the app on Python 3.4 or newer gets a failed request every time (766 errors from 11 people this week).\",\n    \"fix\": \"Only send the old option on Python 2, where it still exists, and add a test that opens a connection on Python 3.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 7,
+  "inputTokens": {
+   "avg": 16340.57142857143,
+   "max": 21297
+  },
+  "mainUsage": {
+   "inputTokens": 114384,
+   "cachedInputTokens": 100095,
+   "outputTokens": 8265
+  },
+  "cacheHitPercent": 87.50786823331934,
+  "wallSeconds": 72.40400004386902,
+  "tools": {
+   "read": 5,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 3
+  },
+  "reads": 5,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.25674600000000003,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.25674600000000003
+}

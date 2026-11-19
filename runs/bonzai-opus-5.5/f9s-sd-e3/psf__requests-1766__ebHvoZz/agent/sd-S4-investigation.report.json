@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 70310,
+ "finalText": "I re-checked the report against the request and found nothing to fix.\n\n**Verdict: covered.** The current code (v2.0.1) no longer sends a Content-Length header on a GET request that has no body. The changelog lists the fix in release 1.2.0, so the report came from an older version.\n\n**Why it happened in older versions:** Older releases added `Content-Length: 0` to every request with no body, GET included. Some servers, Amazon among them, refuse such requests with a 503. That is what the reporter (Oren) hit.\n\n**What the code does now:**\n- In [models.py](file:///testbed/requests/models.py), the code that sets the body length (lines 439\u2013449) only adds `Content-Length: 0` for methods other than GET and HEAD.\n- When auth is used, that same code runs again (line 471) and follows the same rule.\n- When a redirect turns into a GET, the header is removed (`requests/sessions.py` line 129).\n- The changelog (`HISTORY.rst` line 105, under 1.2.0) records the change, and `test_no_content_length` in `test_requests.py` checks it.\n\n**What I ran:** The bundled urllib3 doesn't import on Python 3.10+, so I patched the old `collections` names back in inside the probe copy.\n- Building requests: GET with no options, with auth, with an empty body or with query parameters had no Content-Length, and neither did HEAD. POST still got `Content-Length: 0`, and a GET with a 3-character body got `Content-Length: 3`. Both of those are correct.\n- On the wire: a plain GET and a GET with basic auth, sent to a local socket server, arrived with no Content-Length line.\n- I couldn't run the existing test suite: pytest isn't installed, and the tests call httpbin over the network.\n\n**What's left:** No code change is needed. Anyone still seeing this should upgrade to 1.2.0 or later. This checkout has only one snapshot commit, so I couldn't find the exact commit or pull request behind the fix.\n\n```json\n{\n  \"verdict\": \"covered\",\n  \"title\": \"GET requests no longer send Content-Length\",\n  \"cause\": \"Older requests releases added 'Content-Length: 0' to every request with no body, GET included, and some servers (e.g. amazon.com) answer such GETs with 503. Since 1.2.0, prepare_content_length only adds the zero length for methods other than GET/HEAD, so a GET without a body sends no Content-Length. The current code (v2.0.1) no longer has the cause.\",\n  \"files\": [\n    {\"path\": \"requests/models.py\", \"why\": \"prepare_content_length skips the default 'Content-Length: 0' for GET and HEAD; it is called again after auth with the same rule\"},\n    {\"path\": \"requests/sessions.py\", \"why\": \"resolve_redirects removes Content-Length when a redirect is turned into a GET\"},\n    {\"path\": \"HISTORY.rst\", \"why\": \"1.2.0 changelog entry recording the fix\"},\n    {\"path\": \"test_requests.py\", \"why\": \"test_no_content_length checks that GET/HEAD have no Content-Length\"}\n  ],\n  \"plan\": [\n    \"No code change needed; reporters on versions before 1.2.0 should upgrade.\"\n  ],\n  \"verification\": [\n    \"Probe: Session.prepare_request for GET with no args, with auth, with data={}, data='' and params gave no Content-Length; HEAD had none; POST had 'Content-Length': '0'.\",\n    \"Probe: real requests.get to a local socket server (plain and with basic auth) sent no Content-Length line on the wire.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"none\",\n  \"risk\": \"none\",\n  \"confidence\": 0.93,\n  \"fixedIn\": {\"release\": \"1.2.0\"},\n  \"fixType\": \"error\",\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"The current length logic only adds the default zero Content-Length for methods other than GET and HEAD, so the reported cause is gone.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/models.py:448\", \"quote\": \"elif self.method not in ('GET', 'HEAD'):\"},\n      {\"type\": \"code\", \"ref\": \"requests/models.py:449\", \"quote\": \"self.headers['Content-Length'] = '0'\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"other\", \"text\": \"The project changelog records that this behaviour was changed in release 1.2.0.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"HISTORY.rst:105\", \"quote\": \"- Don't send ``Content-Length`` header by default on ``GET`` or ``HEAD``\"},\n      {\"type\": \"doc\", \"ref\": \"HISTORY.rst\", \"quote\": \"Don't send ``Content-Length`` header by default on ``GET`` or ``HEAD``\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"other\", \"text\": \"An existing test checks that GET and HEAD requests carry no Content-Length.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"test_requests.py:76\", \"quote\": \"assert 'Content-Length' not in get_req.headers\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"impact\", \"text\": \"The reporter saw amazon.com answer 503 to every GET that had a Content-Length header, which made plain requests.get calls fail.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s4\", \"quote\": \"http://amazon.com returns 503 for every get request that contains 'content-length' header\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"Auth handlers re-add Content-Length to GET when the length is recomputed\", \"why\": \"prepare_auth calls prepare_content_length again, which follows the same GET/HEAD rule; the probe showed GET with basic auth sending no Content-Length on the wire.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/models.py:471\", \"quote\": \"self.prepare_content_length(self.body)\"}\n    ]},\n    {\"hypothesis\": \"A redirect that turns a POST into a GET keeps the old Content-Length\", \"why\": \"resolve_redirects deletes Content-Length and clears the body for redirects other than 307/308.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/sessions.py:129\", \"quote\": \"del prepared_request.headers['Content-Length']\"}\n    ]}\n  ],\n  \"intendedBehavior\": \"requests.get(url) with no body sends no Content-Length header, while a GET with a body sends that body's length.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"Sending Content-Length on bodyless GETs was not chosen: the 1.2.0 changelog says the default header was removed for GET/HEAD on purpose.\"},\n  \"plain\": {\n    \"headline\": \"Some websites refused simple page requests from old versions of the library because each one carried an empty 'size of upload' label; current versions no longer add it.\",\n    \"happened\": \"Older versions labelled every page request with an upload size of zero, even though nothing was uploaded. Some sites, such as Amazon, refused requests with that label. Version 1.2.0 stopped adding the label to simple page requests, and the current version behaves correctly.\",\n    \"matters\": \"Only people still on versions older than 1.2.0 are affected.\",\n    \"fix\": \"No change is needed; anyone still seeing this should upgrade to version 1.2.0 or later.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 8,
+  "inputTokens": {
+   "avg": 16259.75,
+   "max": 22304
+  },
+  "mainUsage": {
+   "inputTokens": 130078,
+   "cachedInputTokens": 114780,
+   "outputTokens": 7606
+  },
+  "cacheHitPercent": 88.23936407386337,
+  "wallSeconds": 69.42900013923645,
+  "tools": {
+   "read": 3,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 4
+  },
+  "reads": 3,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.251546,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.251546
+}

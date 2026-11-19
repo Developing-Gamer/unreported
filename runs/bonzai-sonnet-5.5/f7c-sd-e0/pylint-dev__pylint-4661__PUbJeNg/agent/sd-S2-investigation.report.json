@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 30412,
+ "finalText": "The `.pylint.d` folder in the home directory is how pylint was designed to work, so I'm treating this as a feature request, not a bug. I only read the code. I did not run the existing tests or call the code through probe.\n\n```json\n{\n  \"verdict\": \"notActionable\",\n  \"title\": \"Pylint stores run data in ~/.pylint.d by design\",\n  \"cause\": \"Pylint keeps the pickled stats from earlier runs in a directory chosen by PYLINTHOME, else ~/.pylint.d, else .pylint.d in the current directory. This is hard-coded, and the FAQ and a unit test both describe it. It does not read XDG_DATA_HOME or XDG_CACHE_HOME. The report asks for a different default location, not for a crash or wrong output, and the repository has no changelog entry that changed or removed this behaviour.\",\n  \"files\": [\n    {\"path\": \"pylint/config/__init__.py\", \"why\": \"Defines PYLINT_HOME (PYLINTHOME, then ~/.pylint.d, then ./.pylint.d) and the load/save of stats files. This is where an XDG-based default would go.\"},\n    {\"path\": \"tests/lint/unittest_lint.py\", \"why\": \"test_pylint_home asserts the ~/.pylint.d default.\"},\n    {\"path\": \"doc/faq.rst\", \"why\": \"Section 3.2 documents the current lookup rules.\"}\n  ],\n  \"plan\": [\n    \"Product decision first: do we want to move the default data directory to the XDG location? If yes, the change below applies.\",\n    \"Default to $XDG_CACHE_HOME/pylint (else ~/.cache/pylint), keeping PYLINTHOME as an override.\",\n    \"Fall back to or migrate an existing ~/.pylint.d so users keep their stats history.\",\n    \"Use os.makedirs when creating the directory, since the XDG path is nested.\",\n    \"Update test_pylint_home, the FAQ section 3.2, the ENV_HELP text and the ChangeLog.\"\n  ],\n  \"verification\": [\n    \"Update test_pylint_home to expect the XDG path with XDG_CACHE_HOME set and unset, and with PYLINTHOME set.\",\n    \"Run pylint on a package with a clean HOME and check that no ~/.pylint.d is created and the stats land in ~/.cache/pylint.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low-medium: a new default location orphans or resets existing stats files unless migration or fallback is added.\",\n  \"confidence\": 0.7,\n  \"deliberate\": true,\n  \"intent\": \"Behaviour is documented in doc/faq.rst section 3.2 (PYLINTHOME, then ~/.pylint.d, then ./.pylint.d) and asserted by test_pylint_home. ENV_HELP in pylint/config/__init__.py states the same default. The report asks for a different default location, which is a product decision, not a defect.\",\n  \"intendedBehavior\": \"After a change, running pylint with no PYLINTHOME set stores its data under the XDG cache directory and does not create ~/.pylint.d.\",\n  \"fixType\": \"frustration\",\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"The data directory is hard-coded to ~/.pylint.d (or ./.pylint.d) and ignores XDG variables.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"pylint/config/__init__.py:66\", \"quote\": \"PYLINT_HOME = os.path.join(USER_HOME, \\\".pylint.d\\\")\"}]},\n    {\"id\": \"c2\", \"text\": \"The location is documented as intended behaviour.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"doc/faq.rst:96\", \"quote\": \"\\\".pylint.d\\\" subdirectory of the user's home directory if it is found\"}]},\n    {\"id\": \"c3\", \"text\": \"A test asserts the ~/.pylint.d default.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"tests/lint/unittest_lint.py:634\", \"quote\": \"expected = os.path.join(uhome, \\\".pylint.d\\\")\"}]}\n  ],\n  \"ruledOut\": [\n    {\"why\": \"A crash or wrong result: the stats are saved and loaded correctly and errors are reported to stderr, so nothing is broken.\", \"hypothesis\": \"A bug in how the data directory is created or used\", \"citations\": [{\"type\": \"code\", \"ref\": \"pylint/config/__init__.py:83\", \"quote\": \"print(\\\"Unable to create directory %s\\\" % PYLINT_HOME, file=sys.stderr)\"}]}\n  ],\n  \"plain\": {\n    \"headline\": \"A user dislikes that the tool leaves a hidden data folder in their home directory instead of using the standard Linux locations.\",\n    \"happened\": \"The tool saves results from earlier runs in a hidden folder in the user's home directory. This has been its documented, tested behaviour for a long time. It does not use the standard Linux locations for cache and data files.\",\n    \"matters\": \"Linux users who keep their home folder tidy see the extra folder, but nothing breaks or gets lost.\",\n    \"fix\": \"If the team wants it, move the default folder to the standard cache location, keep the old folder working, and update the docs and tests.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 3,
+  "inputTokens": {
+   "avg": 13417.333333333334,
+   "max": 15445
+  },
+  "mainUsage": {
+   "inputTokens": 40252,
+   "cachedInputTokens": 31823,
+   "outputTokens": 3034
+  },
+  "cacheHitPercent": 79.0594256186028,
+  "wallSeconds": 26.206000089645386,
+  "tools": {
+   "read": 6,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 0
+  },
+  "reads": 6,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.05777310000000001,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.05777310000000001
+}

@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 47142,
+ "finalText": "The fix and the PR description are both in place, and I re-read the request against them. `.factory/pr-S5.md` exists with a one-line title followed by the description. The change is uncommitted, as the benchmark note asks, and no pull request or report tool was called.\n\nAn unfitted `CountVectorizer` or `TfidfVectorizer` built with `vocabulary=...` now supports `inverse_transform`. Before the fix, the two new tests that expect this failed with `NotFittedError`. After it, `pytest sklearn/feature_extraction -q` gives 138 passed, 1 xfailed. Without a vocabulary, `get_feature_names`, `inverse_transform` and `transform` still raise `NotFittedError`.\n\nThe working tree also shows changes to the mixture, decomposition and linear_model files and the whats_new docs. Those match the other open PRs (#1000\u2013#1002) and I did not touch them. None of those PRs covers this issue.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest sklearn/feature_extraction -q\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"reproductionSteps\": \"Create CountVectorizer(vocabulary=['pizza','beer','the']) without fitting and call inverse_transform(np.array([[1,0,1]])); it raises NotFittedError although transform and get_feature_names work.\",\n  \"reproductionTest\": {\n    \"path\": \"sklearn/feature_extraction/tests/test_text.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest sklearn/feature_extraction/tests/test_text.py -k unfitted -q\",\n    \"signature\": \"sklearn.exceptions.NotFittedError: TfidfVectorizer - Vocabulary wasn't fitted.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 12,
+  "inputTokens": {
+   "avg": 24755.916666666668,
+   "max": 29860
+  },
+  "mainUsage": {
+   "inputTokens": 297071,
+   "cachedInputTokens": 281101,
+   "outputTokens": 5412
+  },
+  "cacheHitPercent": 94.62418075140286,
+  "wallSeconds": 46.389999866485596,
+  "tools": {
+   "read": 5,
+   "edit": 4,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 3
+  },
+  "reads": 5,
+  "edits": 4,
+  "runs": 3,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 2,
+   "readFileIgnoringRange": 2
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 4,
+  "editOperations": 6,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1502512,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1502512
+}

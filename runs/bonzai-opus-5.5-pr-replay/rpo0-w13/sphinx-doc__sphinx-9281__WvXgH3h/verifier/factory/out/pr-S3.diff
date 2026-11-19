@@ -1,0 +1,54 @@
+diff --git a/CHANGES b/CHANGES
+index 64410011e..c21e87794 100644
+--- a/CHANGES
++++ b/CHANGES
+@@ -51,6 +51,8 @@ Bugs fixed
+ ----------
+ 
+ * #8872: autodoc: stacked singledispatches are wrongly rendered
++* autodoc: Enum members used as default values in signatures are rendered as
++  ``<MyEnum.ValueA: 10>`` instead of ``MyEnum.ValueA``
+ * #8597: autodoc: a docsting having metadata only should be treated as
+   undocumented
+ * #9185: autodoc: typehints for overloaded functions and methods are inaccurate
+diff --git a/sphinx/util/inspect.py b/sphinx/util/inspect.py
+index a415a7074..9616784cf 100644
+--- a/sphinx/util/inspect.py
++++ b/sphinx/util/inspect.py
+@@ -457,6 +457,9 @@ def object_description(object: Any) -> str:
+         else:
+             return "frozenset({%s})" % ", ".join(object_description(x)
+                                                  for x in sorted_values)
++    if isinstance(object, enum.Enum):
++        return "%s.%s" % (object.__class__.__name__, object.name)
++
+     try:
+         s = repr(object)
+     except Exception as exc:
+diff --git a/tests/test_util_inspect.py b/tests/test_util_inspect.py
+index de4ad9236..e31c705da 100644
+--- a/tests/test_util_inspect.py
++++ b/tests/test_util_inspect.py
+@@ -502,6 +502,22 @@ def test_frozenset_sorting_fallback():
+     assert description in ("frozenset({1, None})", "frozenset({None, 1})")
+ 
+ 
++def test_enum_description():
++    import enum
++
++    class MyEnum(enum.Enum):
++        ValueA = 10
++        ValueB = 20
++
++    assert inspect.object_description(MyEnum.ValueA) == "MyEnum.ValueA"
++
++    def func(e: MyEnum = MyEnum.ValueA):
++        pass
++
++    sig = inspect.signature(func)
++    assert stringify_signature(sig).endswith("= MyEnum.ValueA)")
++
++
+ def test_dict_customtype():
+     class CustomType:
+         def __init__(self, value):

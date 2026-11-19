@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 37203,
+ "finalText": "An unrecognized `sesame_database` value now raises `ValueError(\"Unknown database '\u2026'\")` instead of silently becoming `\"all\"`. The fix, the tests and the PR text are in place and uncommitted in the working tree, as the benchmark note instructs.\n\nThe investigation's cause checks out in the code. Any value other than exactly `all`, `simbad`, `ned` or `vizier` (for example `SIMBAD`, `Ned` or `\"simbad \"`) used to fall back to `all`, which returns the first match across all databases.\n\n- **Fix:** the change is in `astropy/coordinates/name_resolve.py`, with the docstring updated to say that invalid values raise.\n- **Case sensitivity:** I kept the check strict rather than lower-casing and stripping the value, so `SIMBAD` now raises instead of being accepted as `simbad`. That was optional in the investigation's plan. A config that uses `SIMBAD` will now fail loudly when it is set, so check the production config for such values.\n- **Tests:** I added valid-name and invalid-name tests to `astropy/coordinates/tests/test_name_resolve.py`. Before the fix, the invalid-name cases failed with `DID NOT RAISE` (5 failed, 4 passed). The whole file now gives 10 passed and 4 skipped; the skips are the `remote_data` tests, since internet access is disabled here. I did not run the live `test_database_specify` case.\n- **Changelog:** the entry is `docs/changes/coordinates/14400.api.rst`. The 14400 is a placeholder and needs renaming to the real PR number.\n- **PR text:** it is in `/testbed/.factory/pr-S1.md`, with the one-line title first.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\n      \"name\": \"pytest astropy/coordinates/tests/test_name_resolve.py\",\n      \"passed\": true\n    }\n  ],\n  \"visual\": false,\n  \"reproductionSteps\": [\n    \"Call sesame_database.set('SIMBAD') (or 'bogus', 'Ned', 'simbad ') on the base commit\",\n    \"It does not raise and sesame_database.get() returns 'all', so name lookups query all databases\"\n  ],\n  \"reproductionTest\": {\n    \"path\": \"astropy/coordinates/tests/test_name_resolve.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest astropy/coordinates/tests/test_name_resolve.py -q -k sesame_database\",\n    \"signature\": \"Failed: DID NOT RAISE <class 'ValueError'>\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 10,
+  "inputTokens": {
+   "avg": 21610.2,
+   "max": 25395
+  },
+  "mainUsage": {
+   "inputTokens": 216102,
+   "cachedInputTokens": 204599,
+   "outputTokens": 4226
+  },
+  "cacheHitPercent": 94.67705065200693,
+  "wallSeconds": 35.58899998664856,
+  "tools": {
+   "read": 9,
+   "edit": 3,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 1
+  },
+  "reads": 9,
+  "edits": 3,
+  "runs": 1,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 1,
+  "editOperations": 1,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1119253,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1119253
+}

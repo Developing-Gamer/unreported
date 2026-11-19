@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 20247,
+ "finalText": "```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Enum default values show as <MyEnum.ValueA: 1>\",\n  \"cause\": \"The function that turns default values into signature text, object_description in sphinx/util/inspect.py, has special cases for dict, set and frozenset. Everything else goes through repr(). For an Enum member, repr() returns '<MyEnum.ValueA: 1>', so the signature shows that instead of 'MyEnum.ValueA'. stringify_signature calls object_description for every parameter default, so every documented function with an Enum default is affected. I read the code only and did not run the reproduction. The repository has no enum test in tests/test_util_inspect.py.\",\n  \"files\": [\n    {\"path\": \"sphinx/util/inspect.py\", \"why\": \"object_description has no Enum branch, so enum members fall through to repr(). stringify_signature uses it for parameter defaults at line 743.\"},\n    {\"path\": \"tests/test_util_inspect.py\", \"why\": \"Add a test for object_description and stringify_signature with an Enum default.\"}\n  ],\n  \"plan\": [\n    \"In object_description, add an enum.Enum branch before the repr fallback that returns '%s.%s' % (object.__class__.__name__, object.name).\",\n    \"Add tests: object_description(MyEnum.ValueA) == 'MyEnum.ValueA', and a signature with an Enum default renders 'e: MyEnum = MyEnum.ValueA'.\",\n    \"Update the CHANGES file.\"\n  ],\n  \"verification\": [\n    \"Run pytest tests/test_util_inspect.py and tests/test_ext_autodoc*.py.\",\n    \"Build the reporter's example project and check that the signature shows MyEnum.ValueA.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.92,\n  \"claims\": [\n    {\n      \"id\": \"c1\",\n      \"text\": \"object_description falls back to repr() for Enum members, which gives '<MyEnum.ValueA: 1>'.\",\n      \"role\": \"rootCause\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"sphinx/util/inspect.py:460\", \"quote\": \"        s = repr(object)\"}\n      ]\n    },\n    {\n      \"id\": \"c2\",\n      \"text\": \"Signature rendering uses object_description for parameter defaults.\",\n      \"role\": \"trigger\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"sphinx/util/inspect.py:743\", \"quote\": \"arg.write(object_description(param.default))\"}\n      ]\n    }\n  ],\n  \"intendedBehavior\": \"A function signature with an Enum member as a default value renders it as 'MyEnum.ValueA', not '<MyEnum.ValueA: 1>'.\",\n  \"intent\": {\"deliberate\": false, \"note\": \"No comment, test or changelog entry shows the repr form was chosen for Enum defaults. The module already imports enum and has isenumattribute helpers, so enums were not handled in object_description.\"},\n  \"fixType\": \"frustration\",\n  \"plain\": {\n    \"headline\": \"Documentation showed enum default values in an ugly raw form like <MyEnum.ValueA: 1> instead of MyEnum.ValueA.\",\n    \"happened\": \"When a function's default argument is an enum value, the docs generator prints the enum's raw internal text. That text includes angle brackets and the numeric value. The generator has tidy handling for dictionaries and sets, but none for enums.\",\n    \"matters\": \"Anyone documenting a Python function with an enum default gets cluttered signatures that readers find hard to read.\",\n    \"fix\": \"Make the generator print enum defaults as ClassName.MemberName, and add a test.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 4,
+  "inputTokens": {
+   "avg": 12807.5,
+   "max": 13849
+  },
+  "mainUsage": {
+   "inputTokens": 51230,
+   "cachedInputTokens": 44395,
+   "outputTokens": 1928
+  },
+  "cacheHitPercent": 86.65820808120242,
+  "wallSeconds": 18.509000062942505,
+  "tools": {
+   "read": 5,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 0
+  },
+  "reads": 5,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.0452415,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.0452415
+}

@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 77221,
+ "finalText": "The cause is in this repository's code. When a file is opened with the PseudoNetCDF reader (`engine=\"pseudonetcdf\"`), the setting `decode_timedelta=False` is ignored. That's what turns lead times of 6 and 12 into six-hour and twelve-hour durations. Calendar timestamps aren't affected, which matches the report. I only read code and ran a probe; I didn't change any files.\n\n**Cause:** in `xarray/backends/pseudonetcdf_.py`, line 152 passes the wrong setting: `decode_timedelta=decode_times,`. Because of that swap, any column whose units are a plain time unit such as `\"hours\"` is turned into a duration. Timestamps with units like `\"hours since \u2026\"` go through a separate step, so they still look normal. Every other file reader passes the setting through correctly.\n\n**Probe:** I swapped the PseudoNetCDF file opening for an in-memory dataset, with a lead column `[6, 12]` in `\"hours\"` and a time column in `\"hours since 2020-01-01\"`. With `decode_timedelta=False`:\n- through the PseudoNetCDF reader, the lead column came back as durations (`timedelta64[ns]`), while the dates looked normal;\n- through `xr.decode_cf` with the same setting, it stayed numbers (`int64 [6 12]`).\n\nI couldn't run the existing test suite because pytest isn't installed in the probe environment. The repository is a single snapshot commit (v0.20.2), so there's no history showing when this started.\n\n**Caveat:** I'm assuming the reporter's pipeline uses this reader and sets `decode_timedelta=False`; their message names neither. If they use another reader and leave the setting unset, converting `\"hours\"` to durations is long-standing default behaviour, not this bug.\n\n**Fix:** change line 152 to `decode_timedelta=decode_timedelta,`. Then add a test that opens a file through this reader with `decode_timedelta=False` and checks the lead-time column stays numbers.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"PseudoNetCDF reader ignores decode_timedelta=False\",\n  \"cause\": \"PseudoNetCDFBackendEntrypoint.open_dataset forwards decode_times instead of decode_timedelta to the store entrypoint (pseudonetcdf_.py:152). With engine='pseudonetcdf', decode_timedelta=False is discarded whenever decode_times is True, so variables with units like 'hours' are converted to timedelta64 durations. Variables with units like 'hours since ...' are handled by the datetime coder and still decode normally.\",\n  \"files\": [\n    {\"path\": \"xarray/backends/pseudonetcdf_.py\", \"why\": \"Line 152 passes decode_times where decode_timedelta should go\"},\n    {\"path\": \"xarray/tests/test_backends.py\", \"why\": \"Add a regression test that decode_timedelta=False is honoured with engine='pseudonetcdf'\"}\n  ],\n  \"plan\": [\n    \"In PseudoNetCDFBackendEntrypoint.open_dataset, change `decode_timedelta=decode_times` to `decode_timedelta=decode_timedelta`.\",\n    \"Add a test opening a dataset through the pseudonetcdf entrypoint with a variable in units 'hours' and decode_timedelta=False, asserting it stays numeric; with decode_timedelta unset it should still decode to timedelta64.\"\n  ],\n  \"verification\": [\n    \"Probe: the pseudonetcdf entrypoint with decode_timedelta=False returned lead as timedelta64[ns] [21600000000000 43200000000000], while xr.decode_cf with the same flag returned int64 [ 6 12].\",\n    \"After the fix, the same call should return int64 [6 12] and the new test should pass.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.8,\n  \"fixType\": \"silentFailure\",\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"The PseudoNetCDF backend passes decode_times as the decode_timedelta argument, so the user's decode_timedelta value is never used.\", \"citations\": [{\"type\": \"code\", \"ref\": \"xarray/backends/pseudonetcdf_.py:152\", \"quote\": \"decode_timedelta=decode_times,\"}]},\n    {\"id\": \"c2\", \"role\": \"rootCause\", \"text\": \"Once decode_timedelta is truthy, any variable whose units are a bare time unit such as 'hours' is converted to timedelta64.\", \"citations\": [{\"type\": \"code\", \"ref\": \"xarray/coding/times.py:698\", \"quote\": \"if \\\"units\\\" in attrs and attrs[\\\"units\\\"] in TIME_UNITS:\"}, {\"type\": \"code\", \"ref\": \"xarray/conventions.py:361\", \"quote\": \"if decode_timedelta:\\n        var = times.CFTimedeltaCoder().decode(var, name=name)\"}]},\n    {\"id\": \"c3\", \"role\": \"other\", \"text\": \"Calendar timestamps are decoded by a separate coder keyed on 'since' in the units, which explains why they still look normal.\", \"citations\": [{\"type\": \"code\", \"ref\": \"xarray/coding/times.py:670\", \"quote\": \"if \\\"units\\\" in attrs and \\\"since\\\" in attrs[\\\"units\\\"]:\"}]},\n    {\"id\": \"c4\", \"role\": \"impact\", \"text\": \"A data-support user reports lead-time columns of 6 and 12 arriving as six-hour and twelve-hour durations with unchanged pipeline settings.\", \"citations\": [{\"type\": \"evidence\", \"ref\": \"ev_s5\", \"quote\": \"Forecast lead-time columns that used to contain 6 and 12 are now coming through as six-hour and twelve-hour durations.\"}]},\n    {\"id\": \"c5\", \"role\": \"other\", \"text\": \"Other backends forward the flag correctly, for example the store entrypoint passes decode_timedelta through to decode_cf_variables.\", \"citations\": [{\"type\": \"code\", \"ref\": \"xarray/backends/store.py:36\", \"quote\": \"decode_timedelta=decode_timedelta,\"}]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"Core decode_cf ignores decode_timedelta=False\", \"why\": \"In the probe, xr.decode_cf with decode_timedelta=False kept lead as int64 [6 12]; conventions.py only defaults it to decode_times when it is None.\", \"citations\": [{\"type\": \"code\", \"ref\": \"xarray/conventions.py:345\", \"quote\": \"if decode_timedelta is None:\\n        decode_timedelta = decode_times\"}]},\n    {\"hypothesis\": \"open_dataset drops decode_timedelta before reaching the backend\", \"why\": \"_resolve_decoders_kwargs only removes None values, and open_dataset passes decode_timedelta into it.\", \"citations\": [{\"type\": \"code\", \"ref\": \"xarray/backends/api.py:182\", \"quote\": \"if decoders[d] is None:\\n            decoders.pop(d)\"}]}\n  ],\n  \"intendedBehavior\": \"Opening a file with engine='pseudonetcdf' and decode_timedelta=False leaves a variable with units 'hours' and values [6, 12] as numbers, not timedelta64.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"The entrypoint accepts decode_timedelta and lists it in open_dataset_parameters, then forwards decode_times in its place. Every other backend forwards decode_timedelta, so this is a wiring mistake, not a design choice.\"},\n  \"plain\": {\n    \"headline\": \"Forecast lead times show up as durations because one file reader ignores the setting that says to keep them as plain numbers.\",\n    \"happened\": \"When forecast files are opened with the PseudoNetCDF reader, the setting that turns off duration conversion is dropped. The reader passes on the 'convert calendar dates' setting in its place. So lead times such as 6 and 12 hours become durations, while normal dates still look fine.\",\n    \"matters\": \"Anyone opening files this way who asked to keep lead times as plain numbers gets durations instead, which can break their downstream processing without any error.\",\n    \"fix\": \"Have that reader pass on the duration setting the person chose, and add a test that checks it.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 9,
+  "inputTokens": {
+   "avg": 18053.88888888889,
+   "max": 25412
+  },
+  "mainUsage": {
+   "inputTokens": 162485,
+   "cachedInputTokens": 144077,
+   "outputTokens": 8533
+  },
+  "cacheHitPercent": 88.67095424193002,
+  "wallSeconds": 77.03799986839294,
+  "tools": {
+   "read": 8,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 1
+  },
+  "reads": 8,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 3,
+   "readFileIgnoringRange": 3
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.2914934,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.2914934
+}

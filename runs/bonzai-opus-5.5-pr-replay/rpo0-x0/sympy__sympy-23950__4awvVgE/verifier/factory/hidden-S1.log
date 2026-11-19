@@ -1,0 +1,19 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+___________________ test_normal_with_bernoulli_mean_density ____________________
+
+    def test_normal_with_bernoulli_mean_density():
+        mean = Bernoulli('mean', Rational(1, 4))
+        observation = Normal('observation', mean, 1)
+    
+        actual = density(observation)(0)
+        expected = (Rational(3, 4) + exp(-Rational(1, 2)) / 4) / sqrt(2*pi)
+    
+>       assert simplify(actual - expected) == 0
+E       assert -sqrt(2)*exp(-1/2)/(8*sqrt(pi)) == 0
+E        +  where -sqrt(2)*exp(-1/2)/(8*sqrt(pi)) = simplify((3*sqrt(2)/(8*sqrt(pi)) - sqrt(2)*(exp(-1/2)/4 + 3/4)/(2*sqrt(pi))))
+
+/tmp/test_hidden_S1.py:12: AssertionError
+=========================== short test summary info ============================
+FAILED ../tmp/test_hidden_S1.py::test_normal_with_bernoulli_mean_density - as...
+1 failed in 2.26s

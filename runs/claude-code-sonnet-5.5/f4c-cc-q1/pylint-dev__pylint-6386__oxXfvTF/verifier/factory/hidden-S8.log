@@ -1,0 +1,54 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+_______ test_explicit_empty_option_selection_yields_nothing[selection0] ________
+
+selection = []
+
+    @pytest.mark.parametrize("selection", [[], ()])
+    def test_explicit_empty_option_selection_yields_nothing(selection):
+        with pytest.warns(DeprecationWarning, match="OptionsProviderMixIn has been deprecated"):
+            provider = ReportOptions()
+    
+        assert [name for name, _, _ in provider.options_and_values()] == [
+            "report-label", "report-format"
+        ]
+        assert list(provider.options_and_values(provider.options[:1])) == [
+            ("report-label", provider.options[0][1], "nightly")
+        ]
+>       assert list(provider.options_and_values(selection)) == []
+E       AssertionError: assert [('report-lab...ng'}, 'text')] == []
+E         Left contains 2 more items, first extra item: ('report-label', {'default': 'nightly', 'help': 'Report label.', 'type': 'string'}, 'nightly')
+E         Use -v to get more diff
+
+/tmp/test_hidden_S8.py:25: AssertionError
+_______ test_explicit_empty_option_selection_yields_nothing[selection1] ________
+
+selection = ()
+
+    @pytest.mark.parametrize("selection", [[], ()])
+    def test_explicit_empty_option_selection_yields_nothing(selection):
+        with pytest.warns(DeprecationWarning, match="OptionsProviderMixIn has been deprecated"):
+            provider = ReportOptions()
+    
+        assert [name for name, _, _ in provider.options_and_values()] == [
+            "report-label", "report-format"
+        ]
+        assert list(provider.options_and_values(provider.options[:1])) == [
+            ("report-label", provider.options[0][1], "nightly")
+        ]
+>       assert list(provider.options_and_values(selection)) == []
+E       AssertionError: assert [('report-lab...ng'}, 'text')] == []
+E         Left contains 2 more items, first extra item: ('report-label', {'default': 'nightly', 'help': 'Report label.', 'type': 'string'}, 'nightly')
+E         Use -v to get more diff
+
+/tmp/test_hidden_S8.py:25: AssertionError
+=============================== warnings summary ===============================
+../opt/miniconda3/envs/testbed/lib/python3.9/site-packages/astroid/interpreter/_import/util.py:6
+  /opt/miniconda3/envs/testbed/lib/python3.9/site-packages/astroid/interpreter/_import/util.py:6: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html
+    import pkg_resources
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED ../tmp/test_hidden_S8.py::test_explicit_empty_option_selection_yields_nothing[selection0]
+FAILED ../tmp/test_hidden_S8.py::test_explicit_empty_option_selection_yields_nothing[selection1]
+2 failed, 1 warning in 0.42s

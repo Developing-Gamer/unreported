@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 53456,
+ "finalText": "The report is already fixed in this checkout, so no code change is needed. I did not run the tests. The probe checkout has no `asgiref`, so `runtests.py` would not start.\n\n- **Cause in 2.2.1:** `get_choices` called `order_by(*ordering)` unconditionally. With the empty tuple that `field_admin_ordering` returns, `order_by()` cleared the related model's default `Meta.ordering`.\n- **Why it is fixed now:** both `get_choices` implementations now call `order_by` only when `ordering` is non-empty (`django/db/models/fields/__init__.py:855` and `django/db/models/fields/reverse_related.py:130`). The default manager's `Meta.ordering` then applies. `RelatedOnlyFieldListFilter` now passes the admin ordering too (`filters.py:428`).\n- **Tests:** `tests/admin_filters/tests.py` covers both ordering paths for both filters, for example `test_relatedfieldlistfilter_foreignkey_default_ordering` and `test_relatedonlyfieldlistfilter_foreignkey_default_ordering`.\n- **Fixing commit:** the checkout is a single snapshot commit, so I cannot name the commit that fixed it. The tree is a 3.0-era development tree. I could not read the release notes, so the release is inferred.\n\n```json\n{\n  \"verdict\": \"covered\",\n  \"title\": \"Related filters now respect ordering (already fixed)\",\n  \"cause\": \"In Django 2.2.1, get_choices called order_by(*ordering) unconditionally. The empty ordering from field_admin_ordering therefore cleared the related model's Meta.ordering. The current code calls order_by only when ordering is non-empty, so the default manager's Meta.ordering applies, and RelatedOnlyFieldListFilter passes the admin ordering too. I could not run the tests because the probe checkout has no asgiref.\",\n  \"files\": [\n    {\"path\": \"django/contrib/admin/filters.py\", \"why\": \"field_admin_ordering and both field_choices methods pass the ordering through\"},\n    {\"path\": \"django/db/models/fields/__init__.py\", \"why\": \"Field.get_choices applies order_by only when ordering is non-empty\"},\n    {\"path\": \"django/db/models/fields/reverse_related.py\", \"why\": \"ForeignObjectRel.get_choices does the same for reverse relations\"},\n    {\"path\": \"tests/admin_filters/tests.py\", \"why\": \"Tests assert Meta.ordering and ModelAdmin.ordering are respected by both filters\"}\n  ],\n  \"plan\": [\"No change needed; anyone on 2.2.x gets the fix by upgrading.\"],\n  \"verification\": [\"Run tests/admin_filters in an environment with asgiref installed. The ordering tests at lines 557-600, 715 and 781-822 should pass.\"],\n  \"userFacing\": true,\n  \"certainty\": \"likely\",\n  \"effort\": \"none\",\n  \"risk\": \"low\",\n  \"confidence\": 0.8,\n  \"fixedIn\": {\"commit\": \"unknown: this checkout is a single snapshot commit\", \"release\": \"Django 3.0 (inferred from this being a 3.0-era development tree)\"},\n  \"coveredBy\": null,\n  \"intendedBehavior\": \"RelatedFieldListFilter and RelatedOnlyFieldListFilter order choices by the related ModelAdmin.ordering if set, otherwise by the related model's Meta.ordering.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"tests/admin_filters/tests.py asserts that both filters respect Meta.ordering and ModelAdmin.ordering.\"},\n  \"fixType\": \"frustration\",\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"RelatedOnlyFieldListFilter passes the admin ordering to get_choices.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"django/contrib/admin/filters.py:428\", \"quote\": \"ordering = self.field_admin_ordering(field, request, model_admin)\"}]},\n    {\"id\": \"c2\", \"text\": \"get_choices applies order_by only when ordering is non-empty, so Meta.ordering is kept otherwise.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"django/db/models/fields/reverse_related.py:130\", \"quote\": \"qs = self.related_model._default_manager.complex_filter(limit_choices_to)\"}]},\n    {\"id\": \"c3\", \"text\": \"A test asserts the Meta.ordering fallback for the related-only filter.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"tests/admin_filters/tests.py:809\", \"quote\": \"\\\"\\\"\\\"RelatedOnlyFieldListFilter ordering respects Meta.ordering.\\\"\\\"\\\"\"}]}\n  ],\n  \"ruledOut\": [],\n  \"plain\": {\n    \"headline\": \"Admin filter dropdowns for related items ignored the model's default sort order, and this is already fixed in the current code.\",\n    \"happened\": \"A user on an older release saw related-item choices in the admin sidebar filters come out unsorted. The old code wiped the model's default sort order when the admin had none of its own. The current code keeps it, and automated tests cover both kinds of filter.\",\n    \"matters\": \"It affected anyone on the older release who relies on a default sort order for the filter lists in the admin.\",\n    \"fix\": \"Nothing more to change; upgrade to a release that includes the fix.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 7,
+  "inputTokens": {
+   "avg": 15631.285714285714,
+   "max": 19277
+  },
+  "mainUsage": {
+   "inputTokens": 109419,
+   "cachedInputTokens": 97150,
+   "outputTokens": 6337
+  },
+  "cacheHitPercent": 88.78713934508632,
+  "wallSeconds": 52.710999965667725,
+  "tools": {
+   "read": 6,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 2
+  },
+  "reads": 6,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1134635,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1134635
+}

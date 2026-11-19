@@ -1,0 +1,32 @@
+[
+  {
+    "source": "S1",
+    "decision": "fix",
+    "reason": "The check that allows private access on a fresh instance of the enclosing class (e.g. `instance = Clazz(); instance.__value = v`) only runs when the surrounding function is a classmethod. A staticmeth"
+  },
+  {
+    "source": "S2",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: Pylint keeps the pickled stats from earlier runs in a directory chosen by PYLINTHOME, else ~/.pylint.d, else .pylint.d in the current directory. This is hard-coded, and the FAQ and a unit test both de"
+  },
+  {
+    "source": "S3",
+    "decision": "skip",
+    "reason": "Self-Driving verdict outsideCode: Nothing in this repository imports or depends on appdirs. The only dynamic import path is plugin loading (load_plugin_modules via astroid's load_module_from_name), which reaches importlib.import_modul"
+  },
+  {
+    "source": "S4",
+    "decision": "fix",
+    "reason": "`LintModuleTest.multiset_difference` computes `missing = expected_entries - actual_entries`. Subtracting Counters throws away every entry whose count is zero or negative. So the loop that is meant to "
+  },
+  {
+    "source": "S5",
+    "decision": "fix",
+    "reason": "The docparams checker strips the module path from documented exception names with split('.', 1)[-1], which only removes the first dot. A docstring entry like package.errors.ValueError becomes errors.V"
+  },
+  {
+    "source": "S6",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The error is a refused connection from the billing-worker service to api.stripe.com (the requests/urllib3 stack). This repository is Pylint v2.9.5, a static analysis tool. Searching it finds no Stripe"
+  }
+]

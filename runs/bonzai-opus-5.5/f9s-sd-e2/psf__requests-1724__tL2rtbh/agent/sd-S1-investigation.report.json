@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 142010,
+ "finalText": "I re-checked the report against the request. No files were changed, and everything was run in probe's throwaway copy. The code quotes I cite match the lines in the repository. One fix: the second ruled-out item cited the changelog, which only shows that a redirect fix shipped in 2.0.1, not that `sessions.py` is the same as the release. It now quotes the comparison output instead.\n\nThe verdict is **fixable**. When a worker's completion request is redirected first by a \"see other\" (303) and then by a temporary redirect (307), the library sends the completion again with its original data. The server can answer that with an empty success instead of \"unknown job\", and the worker counts the job as acknowledged.\n\n- **Cause:** in `requests/sessions.py`, `resolve_redirects` rebuilds every hop from the worker's original request (`prepared_request = req.copy()`, line 77) and takes the method from it (`method = req.method`, line 88). After a 303 turns the POST into a GET, the next 307 switches it back to POST and puts the completion data back.\n- **Confirmed:** in a throwaway copy with a stand-in network layer, one POST to `http://api/jobs/42/complete` that got a 303 and then a 307 sent `GET .../status` with no body, then `POST .../result` with `result=x`. The third request should have been a GET with no body.\n- **Ruled out:** the 404-as-success check is correct. Compared with the published 2.0.1 release, `sessions.py` is the same; only the digest login, one error message, the Content-Length header type and a deferred import differ, and none of them touch redirects.\n- **Fix:** at the end of each loop pass, set `req = prepared_request` so each hop starts from the one before. Add offline tests for a POST that gets a 303 then a 307 (both later hops must be a GET with no body) and for a POST that gets only a 307 (it must still resend the POST and its data).\n- **Limits:** no monitoring data was available, so the server's real redirect chain and the release where it started are inferred from the symptom. The bug looks inherited from the 2.0.1 release, so the \"now\" may come from a server-side change that added a second redirect. The existing tests couldn't run: pytest isn't installed, they call the live httpbin.org, and the bundled urllib3 needs a compatibility patch to import on Python 3.11.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Redirects re-send completion POST after 303\",\n  \"cause\": \"Session.resolve_redirects copies the caller's original PreparedRequest on every hop and resets the method from it (prepared_request = req.copy(); method = req.method). After a 303 turns a POST into a GET, a following 307 restores POST and the original completion body, so the completion request is sent again to the redirect target. The server can answer that with an empty success instead of the unknown-job response, and workers count it as acknowledged.\",\n  \"files\": [\n    {\"path\": \"requests/sessions.py\", \"why\": \"resolve_redirects builds each hop from the original request instead of the previous hop, losing 303/302 method changes and the cleared body\"},\n    {\"path\": \"test_requests.py\", \"why\": \"needs an offline regression test for a 303 -> 307 chain after a POST\"}\n  ],\n  \"plan\": [\n    \"In SessionRedirectMixin.resolve_redirects, after building and sending prepared_request, set req = prepared_request so the next hop copies the previous hop's method, body and headers\",\n    \"Add a test with a fake adapter that answers a POST with 303, then 307, then 200, and asserts the second and third requests are GET with body None\",\n    \"Add a test that a plain POST answered by 307 still re-sends the POST and its body to the new location\"\n  ],\n  \"verification\": [\n    \"Fake-adapter run of Session.post with a 303 -> 307 chain shows GET, GET with no body (today: POST with 'result=x' on the third hop)\",\n    \"POST -> 307 alone still sends POST with the original body\",\n    \"Existing redirect tests (test_HTTP_302_ALLOW_REDIRECT_GET, test_cookie_sent_on_redirect, test_uppercase_scheme_redirect) still pass\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.8,\n  \"fixType\": \"silentFailure\",\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"Every redirect hop is built from the original request object, and its method is reset to the original method, so a method change made on an earlier hop is lost.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/sessions.py:77\", \"quote\": \"prepared_request = req.copy()\"},\n      {\"type\": \"code\", \"ref\": \"requests/sessions.py:88\", \"quote\": \"method = req.method\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"rootCause\", \"text\": \"Only a 303 or 301/302 changes the method to GET and only the copy's body is cleared, so a 307 that follows a 303 sends the original POST and body again.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/sessions.py:112\", \"quote\": \"if (resp.status_code == codes.see_other and\"},\n      {\"type\": \"code\", \"ref\": \"requests/sessions.py:124\", \"quote\": \"if resp.status_code not in (codes.temporary, codes.resume):\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"trigger\", \"text\": \"A fake-adapter run of Session.post with a 303 then 307 chain sent the completion POST and its body a second time on the third hop.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:python /tmp/t.py\", \"quote\": \"('POST', 'http://api/jobs/42/result', 'result=x')\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"impact\", \"text\": \"Workers treat the empty success returned to the repeated completion as an acknowledgement instead of the unknown-job answer.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s1\", \"quote\": \"Some repeated completion requests now return success with an empty result instead of the usual unknown-job response\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"A local change to response status handling makes 4xx count as success\", \"why\": \"raise_for_status and ok are the same as in the published 2.0.1 release and still raise for 400-599\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/models.py:719\", \"quote\": \"if 400 <= self.status_code < 500:\"}\n    ]},\n    {\"hypothesis\": \"A recent local edit changed how redirects work\", \"why\": \"Compared with the published 2.0.1 wheel, only adapters.py (a docstring), auth.py (MD5-sess), models.py (an error message and the Content-Length header type) and utils.py (a deferred netrc import) differ; sessions.py has no differences\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:diff -r x/requests /testbed/requests\", \"quote\": \"diff -r -x '*.pyc' -x __pycache__ -x packages x/requests/models.py /testbed/requests/models.py\"}\n    ]}\n  ],\n  \"intendedBehavior\": \"A POST answered by 303 and then 307 is followed as GET, GET with no body, and the completion data is never sent a second time.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"Changing the method to GET on a 303, and keeping the method and body on a 307, are both deliberate (RFC 2616 comment, issue 1084 comment). Restoring the original POST on a later hop is not: nothing in the comments, tests or changelog chooses it. It comes from copying req instead of the previous hop.\"},\n  \"plain\": {\n    \"headline\": \"Workers marked some jobs as acknowledged because, after being redirected twice, the library sent the 'job finished' message again and got an empty success back.\",\n    \"happened\": \"A worker sent a 'job finished' message, and the server pointed it to another address to look the job up. When the server then pointed it to one more address, the library rebuilt the request from the worker's original message. So it sent the 'job finished' message a second time instead of just looking the job up, and the server answered with an empty success.\",\n    \"matters\": \"Every time a 'job finished' message goes through a 'see other' redirect and then a temporary redirect, the worker gets an empty success instead of 'unknown job' and counts the job as acknowledged.\",\n    \"fix\": \"Build each redirect step from the step before it, so once the request has been turned into a plain lookup it stays one.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 19,
+  "inputTokens": {
+   "avg": 25471.36842105263,
+   "max": 39525
+  },
+  "mainUsage": {
+   "inputTokens": 483956,
+   "cachedInputTokens": 451415,
+   "outputTokens": 13056
+  },
+  "cacheHitPercent": 93.27604162361868,
+  "wallSeconds": 141.74399995803833,
+  "tools": {
+   "read": 12,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 7
+  },
+  "reads": 12,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 3,
+   "readFileIgnoringRange": 2
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.5140659999999999,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.5140659999999999
+}

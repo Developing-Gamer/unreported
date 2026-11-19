@@ -1,0 +1,32 @@
+[
+  {
+    "source": "S1",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The error comes from a separate `export-job` service whose pods hit a 512Mi memory limit while building a nightly CSV. The files it names (`export/worker.py`, `export/csv_writer.py`) don't exist in th"
+  },
+  {
+    "source": "S2",
+    "decision": "fix",
+    "reason": "In showmigrations --plan <app>, show_plan walks each target's full dependency chain but then drops any migration whose app isn't one of the requested apps. Dependencies in other apps (e.g. an accounts"
+  },
+  {
+    "source": "S3",
+    "decision": "fix",
+    "reason": "In BaseEngine.template_dirs, the installed-app template directories are put in front of the project's own DIRS. Any backend that uses this shared list therefore picks the bundled app template first wh"
+  },
+  {
+    "source": "S4",
+    "decision": "fix",
+    "reason": "The code that renders index columns builds each column's text without proper whitespace. Without opclasses, Columns joins the quoted name and the DESC suffix with no space, giving (\"name\"DESC). With o"
+  },
+  {
+    "source": "S5",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: The report says date lookups on MySQL, SQLite and Oracle assumed stored datetimes were in UTC and ignored DATABASES['TIME_ZONE']. In this checkout (Django 3.1 alpha) the MySQL, Oracle and SQLite backe"
+  },
+  {
+    "source": "S6",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: In Django 2.2.1, get_choices called order_by(*ordering) unconditionally. The empty ordering from field_admin_ordering therefore cleared the related model's Meta.ordering. The current code calls order_"
+  }
+]

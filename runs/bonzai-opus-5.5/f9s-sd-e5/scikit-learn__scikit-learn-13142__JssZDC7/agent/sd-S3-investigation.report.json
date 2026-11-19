@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 149292,
+ "finalText": "**Verdict: fixable.** The cause is in this repository. In `BayesianRidge.predict` ([bayes.py](file:///testbed/sklearn/linear_model/bayes.py), line 298), when the model was fit with `normalize=True` and you ask for `return_std=True`, the code divides the inputs by their scale but never subtracts their training means. The uncertainty matrix was learned on centred, scaled data, so the predicted spread comes out too large. The point forecast goes through the coefficients and intercept, so it is correct. That is why the intervals widened while forecasts and RMSE stayed the same.\n\n**What I ran.** I used probe, with the repository's existing compiled files copied in:\n- **Existing tests:** all 11 in `test_bayes.py` pass. None of them uses `normalize=True` with `return_std`.\n- **Reproduction:** features with means around 100, 50 and \u221230, noise standard deviation 1, `normalize=True`. The returned std was about 7.1, against a fitted noise std of 0.966. Centring the inputs first gives about 0.97.\n- **New data:** on 2,000 fresh rows the \"95%\" intervals covered 100% of true values, with RMSE 0.983.\n\nThe widening grows with how far each feature's mean is from zero. That would explain why several regional models were hit and not all of them. There is only one snapshot commit, so I couldn't tie this to a specific deploy; the only link is the alert's own \"after the latest rollout\".\n\n**Not deliberate.** `ARDRegression.predict`, a few lines below in the same file, does `X = (X - self.X_offset_) / self.X_scale_`. `fit` saves the offset for exactly this use. No comment, test or changelog entry chooses this behaviour.\n\n**Ruled out:**\n- **`GaussianProcessRegressor`:** it doesn't scale inputs, so it can't cause this.\n- **`ARDRegression`:** it centres correctly. With `normalize=True` it has a separate crash instead: `ARDRegression.fit` never saves `X_offset_`, so `predict` raises an `AttributeError`.\n- **The 0.21 changelog entry for `BayesianRidge`:** it covers the updates done during `fit`, not this step in `predict`.\n\n**The fix:** change line 298 to `X = (X - self.X_offset_) / self.X_scale_`. Add a test that fits with `normalize=True` on data with means far from zero and checks the returned std against the `normalize=False` fit and against the noise level.\n\nI didn't edit any files.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"BayesianRidge uncertainty too wide with normalize=True\",\n  \"cause\": \"BayesianRidge.predict(return_std=True) with normalize=True only divides X by X_scale_ (line 298) and never subtracts X_offset_, but sigma_ was estimated on centred-and-scaled data. The quadratic form x^T Sigma x is therefore computed on uncentred features, which inflates the predictive std by an amount that grows with how far the feature means are from zero. The mean prediction uses coef_ and intercept_ and is unaffected, so point forecasts and RMSE stay the same while interval widths jump.\",\n  \"files\": [\n    {\"path\": \"sklearn/linear_model/bayes.py\", \"why\": \"BayesianRidge.predict line 298 scales X without centring it before computing sigmas_squared_data\"},\n    {\"path\": \"sklearn/linear_model/tests/test_bayes.py\", \"why\": \"No test covers return_std with normalize=True; a regression test belongs here\"}\n  ],\n  \"plan\": [\n    \"In BayesianRidge.predict, change `X = X / self.X_scale_` to `X = (X - self.X_offset_) / self.X_scale_`, matching ARDRegression.predict.\",\n    \"Add a test: fit BayesianRidge(normalize=True) on features with large non-zero means and assert the returned std is close to that of the normalize=False fit and near 1/sqrt(alpha_) on training-like points.\",\n    \"Optionally, in a separate change, store X_offset_/X_scale_ in ARDRegression.fit so predict(return_std=True) with normalize=True stops raising AttributeError.\"\n  ],\n  \"verification\": [\n    \"Run pytest sklearn/linear_model/tests/test_bayes.py; the new test fails before the fix and passes after.\",\n    \"Re-run the probe script: with normalize=True the std should drop from ~7.1 to ~0.97 and empirical 95% coverage from 1.0 to about 0.95, with RMSE unchanged.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.85,\n  \"fixType\": \"silentFailure\",\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"BayesianRidge.predict computes the predictive variance from X that was only divided by X_scale_ on the previous line, never centred by the training means.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"sklearn/linear_model/bayes.py:299\", \"quote\": \"sigmas_squared_data = (np.dot(X, self.sigma_) * X).sum(axis=1)\"},\n      {\"type\": \"code\", \"ref\": \"sklearn/linear_model/bayes.py:300\", \"quote\": \"y_std = np.sqrt(sigmas_squared_data + (1. / self.alpha_))\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"rootCause\", \"text\": \"fit stores the centring offset and estimates sigma_ on preprocessed (centred and scaled) data; ARDRegression.predict applies the same transform, but BayesianRidge.predict does not.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"sklearn/linear_model/bayes.py:188\", \"quote\": \"self.X_offset_ = X_offset_\"},\n      {\"type\": \"code\", \"ref\": \"sklearn/linear_model/bayes.py:626\", \"quote\": \"X = (X - self.X_offset_) / self.X_scale_\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"impact\", \"text\": \"On valid input with non-zero feature means, the returned std is about 7x the correct value while RMSE stays about 1, giving 100% coverage for nominal 95% intervals.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:python BayesianRidge(normalize=True)\", \"quote\": \"actual std [7.131 7.208 7.09  7.032 7.071] noise std 0.966\"},\n      {\"type\": \"query\", \"ref\": \"probe:python BayesianRidge(normalize=True)\", \"quote\": \"centered std [0.976 0.989 0.968 0.973 0.968]\"},\n      {\"type\": \"query\", \"ref\": \"probe:python BayesianRidge(normalize=True)\", \"quote\": \"coverage 1.0 rmse 0.983\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"trigger\", \"text\": \"The dashboard saw wider intervals with unchanged point forecasts and RMSE after a rollout, which matches a variance-only defect.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s3\", \"quote\": \"Prediction interval widths rose sharply for several regional models after the latest rollout, while point forecasts and holdout RMSE remained essentially unchanged.\"}\n    ]},\n    {\"id\": \"c5\", \"role\": \"other\", \"text\": \"The existing return_std test does not use normalize=True, so the suite passes despite the defect.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"sklearn/linear_model/tests/test_bayes.py:192\", \"quote\": \"# Test return_std option for both Bayesian regressors\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"GaussianProcessRegressor predictive std changed\", \"why\": \"Its std is computed from the kernel and K_inv with no normalize/offset step, so it cannot produce this offset-dependent inflation.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"sklearn/gaussian_process/gpr.py:336\", \"quote\": \"y_var = self.kernel_.diag(X)\"}\n    ]},\n    {\"hypothesis\": \"ARDRegression is the source of the wider intervals\", \"why\": \"ARD's predict centres correctly; with normalize=True it instead raises AttributeError because fit never stores X_offset_, which is a crash, not wider intervals.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:python ARDRegression(normalize=True)\", \"quote\": \"AttributeError: 'ARDRegression' object has no attribute 'X_offset_'\"}\n    ]},\n    {\"hypothesis\": \"The change was an intended BayesianRidge fix documented in the changelog\", \"why\": \"The 0.21 BayesianRidge entry concerns posterior/regularisation updates in fit and the log marginal likelihood, not centring in predict.\", \"citations\": [\n      {\"type\": \"doc\", \"ref\": \"doc/whats_new/v0.21.rst\", \"quote\": \"Fixed the posterior mean, posterior covariance and returned\"}\n    ]}\n  ],\n  \"intendedBehavior\": \"BayesianRidge(normalize=True).predict(X, return_std=True) returns the same predictive std as the equivalent normalize=False fit, close to the noise std 1/sqrt(alpha_) near the training data, whatever the feature means are.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"No comment, test or changelog entry chooses uncentred inputs for the std; the neighbouring ARDRegression.predict centres with X_offset_, and BayesianRidge.fit stores X_offset_ for exactly this use.\"},\n  \"plain\": {\n    \"headline\": \"Forecast uncertainty ranges came out several times too wide because one step forgot to centre the data before measuring uncertainty.\",\n    \"happened\": \"The forecasting model rescales its input data while it learns. When it predicts, it repeats the full rescaling for its best guess but skips half of it when working out how unsure it is. The best guesses stay correct while the uncertainty ranges grow, about seven times in a test.\",\n    \"matters\": \"Every regional model that rescales inputs whose values sit far from zero reports ranges that are much too wide, so stock or staffing plans based on them become too cautious.\",\n    \"fix\": \"Apply the same full rescaling when measuring uncertainty as when the model learned, and add a test that checks the ranges stay the right width.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 15,
+  "inputTokens": {
+   "avg": 20148.133333333335,
+   "max": 28870
+  },
+  "mainUsage": {
+   "inputTokens": 302222,
+   "cachedInputTokens": 280344,
+   "outputTokens": 13009
+  },
+  "cacheHitPercent": 92.76095055952247,
+  "wallSeconds": 148.8529999256134,
+  "tools": {
+   "read": 9,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 6
+  },
+  "reads": 9,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 2,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.4037608,
+   "partial": false,
+   "estimated": true
+  }
+ },
+ "costUsd": 0.4037608
+}

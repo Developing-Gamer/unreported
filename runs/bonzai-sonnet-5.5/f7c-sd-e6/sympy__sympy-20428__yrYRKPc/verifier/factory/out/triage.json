@@ -1,0 +1,37 @@
+[
+  {
+    "source": "S1",
+    "decision": "fix",
+    "reason": "laguerre_poly wraps construct_domain(alpha) in try/except (TypeError, ValueError) and on failure falls back to alpha=0 (QQ). A malformed alpha therefore returns the plain Laguerre polynomial, with coe"
+  },
+  {
+    "source": "S2",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: srepr previously had no dict or set printer, so the fallback returned str(), which printed elements as bare names like {x, y}. The current code (1.8.dev) has _print_dict and _print_set in ReprPrinter,"
+  },
+  {
+    "source": "S3",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The error is a refused network connection from a `billing-worker` service to api.stripe.com, raised inside the requests and urllib3 libraries. This repository is SymPy, a symbolic maths library. It ha"
+  },
+  {
+    "source": "S4",
+    "decision": "fix",
+    "reason": "dup_clear_denoms/dmp_clear_denoms multiply coefficients by the common denominator via dup_mul_ground/dmp_mul_ground, which never strip leading zeros. In the EX domain the multiplication simplifies an "
+  },
+  {
+    "source": "S5",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: Older posify built the positive dummy without copying the original symbol's assumptions, so finite=True was lost and is_finite returned None. The current code passes **s.assumptions0 to Dummy, so fini"
+  },
+  {
+    "source": "S6",
+    "decision": "fix",
+    "reason": "In apart() in sympy/polys/partfrac.py, when conversion to polynomials fails with PolynomialError for a commutative expression, the handler does `return f`, so the input comes back as entered with no e"
+  },
+  {
+    "source": "S7",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: Boolean.__and__ and its siblings are wrapped in a decorator that requires the other operand to be a Boolean. An int or Integer such as 5 is not a Boolean, so the method returns NotImplemented and Pyth"
+  }
+]

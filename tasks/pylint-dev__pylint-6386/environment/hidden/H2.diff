@@ -1,0 +1,13 @@
+diff --git a/pylint/config/options_provider_mixin.py b/pylint/config/options_provider_mixin.py
+index c7c2be9e..96703e3a 100644
+--- a/pylint/config/options_provider_mixin.py
++++ b/pylint/config/options_provider_mixin.py
+@@ -114,7 +114,7 @@ class OptionsProviderMixIn:
+             yield section.upper(), options
+ 
+     def options_and_values(self, options=None):
+-        if options is None:
++        if not options:
+             options = self.options
+         for optname, optdict in options:
+             yield optname, optdict, self.option_value(optname)

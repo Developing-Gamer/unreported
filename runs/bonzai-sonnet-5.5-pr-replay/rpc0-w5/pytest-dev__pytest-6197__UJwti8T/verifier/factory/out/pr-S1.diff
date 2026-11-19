@@ -1,0 +1,50 @@
+diff --git a/changelog/6194.bugfix.rst b/changelog/6194.bugfix.rst
+new file mode 100644
+index 000000000..cb2a119cb
+--- /dev/null
++++ b/changelog/6194.bugfix.rst
+@@ -0,0 +1 @@
++Fix incorrect discovery of non-test ``__init__.py`` files: a package is no longer imported just because its directory is collected.
+diff --git a/src/_pytest/python.py b/src/_pytest/python.py
+index 306e5f217..a3da2e277 100644
+--- a/src/_pytest/python.py
++++ b/src/_pytest/python.py
+@@ -444,6 +444,12 @@ class Module(nodes.File, PyCollector):
+         return self._importtestmodule()
+ 
+     def collect(self):
++        # Marks of the enclosing packages (#5830) must be known before the
++        # tests of this module are set up; import them only now that there is
++        # something to run in them, not whenever a package is merely visited.
++        for node in self.listchain():
++            if isinstance(node, Package) and node is not self:
++                node._mount_obj_if_needed()
+         self._inject_setup_module_fixture()
+         self._inject_setup_function_fixture()
+         self.session._fixturemanager.parsefactories(self)
+@@ -639,7 +645,6 @@ class Package(Module):
+         return path in self.session._initialpaths
+ 
+     def collect(self):
+-        self._mount_obj_if_needed()
+         this_path = self.fspath.dirpath()
+         init_module = this_path.join("__init__.py")
+         if init_module.check(file=1) and path_matches_patterns(
+diff --git a/testing/test_collection.py b/testing/test_collection.py
+index dee07d5c7..11d0ebd13 100644
+--- a/testing/test_collection.py
++++ b/testing/test_collection.py
+@@ -1257,3 +1257,13 @@ def test_collector_respects_tbstyle(testdir):
+             "*= 1 error in *",
+         ]
+     )
++
++
++def test_does_not_import_unrelated_init_py(testdir):
++    """__init__.py of a package without tests must not be imported (#6194)."""
++    testdir.tmpdir.join("foobar").ensure(dir=True).join("__init__.py").write(
++        "assert False"
++    )
++    testdir.makepyfile(test_ok="def test_ok(): pass")
++    result = testdir.runpytest()
++    result.assert_outcomes(passed=1)

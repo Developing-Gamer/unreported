@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 130492,
+ "finalText": "The investigation is complete and I changed no files. The cause is in this repository. Running pylint with the short `-v` option exits with `SystemExit: 2`. I couldn't query Sentry or PostHog here, so I read the code and ran probes instead.\n\n**What goes wrong.** The `verbose` option is registered with the short flag `-v` and a do-nothing action that sets no `nargs`. The step that strips `--verbose` before argparse runs only recognises the long `--verbose`, so `-v` reaches argparse. Argparse treats it as an option that needs a value, which matches the `consume_optional` frame in the stack.\n\n**What I ran.** `pylint /tmp/t.py -v`, `pylint -v`, and `pylint -v --disable=all /tmp/t.py` each printed `usage: pylint [options]` then `pylint: error: argument --verbose/-v: expected one argument`. `-v /tmp/t.py` is also wrong. `-v` swallows the file name, no files are left, and pylint prints help and exits with 32. I did not run the existing tests.\n\n**Who feels it.** Anyone who adds `-v` to a pylint command in a script, CI job or editor gets no linting. That fits the 341 events from 58 users in 7 days.\n\n**Intent.** The help text lists `-v`, and the action exists only so argparse doesn't fail on options already handled. Nobody chose this exit.\n\n```json\n{\n  \"sourceId\": \"S4\",\n  \"verdict\": \"fixable\",\n  \"title\": \"Short -v option makes pylint exit with a usage error\",\n  \"cause\": \"The verbose option is registered with a short -v flag and a do-nothing action that takes no nargs setting. The preprocessing step that strips verbose only recognises the long --verbose, so -v reaches argparse, which treats it as needing a value. Running pylint with -v at the end, or alone, fails with 'expected one argument' and SystemExit 2; -v before a file name swallows the file name.\",\n  \"files\": [\n    {\"path\": \"pylint/config/utils.py\", \"why\": \"PREPROCESSABLE_OPTIONS only lists --verbose, so -v is never preprocessed and removed.\"},\n    {\"path\": \"pylint/config/callback_actions.py\", \"why\": \"_DoNothingAction has no __init__ forcing nargs=0, so argparse expects a value for -v.\"},\n    {\"path\": \"pylint/lint/base_options.py\", \"why\": \"Registers verbose with short flag 'v' and _DoNothingAction.\"}\n  ],\n  \"plan\": [\n    \"Add \\\"-v\\\": (False, _set_verbose_mode) to PREPROCESSABLE_OPTIONS.\",\n    \"Give _DoNothingAction an __init__ that sets nargs=0 so argparse never expects a value.\",\n    \"Add tests that Run([file, '-v']) and Run(['-v', file]) work, set verbose mode and do not exit with 2 or 32.\"\n  ],\n  \"verification\": [\n    \"Run python -m pylint file.py -v and python -m pylint -v file.py and confirm normal linting with no argparse error.\",\n    \"Run tests/config and tests/test_self.py.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.85,\n  \"deliberate\": false,\n  \"intent\": \"The -v short flag is documented in the verbose option's help; the do-nothing action exists so argparse does not fail on options already handled by preprocessing. Nobody chose the failure for -v.\",\n  \"fixType\": \"error\",\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"Preprocessing only handles the long --verbose, so -v is passed on to argparse.\", \"role\": \"rootCause\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"pylint/config/utils.py:209\", \"quote\": \"\\\"--verbose\\\": (False, _set_verbose_mode),\"},\n      {\"type\": \"code\", \"ref\": \"pylint/config/utils.py:221\", \"quote\": \"if not argument.startswith(\\\"--\\\"):\"}\n    ]},\n    {\"id\": \"c2\", \"text\": \"The verbose option has short flag v and uses the do-nothing action, which sets no nargs, so argparse requires an argument.\", \"role\": \"rootCause\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"pylint/lint/base_options.py:541\", \"quote\": \"\\\"action\\\": _DoNothingAction,\"},\n      {\"type\": \"code\", \"ref\": \"pylint/lint/base_options.py:543\", \"quote\": \"\\\"short\\\": \\\"v\\\",\"}\n    ]},\n    {\"id\": \"c3\", \"text\": \"Running pylint with -v fails with 'expected one argument' and exit 2, which matches the Sentry stack through consume_optional.\", \"role\": \"impact\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s4\", \"quote\": \"pylint/config/arguments_manager.py:258 in _parse_command_line_configuration\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"Users just passed invalid options\", \"why\": \"Plain bad arguments from users are expected argparse behaviour, but -v is a documented valid option, so the error is a defect.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"pylint/lint/base_options.py:543\", \"quote\": \"\\\"short\\\": \\\"v\\\",\"}\n    ]}\n  ],\n  \"intendedBehavior\": \"Running pylint with -v, in any position among the arguments, enables verbose mode and lints the given files without an argparse error.\",\n  \"plain\": {\n    \"headline\": \"Pylint quit immediately for people who used the short -v flag, because it wrongly expected a value after it.\",\n    \"happened\": \"The short -v flag is meant to turn on extra output. The tool only recognised the long version of that flag ahead of time. The short one reached the argument parser, which demanded a value and aborted with a usage error.\",\n    \"matters\": \"Anyone who adds -v to their pylint command in a script, build or editor gets no linting at all.\",\n    \"fix\": \"Treat -v exactly like the long verbose flag and make sure it never expects a value.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 15,
+  "inputTokens": {
+   "avg": 22401.933333333334,
+   "max": 32622
+  },
+  "mainUsage": {
+   "inputTokens": 336029,
+   "cachedInputTokens": 310397,
+   "outputTokens": 11719
+  },
+  "cacheHitPercent": 92.37208693297305,
+  "wallSeconds": 126.38599991798401,
+  "tools": {
+   "read": 8,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 2,
+   "subagent": 0,
+   "other": 6
+  },
+  "reads": 8,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.2433314,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.2433314
+}

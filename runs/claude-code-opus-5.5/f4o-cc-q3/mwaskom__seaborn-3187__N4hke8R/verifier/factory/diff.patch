@@ -1,0 +1,130 @@
+diff --git a/seaborn/_core/moves.py b/seaborn/_core/moves.py
+index 7fd5713b..31a57654 100644
+--- a/seaborn/_core/moves.py
++++ b/seaborn/_core/moves.py
+@@ -131,11 +131,14 @@ class Dodge(Move):
+             return w.shift(1).fillna(0).cumsum() + (w - w.sum()) / 2
+ 
+         new_widths = groupby_pos(groups["width"]).transform(scale_widths)
+-        if self.gap:
+-            new_widths *= 1 - self.gap
+ 
++        # Compute offsets from the full (un-gapped) widths so that shrinking
++        # each mark by the gap leaves space between neighboring marks.
+         offsets = groupby_pos(new_widths).transform(widths_to_offsets)
+ 
++        if self.gap:
++            new_widths *= 1 - self.gap
++
+         groups["_dodged"] = groups[orient] + offsets
+         groups["width"] = new_widths
+ 
+diff --git a/seaborn/_core/scales.py b/seaborn/_core/scales.py
+index 55874bf2..c91f6fdc 100644
+--- a/seaborn/_core/scales.py
++++ b/seaborn/_core/scales.py
+@@ -378,6 +378,14 @@ class ContinuousBase(Scale):
+             axis.set_view_interval(vmin, vmax)
+             locs = axis.major.locator()
+             locs = locs[(vmin <= locs) & (locs <= vmax)]
++            # Avoid having an offset / scientific notation in a legend
++            # as we don't represent that anywhere so it ends up incorrect.
++            # This could become an option (e.g. Continuous.label(offset=True))
++            # in which case we would need to figure out how to show it.
++            if hasattr(axis.major.formatter, "set_useOffset"):
++                axis.major.formatter.set_useOffset(False)
++            if hasattr(axis.major.formatter, "set_scientific"):
++                axis.major.formatter.set_scientific(False)
+             labels = axis.major.formatter.format_ticks(locs)
+             new._legend = list(locs), list(labels)
+ 
+diff --git a/seaborn/utils.py b/seaborn/utils.py
+index 2407853c..81986a6c 100644
+--- a/seaborn/utils.py
++++ b/seaborn/utils.py
+@@ -698,7 +698,10 @@ def locator_to_legend_entries(locator, limits, dtype):
+     if isinstance(locator, mpl.ticker.LogLocator):
+         formatter = mpl.ticker.LogFormatter()
+     else:
+-        formatter = mpl.ticker.ScalarFormatter()
++        # Legends have no place to show an offset or a scientific-notation
++        # multiplier, so format the full values instead.
++        formatter = mpl.ticker.ScalarFormatter(useOffset=False)
++        formatter.set_scientific(False)
+     formatter.axis = dummy_axis()
+ 
+     # TODO: The following two lines should be replaced
+diff --git a/tests/_core/test_moves.py b/tests/_core/test_moves.py
+index 6fd88bb5..94f8852b 100644
+--- a/tests/_core/test_moves.py
++++ b/tests/_core/test_moves.py
+@@ -192,6 +192,17 @@ class TestDodge(MoveFixtures):
+         assert_array_almost_equal(res["x"], [-.08, .32, 1])
+         assert_array_almost_equal(res["width"], [.64, .16, .2])
+ 
++    def test_widths_gap(self, toy_df_widths):
++
++        groupby = GroupBy(["x", "grp"])
++        res = Dodge(gap=.5)(toy_df_widths, groupby, "x", {})
++
++        # Positions are unchanged by the gap; only widths shrink, so
++        # neighboring dodged marks no longer touch
++        assert_array_equal(res["y"], [1, 2, 3])
++        assert_array_almost_equal(res["x"], [-.08, .32, 1.1])
++        assert_array_almost_equal(res["width"], [.32, .08, .1])
++
+     def test_faceted_default(self, toy_df_facets):
+ 
+         groupby = GroupBy(["x", "grp", "col"])
+diff --git a/tests/_core/test_scales.py b/tests/_core/test_scales.py
+index c4b39f5d..5d470b5b 100644
+--- a/tests/_core/test_scales.py
++++ b/tests/_core/test_scales.py
+@@ -303,6 +303,22 @@ class TestContinuous:
+         label, = a.major.formatter.format_ticks([100])
+         assert r"10^{2}" in label
+ 
++    def test_legend_no_offset(self):
++
++        # Legend labels have nowhere to display a formatter offset or
++        # scientific-notation multiplier, so they should show full values
++        x = pd.Series(np.linspace(3e6, 6e6, 5), name="x")
++        s = Continuous()._setup(x, IntervalProperty())
++        locs, labels = s._legend
++        for loc, label in zip(locs, labels):
++            assert float(label) == pytest.approx(loc)
++
++        x = pd.Series(np.linspace(1e6 + 1, 1e6 + 5, 5), name="x")
++        s = Continuous()._setup(x, IntervalProperty())
++        locs, labels = s._legend
++        for loc, label in zip(locs, labels):
++            assert float(label) == pytest.approx(loc)
++
+     def test_label_type_checks(self):
+ 
+         s = Continuous()
+diff --git a/tests/test_utils.py b/tests/test_utils.py
+index 02839a02..405ff129 100644
+--- a/tests/test_utils.py
++++ b/tests/test_utils.py
+@@ -335,6 +335,20 @@ def test_locator_to_legend_entries():
+         assert re.match(f"1e.0{exp}", str_levels[i])
+ 
+ 
++def test_locator_to_legend_entries_no_offset():
++
++    # Legend entries have no place to show a formatter offset,
++    # so the full values should be represented in each label
++    locator = mpl.ticker.MaxNLocator(nbins=3)
++    for limits in [(1e6 + 1, 1e6 + 5), (3e6, 6e6)]:
++        levels, str_levels = utils.locator_to_legend_entries(
++            locator, limits, float
++        )
++        assert len(levels) > 0
++        for level, label in zip(levels, str_levels):
++            assert float(label) == pytest.approx(level)
++
++
+ def test_move_legend_matplotlib_objects():
+ 
+     fig, ax = plt.subplots()

@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 75121,
+ "finalText": "The fix is in the working tree, uncommitted. `_idval` in `src/_pytest/python.py` now checks `if hook_id is not None:`, so an empty string returned by `pytest_make_parametrize_id` is used as the id.\n\nThe new test, `test_pytest_make_parametrize_id_empty_string` in `testing/python/metafunc.py`, fails without the fix (it collects `test_func[y2-1]`) and passes with it (`test_func[y2-]`). All of `testing/python/metafunc.py` passes: 99 passed, 1 xfailed.\n\nI also ran `testing/python/collect.py`, which has two failures: `test_import_prepend_append` and `test_filter_traceback_path_no_longer_valid`. I did not run them on the base commit, so I can't say they predate my change.\n\nI installed `hypothesis` into the existing test environment because `metafunc.py` imports it. The changelog file is `changelog/5811.bugfix.rst`; 5811 is a guessed issue number, so rename it to the real one. The PR text is in `.factory/pr-S4.md`.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"command\": \"python -m pytest testing/python/metafunc.py -q\", \"passed\": true},\n    {\"command\": \"python -m pytest testing/python/collect.py -q\", \"passed\": false, \"alsoOnBase\": null, \"note\": \"2 failures, test_import_prepend_append and test_filter_traceback_path_no_longer_valid; not run on the base commit\"}\n  ],\n  \"visual\": false,\n  \"missingEnv\": [],\n  \"reproductionSteps\": [\n    \"Add a conftest with pytest_make_parametrize_id returning '' for argname 'x' and 'y2' for 'y'\",\n    \"Parametrize 'y, x' with [(2, 1)] and run pytest --collect-only\",\n    \"Before the fix the id is test_func[y2-1]; after the fix it is test_func[y2-]\"\n  ],\n  \"reproductionTest\": {\n    \"path\": \"testing/python/metafunc.py\",\n    \"command\": \"python -m pytest testing/python/metafunc.py -k empty_string -q\",\n    \"signature\": \"Failed: nomatch: '*<Function test_func[[]y2-]>*' ... and: '  <Function test_func[y2-1]>'\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 18,
+  "inputTokens": {
+   "avg": 25274.166666666668,
+   "max": 31845
+  },
+  "mainUsage": {
+   "inputTokens": 454935,
+   "cachedInputTokens": 436966,
+   "outputTokens": 6426
+  },
+  "cacheHitPercent": 96.05020497433699,
+  "wallSeconds": 73.80599999427795,
+  "tools": {
+   "read": 10,
+   "edit": 7,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 9
+  },
+  "reads": 10,
+  "edits": 7,
+  "runs": 9,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 5,
+  "editOperations": 7,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1965557,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1965557
+}

@@ -1,0 +1,13 @@
+diff --git a/src/_pytest/compat.py b/src/_pytest/compat.py
+index d0cb07b22..1faf9ec1b 100644
+--- a/src/_pytest/compat.py
++++ b/src/_pytest/compat.py
+@@ -200,7 +200,7 @@ def get_default_arg_names(function: Callable[..., Any]) -> Tuple[str, ...]:
+ 
+ 
+ _non_printable_ascii_translate_table = {
+-    i: f"\\x{i:02x}" for i in range(128) if i not in range(32, 127)
++    i: f"\\x{i:02x}" for i in range(128) if i not in range(32, 128)
+ }
+ _non_printable_ascii_translate_table.update(
+     {ord("\t"): "\\t", ord("\r"): "\\r", ord("\n"): "\\n"}

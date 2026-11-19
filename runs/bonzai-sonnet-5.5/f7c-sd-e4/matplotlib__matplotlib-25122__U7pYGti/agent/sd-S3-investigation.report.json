@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 224421,
+ "finalText": "My earlier investigation holds up: every quoted line (`axis.py` 670 and 868, `text.py` 202\u2013203) is text I read directly. The bug reproduced when I ran it. Nothing in the repository was edited.\n\n**Finding.** `Axis.clear()` throws away the axis-label rc settings, so scripts that style labels through `rcParams` or style files get default-looking labels. Older scripts usually style this way, which fits the report. Newer scripts that pass styling per call still look right.\n\n**What I ran.**\n- With `axes.labelsize=19`, `axes.labelweight='bold'` and `axes.labelcolor='r'`, `plt.subplots()` gave an x-axis label with size 10, weight normal and colour black.\n- Setting `font.size=20` made the label size 20. The label follows the general text defaults, not the axis-label settings.\n- `ax.cla()` leaves the label at those defaults too.\n\n**Cause.**\n- `Axis.__init__` builds the label from the three axis-label settings.\n- `Axis.clear()` runs for every Axes, and it calls `self.label._reset_visual_defaults()`.\n- That call resets the label to the general `font.*` and `text.color` settings.\n- Nothing puts the axis-label settings back.\n- This is not deliberate: the constructor still reads those settings, and they are documented rcParams.\n\n**Not checked.** There is no monitoring access in this run, so I could not see the Sentry event, session replays or deploy history. The git history is one snapshot commit.\n\n**Fix.** Right after the reset in `Axis.clear()`, reapply `axes.labelcolor`, `axes.labelsize` and `axes.labelweight` to the label.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Axis labels ignore label size, weight and colour settings\",\n  \"cause\": \"Axis.clear() (run for every new Axes) calls label._reset_visual_defaults(), which resets the axis label to the general font.* and text.color settings. It never reapplies axes.labelsize, axes.labelweight or axes.labelcolor, so scripts that style labels through rcParams or style files get default-looking labels. Scripts that pass fontsize, color or weight per call still work.\",\n  \"files\": [\n    {\"path\": \"lib/matplotlib/axis.py\", \"why\": \"Axis.clear() at ~line 868 resets the label and does not restore the axes.label* settings that Axis.__init__ applies at ~lines 668-673.\"}\n  ],\n  \"plan\": [\n    \"In Axis.clear(), right after self.label._reset_visual_defaults(), call self.label.set_color(mpl.rcParams['axes.labelcolor']), self.label.set_fontsize(mpl.rcParams['axes.labelsize']) and self.label.set_fontweight(mpl.rcParams['axes.labelweight']).\",\n    \"Add a regression test: with axes.labelsize, axes.labelweight and axes.labelcolor set via rc_context, a fresh Axes (and one after ax.cla()) has x and y labels with those values.\",\n    \"Check the offset text and tick-label settings still behave, and run the existing axis, axes, text and style tests.\"\n  ],\n  \"verification\": [\n    \"With axes.labelsize=19, axes.labelweight='bold' and axes.labelcolor='r', plt.subplots() gives xaxis.label with size 19, weight bold and colour r. Today it gives 10, normal and black.\",\n    \"Run lib/matplotlib/tests/test_axes.py, test_axis.py, test_text.py and test_style.py.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.8,\n  \"claims\": [\n    {\n      \"id\": \"c1\",\n      \"text\": \"Axis.clear() resets the label to the general text defaults and never reapplies the axes.label* rcParams.\",\n      \"role\": \"rootCause\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"lib/matplotlib/axis.py:868\", \"quote\": \"self.label._reset_visual_defaults()\"},\n        {\"type\": \"code\", \"ref\": \"lib/matplotlib/axis.py:670\", \"quote\": \"fontsize=mpl.rcParams['axes.labelsize'],\"}\n      ]\n    },\n    {\n      \"id\": \"c2\",\n      \"text\": \"_reset_visual_defaults sets the colour from text.color and sets the font properties to defaults, overriding the label rc values.\",\n      \"role\": \"rootCause\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"lib/matplotlib/text.py:203\", \"quote\": \"color if color is not None else mpl.rcParams[\\\"text.color\\\"])\"}\n      ]\n    }\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"Per-call keyword aliases (lw, ls, c, ec, fc, mew, ms) are mishandled.\", \"why\": \"They work for plot, scatter, bar, patches, collections and text.\", \"citations\": [{\"type\": \"code\", \"ref\": \"lib/matplotlib/cbook.py:1717\", \"quote\": \"canonical = to_canonical.get(k, k)\"}]},\n    {\"hypothesis\": \"rc() abbreviations or the deprecated seaborn style names break custom styling.\", \"why\": \"Both are handled correctly.\", \"citations\": [{\"type\": \"code\", \"ref\": \"lib/matplotlib/__init__.py:1043\", \"quote\": \"name = aliases.get(k) or k\"}]}\n  ],\n  \"intendedBehavior\": \"A new or cleared Axes has x and y axis labels whose size, weight and colour come from axes.labelsize, axes.labelweight and axes.labelcolor.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"Axis.__init__ explicitly builds the label from the axes.label* rcParams; clear() dropping them is an unhandled case, not a documented choice.\"},\n  \"fixType\": \"silentFailure\",\n  \"plain\": {\n    \"headline\": \"Axis label styling set through style files or global settings is ignored, so charts come out with default-looking labels.\",\n    \"happened\": \"When a chart's axes are set up, the label text is reset to the general text defaults. The separate axis-label size, weight and colour settings are never applied after that reset. Scripts that style labels explicitly on each call still look right.\",\n    \"matters\": \"It hits anyone, usually older scripts, who style axis labels through global settings or style files.\",\n    \"fix\": \"After resetting the label, reapply the axis-label size, weight and colour settings, and add a test.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 45,
+  "inputTokens": {
+   "avg": 37777.51111111111,
+   "max": 65911
+  },
+  "mainUsage": {
+   "inputTokens": 1699988,
+   "cachedInputTokens": 1591467,
+   "outputTokens": 27037
+  },
+  "cacheHitPercent": 93.61636670376497,
+  "wallSeconds": 223.51399993896484,
+  "tools": {
+   "read": 49,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 9
+  },
+  "reads": 49,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 14,
+   "readFileIgnoringRange": 14
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.8599188999999999,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.8599188999999999
+}

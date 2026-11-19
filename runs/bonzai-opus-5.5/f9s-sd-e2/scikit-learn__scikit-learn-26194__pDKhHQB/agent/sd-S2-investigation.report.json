@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 162811,
+ "finalText": "**Verdict: fixable.** The bug is in this repository. `l1_min_c` (in [_bounds.py](file:///testbed/sklearn/svm/_bounds.py)) suggests the bottom of the C grid for L1-penalised `LinearSVC` and `LogisticRegression`. When the intercept is fitted, it returns too high a value for imbalanced multiclass labels. Binary labels are not affected, which matches the support message.\n\n**Cause.** Line 75 is:\n```python\nden = max(den, abs(np.dot(Y, bias).max()))\n```\nIt should be `abs(np.dot(Y, bias)).max()`. As written, it takes the largest signed per-class sum and only then the absolute value. Minority classes have large negative sums, so they are ignored. That makes `den` too small, and the returned C (`0.5/den` or `2/den`) comes out too high. With two classes there is only one row, so both orders give the same number.\n\n**Checks I ran** (with the probe tool, in a throwaway copy with the compiled extensions copied in; I edited nothing in `/testbed`):\n- **Small example:** labels `[0]*6 + [1]*2 + [2]*2` give per-class sums `[2, -6, -6]`. `l1_min_c` returned **0.25** where the correct value is **0.0833**, so 3\u00d7 too high. How far off it is depends on the class counts, so \"about four times\" fits the user's data. A binary example returned the correct 0.0833.\n- **Existing tests:** `sklearn/svm/tests/test_bounds.py` has **4 failing** cases, exactly the multiclass + fitted-intercept ones (sparse/dense \u00d7 squared_hinge/log). The other 22 pass.\n- **The fix:** moving `abs` to wrap the dot product before `.max()` makes all 26 tests pass.\n\n**Was it on purpose?** No. The docstring promises the model is not empty for any C above the returned value, and the repository's own test checks that promise. The current code breaks both, and no changelog entry mentions a change. The repository has a single snapshot commit, so I couldn't find which commit introduced the bug.\n\n**What's left:** make the one-line change, add an imbalanced 3-class regression test, and add a changelog entry.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Multiclass minimum C is too high when fitting intercept\",\n  \"cause\": \"l1_min_c computes the intercept term as abs(np.dot(Y, bias).max()), taking the signed maximum before the absolute value. For imbalanced multiclass labels, minority classes have large negative sums that get ignored, so the denominator is too small and the returned minimum C is too large. For binary labels Y has one row, so the result is unchanged.\",\n  \"files\": [\n    {\"path\": \"sklearn/svm/_bounds.py\", \"why\": \"Line 75 applies abs after .max() instead of before, which underestimates den for multiclass y when fit_intercept=True.\"},\n    {\"path\": \"sklearn/svm/tests/test_bounds.py\", \"why\": \"Existing test_l1_min_c multi-class fit-intercept cases already fail and serve as the regression test; an imbalanced 3-class case could be added.\"}\n  ],\n  \"plan\": [\n    \"Change line 75 of sklearn/svm/_bounds.py to `den = max(den, abs(np.dot(Y, bias)).max())`.\",\n    \"Add an imbalanced 3-class regression case (e.g. y=[0]*6+[1]*2+[2]*2) to test_bounds.py that asserts l1_min_c equals 0.5/max_k|sum Y_k*intercept_scaling| when the intercept dominates.\",\n    \"Add a changelog entry under svm fixes.\"\n  ],\n  \"verification\": [\n    \"Run pytest sklearn/svm/tests/test_bounds.py: before the change 4 tests fail (fit-intercept-multi-class x sparse/dense x squared_hinge/log); after it, all 26 pass (both checked in probe).\",\n    \"l1_min_c(X, [0]*6+[1]*2+[2]*2) with X nearly all zeros should return 0.0833 instead of 0.25.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.95,\n  \"fixType\": \"silentFailure\",\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"The intercept term is computed as the absolute value of the signed maximum over classes, not the maximum of the absolute values, so negative per-class sums from minority classes are ignored.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"sklearn/svm/_bounds.py:75\", \"quote\": \"den = max(den, abs(np.dot(Y, bias).max()))\"},\n      {\"type\": \"code\", \"ref\": \"sklearn/svm/_bounds.py:68\", \"quote\": \"Y = LabelBinarizer(neg_label=-1).fit_transform(y).T\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"impact\", \"text\": \"A smaller den gives a larger returned C, because the result is inversely proportional to den.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"sklearn/svm/_bounds.py:83\", \"quote\": \"return 0.5 / den\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"other\", \"text\": \"An imbalanced 3-class call returned 0.25 where the correct value is 0.0833, while a binary call returned the correct 0.0833.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe\", \"quote\": \"per-class Y.bias [ 2 -6 -6] expected 0.08333333333333333\"},\n      {\"type\": \"query\", \"ref\": \"probe\", \"quote\": \"binary 0.08333333333333333 expected 0.08333333333333333\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"other\", \"text\": \"The existing tests for multiclass labels with an intercept fail on the current code.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe\", \"quote\": \"FAILED sklearn/svm/tests/test_bounds.py::test_l1_min_c[fit-intercept-multi-class-dense-log] - AssertionError: assert False\"},\n      {\"type\": \"code\", \"ref\": \"sklearn/svm/tests/test_bounds.py:58\", \"quote\": \"assert (np.asarray(clf.intercept_) == 0).all()\"}\n    ]},\n    {\"id\": \"c5\", \"role\": \"trigger\", \"text\": \"The user reports that imbalanced three-class grids start about 4x higher after the upgrade while binary runs are unchanged.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s2\", \"quote\": \"Our imbalanced three-class runs now start the C grid about four times higher after the upgrade, while binary runs look unchanged.\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"Binary classification is also affected.\", \"why\": \"With two classes LabelBinarizer returns a single row, so abs-then-max equals max-then-abs; the probe's binary result matched the expected value and the binary tests pass.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe\", \"quote\": \"binary 0.08333333333333333 expected 0.08333333333333333\"}\n    ]},\n    {\"hypothesis\": \"The change was deliberate.\", \"why\": \"The docstring promises a guarantee that the current code breaks, the repository's own tests check that guarantee, and no changelog entry records a change to l1_min_c beyond its original addition.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"sklearn/svm/_bounds.py:27\", \"quote\": \"The lower bound for C is computed such that for C in (l1_min_C, infinity)\"},\n      {\"type\": \"doc\", \"ref\": \"doc/whats_new/older_versions.rst\", \"quote\": \"Added function :func:`svm.l1_min_c` by Paolo Losi.\"}\n    ]}\n  ],\n  \"intendedBehavior\": \"With fit_intercept=True and multiclass y, l1_min_c returns a C at which an L1 LinearSVC or LogisticRegression has all-zero coefficients and intercepts, and 1.01x that C gives a non-empty model; for y=[0]*6+[1]*2+[2]*2 and nearly all-zero X it returns 0.0833.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"The docstring promises the model is guaranteed not to be empty for C above l1_min_c, and test_l1_min_c checks exactly that for multi-class with an intercept; those tests fail on the current code. No changelog entry records a change.\"},\n  \"plain\": {\n    \"headline\": \"After the upgrade, the tool that suggests the smallest useful regularisation strength gives too high a value for data with three or more uneven classes.\",\n    \"happened\": \"When a model also learns a baseline offset, the tool takes the largest signed value across classes and then drops the sign, instead of dropping the signs first. Small classes produce large negative values, so they get ignored and the suggested starting point comes out several times too high. With two classes there is only one value, so nothing changes.\",\n    \"matters\": \"Anyone tuning multiclass sparse models on uneven data skips the sparsest settings and gets different, worse-founded results than before the upgrade.\",\n    \"fix\": \"Drop the signs before taking the largest value, a one-line change that makes the library's existing failing checks pass.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 16,
+  "inputTokens": {
+   "avg": 17489.5,
+   "max": 25028
+  },
+  "mainUsage": {
+   "inputTokens": 279832,
+   "cachedInputTokens": 261794,
+   "outputTokens": 10605
+  },
+  "cacheHitPercent": 93.5539895365791,
+  "wallSeconds": 161.31699991226196,
+  "tools": {
+   "read": 5,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 11
+  },
+  "reads": 5,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.3546128,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.3546128
+}

@@ -1,0 +1,27 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_________ test_automatic_selection_preserves_standard_backend_priority _________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fdb01870f70>
+
+    def test_automatic_selection_preserves_standard_backend_priority(monkeypatch):
+        # Both installed readers recognize this input, so their priority matters.
+        monkeypatch.setattr(
+            plugins,
+            "BACKEND_ENTRYPOINTS",
+            {"h5netcdf": H5NetCDFBackend, "netcdf4": NetCDF4Backend},
+        )
+        engines = plugins.build_engines([])
+        monkeypatch.setattr(plugins, "list_engines", lambda: engines)
+    
+>       assert plugins.guess_engine("climate.nc") == "netcdf4"
+E       AssertionError: assert 'h5netcdf' == 'netcdf4'
+E         - netcdf4
+E         ?       -
+E         + h5netcdf
+E         ? ++
+
+/tmp/test_hidden_S2.py:27: AssertionError
+=========================== short test summary info ============================
+FAILED ../tmp/test_hidden_S2.py::test_automatic_selection_preserves_standard_backend_priority
+1 failed in 3.16s

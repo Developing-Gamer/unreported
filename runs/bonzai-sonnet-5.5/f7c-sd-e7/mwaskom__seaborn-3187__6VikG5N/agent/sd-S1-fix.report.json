@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 166257,
+ "finalText": "Legends for large continuous ranges now show full values instead of truncated mantissas like `3`, `4`, `5`. The change is left uncommitted in the working tree, and the PR text is in `.factory/pr-S1.md`.\n\nThe cause was as the investigation described. The legend labels came from the axis `ScalarFormatter` with its offset and scientific notation still on. For values around 3e6 to 6e6 it returned only the short mantissas. The `1e6` multiplier stayed in a separate offset text that a legend can't show.\n\n**Fix.** In `seaborn/_core/scales.py`, the legend branch of `ContinuousBase._setup` now turns off the formatter's offset and scientific notation (when it supports them) before formatting the labels. Axis tick labels keep their offset, because only the legend branch changes. I left `locator_to_legend_entries` in `seaborn/utils.py` alone and did not check it for the same problem.\n\n**Test.** I added `TestContinuous::test_legend_large_values_no_offset` in `tests/_core/test_scales.py`. Before the fix it failed with `assert 3.0 == 3000000.0`; after the fix it passes.\n\n**Checks.**\n- `tests/_core/test_scales.py`: 84 passed, 1 xfailed.\n- `tests/_core` plus `tests/test_utils.py`: 554 passed and 6 xfailed. The one failure, `tests/_core/test_moves.py::TestDodge::test_gap`, fails the same way on the base commit and is unrelated.\n- I did not run the penguins example from the issue; the new test covers the same legend labelling.\n- I did not check that axis tick labels still use the offset; I only reasoned that the change leaves them alone.\n- Python runs from `/opt/miniconda3/envs/testbed/bin/python`; the default `python` has no pytest.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"checks\": [\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest tests/_core/test_scales.py -k legend_large -q\", \"passed\": true},\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest tests/_core tests/test_utils.py -q\", \"passed\": false, \"alsoOnBase\": true, \"note\": \"only tests/_core/test_moves.py::TestDodge::test_gap fails, identically on base\"}\n  ],\n  \"visual\": false,\n  \"reproductionSteps\": \"Build a Continuous scale on values 3e6..6e6 with IntervalProperty and inspect scale._legend labels; they were '3','4','5' instead of full values. Equivalent: so.Plot(penguins, pointsize=body_mass_g*1000).add(so.Dot()).\",\n  \"reproductionTest\": {\n    \"path\": \"tests/_core/test_scales.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest tests/_core/test_scales.py -k legend_large -q\",\n    \"signature\": \"AssertionError: assert 3.0 == 3000000.0\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 17,
+  "inputTokens": {
+   "avg": 23617.529411764706,
+   "max": 28732
+  },
+  "mainUsage": {
+   "inputTokens": 401498,
+   "cachedInputTokens": 386644,
+   "outputTokens": 5925
+  },
+  "cacheHitPercent": 96.30035516988876,
+  "wallSeconds": 165.63100004196167,
+  "tools": {
+   "read": 9,
+   "edit": 4,
+   "test": 0,
+   "verify": 0,
+   "git": 1,
+   "exec-poll": 3,
+   "subagent": 0,
+   "other": 3
+  },
+  "reads": 9,
+  "edits": 4,
+  "runs": 4,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 4,
+  "editOperations": 4,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.17369480000000004,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.17369480000000004
+}

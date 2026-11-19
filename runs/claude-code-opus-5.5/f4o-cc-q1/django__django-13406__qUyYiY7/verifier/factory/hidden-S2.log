@@ -1,0 +1,45 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+____________ test_server_error_propagates_missing_included_template ____________
+
+    def test_server_error_propagates_missing_included_template():
+        if not settings.configured:
+            settings.configure(
+                SECRET_KEY='error-page-test',
+                INSTALLED_APPS=[],
+                USE_I18N=False,
+            )
+        django.setup()
+    
+        missing_template = 'errors/support_details.html'
+        templates = [{
+            'BACKEND': 'django.template.backends.django.DjangoTemplates',
+            'APP_DIRS': False,
+            'OPTIONS': {
+                'loaders': [
+                    ('django.template.loaders.locmem.Loader', {
+                        '500.html': (
+                            '<h1>Service unavailable</h1>'
+                            "{% include 'errors/support_details.html' %}"
+                        ),
+                    }),
+                ],
+            },
+        }]
+    
+        caught = None
+        with override_settings(DEBUG=False, TEMPLATES=templates):
+            request = RequestFactory().get('/failed-operation/')
+            try:
+                server_error(request)
+            except TemplateDoesNotExist as exc:
+                caught = exc
+    
+>       assert caught is not None, 'Rendering failures must not become a generic error page.'
+E       AssertionError: Rendering failures must not become a generic error page.
+E       assert None is not None
+
+/tmp/test_hidden_S2.py:41: AssertionError
+=========================== short test summary info ============================
+FAILED ../tmp/test_hidden_S2.py::test_server_error_propagates_missing_included_template
+1 failed in 0.14s

@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 211184,
+ "finalText": "Sphinx itself causes these warnings, and it can be fixed. Rejecting types inside a C macro's signature is intended. But the documented way to give argument types also warns, so anyone upgrading from 2.4.4 to 3.x can't write down their macro's argument types without warnings.\n\n**What I confirmed** (with probe, no edits):\n- **Typed macro signatures are rejected.** A C macro entry may only list argument names. `BOB_CATCH_FUNCTION(message, ret)` parses. `BOB_CATCH_FUNCTION(char* message, void* ret)` fails with `Expected identifier, ')', or ',' in macro parameter list. [error at 23]`, raised at sphinx/domains/c.py:2993.\n- **That part is intended.** The 3.0 changelog says the rewritten C domain is \"now more strict, resulting in new warnings\". C macro arguments have no types. The existing macro test passes (1 passed).\n- **The documented alternative also warns.** I built a small test doc using a macro with plain argument names plus `:type message: char*` and `:type ret: void*`. The build gave two warnings: `Unparseable C cross-reference: 'char*'` and the same for `'void*'`, each with `Expected identifier in nested name, got keyword`.\n- **Why the alternative warns.** All C entries send type fields to the `type` cross-reference (c.py:3118). The field code (sphinx/util/docfields.py:68) turns each type straight into a cross-reference. The resolver then reads it as a plain name and rejects built-in types like `char` and `void` (c.py:3076\u20133081, warning at 3816).\n- **Upstream fixed the type-field warning in Sphinx 4.1.0** (issue #8945, pull request #9155). That fix is not in this checkout, so it is not \"covered\".\n\n**Fix:**\n1. Read typed fields in the C and C++ domains as C expressions instead of name lookups, as pull request #9155 did.\n2. In the `c:macro` docs, say that argument types go in `:param:` / `:type:` fields.\n3. Make the macro-argument error say this too.\n4. Add a test: a macro whose argument types are `char*` and `void*` builds with no warnings.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"No warning-free way to give C macro argument types\",\n  \"cause\": \"Since the 3.0 C-domain rewrite, c:macro accepts only plain identifiers as parameters, so 'BOB_CATCH_FUNCTION(char* message, void* ret)' fails at the '*' with 'Expected identifier, ')', or ',' in macro parameter list'. That strictness is intended. The supported alternative, :param:/:type: info fields (which all C directives inherit), is also broken: typed fields become pending_xref nodes of role 'type', and the cross-reference resolver parses the target as a nested name. Builtin types such as char*/void* are keywords, so every such field logs 'Unparseable C cross-reference'. Users coming from 2.4.4 therefore cannot document typed macro arguments without warnings.\",\n  \"files\": [\n    {\"path\": \"sphinx/domains/c.py\", \"why\": \"_parse_macro (2956-2994) rejects typed parameters; CObject.doc_field_types (3115-3118) sends :type: fields to the 'type' xref role; parse_xref_object/_resolve_xref_inner (3076-3082, 3809-3818) warn on builtin types\"},\n    {\"path\": \"sphinx/util/docfields.py\", \"why\": \"Field.make_xref (63-73) creates a pending_xref directly instead of running the domain's role, so type fields cannot be parsed as C expressions\"},\n    {\"path\": \"doc/usage/restructuredtext/domains.rst\", \"why\": \"c:macro docs (673-680) do not say that argument types belong in :param:/:type: fields\"},\n    {\"path\": \"tests/test_domain_c.py\", \"why\": \"add a build test: c:macro with ':type message: char*' produces no warnings\"}\n  ],\n  \"plan\": [\n    \"Make typed doc fields of the C (and C++) domains render through the domain's expr role instead of a bare pending_xref name lookup (the upstream 4.1.0 fix for #8945, PR #9155): let Field.make_xref run the specified role when an env is available, and set typerolename='expr' in CObject.doc_field_types.\",\n    \"Document in the c:macro section that the function-like form takes identifiers only and that argument types go in :param:/:type: fields, as for c:function.\",\n    \"Improve the macro-parameter parse error to say that types are not allowed in macro parameters and point to :type: fields.\",\n    \"Add tests: a c:macro with ':type message: char*' and ':type ret: void*' builds without warnings; the macro parameter error message mentions the alternative.\"\n  ],\n  \"verification\": [\n    \"Build a doc with '.. c:macro:: BOB_CATCH_FUNCTION(message, ret)' plus ':param message:', ':type message: char*', ':type ret: void*' and confirm zero warnings (currently gives two 'Unparseable C cross-reference' warnings).\",\n    \"Run python -m pytest tests/test_domain_c.py tests/test_domain_cpp.py tests/test_util_docfields* to check existing behaviour is kept.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"medium\",\n  \"risk\": \"medium\",\n  \"confidence\": 0.7,\n  \"fixType\": \"frustration\",\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"The reporter's typed macro signature, valid under 2.4.4, now produces an Invalid C declaration warning.\", \"role\": \"trigger\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s4\", \"quote\": \"I am no longer able to build a c:macro directive without warnings after upgrading from 2.4.4 to 3.2.1\"},\n      {\"type\": \"query\", \"ref\": \"probe:DefinitionParser.parse_declaration\", \"quote\": \"ERR Invalid C declaration: Expected identifier, ')', or ',' in macro parameter list. [error at 23]\"}\n    ]},\n    {\"id\": \"c2\", \"text\": \"The macro parser accepts only bare identifiers as parameters, so any type before a name fails.\", \"role\": \"other\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"sphinx/domains/c.py:2975\", \"quote\": \"if not self.match(identifier_re):\"},\n      {\"type\": \"code\", \"ref\": \"sphinx/domains/c.py:2993\", \"quote\": \"self.fail(\\\"Expected identifier, ')', or ',' in macro parameter list.\\\")\"}\n    ]},\n    {\"id\": \"c3\", \"text\": \"The supported way to state argument types, :type: info fields, is wired to the 'type' cross-reference role for all C directives including macros.\", \"role\": \"rootCause\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"sphinx/domains/c.py:3118\", \"quote\": \"typerolename='type', typenames=('type',)),\"},\n      {\"type\": \"code\", \"ref\": \"sphinx/util/docfields.py:68\", \"quote\": \"refnode = addnodes.pending_xref('', refdomain=domain, refexplicit=False,\"}\n    ]},\n    {\"id\": \"c4\", \"text\": \"The C cross-reference resolver parses the type as a nested name and warns on builtin types like char* and void*, so the alternative also produces warnings.\", \"role\": \"rootCause\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"sphinx/domains/c.py:3816\", \"quote\": \"logger.warning('Unparseable C cross-reference: %r\\\\n%s', target, e,\"},\n      {\"type\": \"query\", \"ref\": \"probe:sphinx-build text\", \"quote\": \"Invalid C declaration: Expected identifier in nested name, got keyword: char [error at 4]\"}\n    ]},\n    {\"id\": \"c5\", \"text\": \"Projects that document C macro argument types, like the reporter's, cannot build warning-free, which breaks builds that treat warnings as errors.\", \"role\": \"impact\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s4\", \"quote\": \"Catches C++ exceptions of any kind, adds the ``message`` in case an unknown exception is caught\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"The macro parser should accept typed parameters (a regression to restore).\", \"why\": \"The 3.0 changelog records the C-domain rewrite as deliberately stricter, C macro parameters are untyped identifiers, and current upstream still accepts identifiers only.\", \"citations\": [\n      {\"type\": \"doc\", \"ref\": \"CHANGES\", \"quote\": \"The existing ones are now more strict, resulting in new warnings.\"}\n    ]},\n    {\"hypothesis\": \"The c_allow_pre_v3 compatibility option covers old-style macros.\", \"why\": \"It only converts pre-v3 c:type directives and roles, and it is itself deprecated.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"sphinx/domains/c.py:3243\", \"quote\": \"if self.objtype != 'type':\"}\n    ]}\n  ],\n  \"intendedBehavior\": \"A c:macro documented as 'BOB_CATCH_FUNCTION(message, ret)' with ':type message: char*' and ':type ret: void*' builds with no warnings and shows the types next to the parameters.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"Chosen: since 3.0, macro signatures accept identifiers only (CHANGES: 'The existing ones are now more strict, resulting in new warnings'; the test checks only identifier and variadic forms). Not chosen: the documented :param:/:type: alternative warning on builtin types such as char*, a defect that upstream fixed in 4.1.0 (#8945 / PR #9155) and that this checkout still has.\"},\n  \"plain\": {\n    \"headline\": \"People documenting C macros can't write down argument types without build warnings, because the strict signature check rejects types and the separate type fields also warn.\",\n    \"happened\": \"Since version 3.0, a C macro entry may only list argument names, so writing 'char* message' in it is rejected with a warning. The documented way to give types is a separate type line under the entry, but that line also warns for basic C types like char and void. Someone upgrading from version 2.4.4 has no way to describe their macro's argument types with a clean build.\",\n    \"matters\": \"Every project that documents typed macro arguments gets warnings, and builds that treat warnings as errors fail.\",\n    \"fix\": \"Make the separate type lines read the type as a C expression so basic types work, and say in the docs and the warning that macro argument types belong there.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 26,
+  "inputTokens": {
+   "avg": 35264.53846153846,
+   "max": 63246
+  },
+  "mainUsage": {
+   "inputTokens": 916878,
+   "cachedInputTokens": 834150,
+   "outputTokens": 20508
+  },
+  "cacheHitPercent": 90.97720743654008,
+  "wallSeconds": 210.69799995422363,
+  "tools": {
+   "read": 27,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 4
+  },
+  "reads": 27,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 4,
+   "readFileIgnoringRange": 4
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.990574,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.990574
+}

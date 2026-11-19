@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 15739,
+ "finalText": "```json\n{\n  \"verdict\": \"notActionable\",\n  \"title\": \"Stripe connection refused is a network failure\",\n  \"cause\": \"The error is a connection-refused (errno 111) error when opening a socket to api.stripe.com:443. The requests library worked as designed. After urllib3 exhausts its retries, the adapter wraps the failure as requests.exceptions.ConnectionError. The refusal comes from the network or environment of billing-worker: an egress proxy or firewall, DNS pointing at the wrong address, or a local or mock endpoint. It does not come from this repository. I did not run any code, and no monitoring source was available to inspect the event.\",\n  \"files\": [\n    {\"path\": \"requests/adapters.py\", \"why\": \"Wraps socket errors and MaxRetryError into ConnectionError (lines 355-359). This is correct behaviour, not a defect.\"}\n  ],\n  \"plan\": [\n    \"No change to this repository.\",\n    \"The billing-worker owners should check outbound network access, proxy settings and DNS resolution to api.stripe.com:443 from the worker's environment.\",\n    \"The billing-worker code should retry or queue failed charge calls and use idempotency keys, so a transient network failure doesn't lose a charge.\"\n  ],\n  \"verification\": [\n    \"From the billing-worker host, run a TLS connection test to api.stripe.com:443 and confirm it connects.\",\n    \"Check the time of the error against any network or deploy changes.\"\n  ],\n  \"userFacing\": false,\n  \"certainty\": \"likely\",\n  \"effort\": \"none in this repository\",\n  \"risk\": \"low\",\n  \"confidence\": 0.8,\n  \"intent\": {\n    \"deliberate\": true,\n    \"evidence\": \"requests/adapters.py lines 355-359 deliberately convert socket.error and MaxRetryError into ConnectionError. That is the documented behaviour for connection failures.\"\n  },\n  \"fixType\": \"error\",\n  \"claims\": [\n    {\n      \"id\": \"c1\",\n      \"text\": \"The adapter converts the underlying socket error and urllib3 retry exhaustion into requests' ConnectionError. This is the expected wrapping, not a bug.\",\n      \"role\": \"other\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"requests/adapters.py:358\", \"quote\": \"except MaxRetryError as e:\\n            raise ConnectionError(e)\"}\n      ]\n    },\n    {\n      \"id\": \"c2\",\n      \"text\": \"The evidence shows Errno 111 (connection refused) on the TCP connect. That is an environment or network condition outside the library.\",\n      \"role\": \"other\",\n      \"citations\": [\n        {\"type\": \"evidence\", \"ref\": \"ev_s6\", \"quote\": \"Caused by NewConnectionError: [Errno 111] Connection refused\"}\n      ]\n    }\n  ],\n  \"ruledOut\": [\n    {\n      \"hypothesis\": \"A bug in the adapter's error handling causes the failure.\",\n      \"why\": \"The adapter only re-raises the underlying connection failure as ConnectionError. It does not cause it.\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"requests/adapters.py:355\", \"quote\": \"except socket.error as sockerr:\\n            raise ConnectionError(sockerr)\"}\n      ]\n    }\n  ],\n  \"intendedBehavior\": \"When the remote host refuses the connection, requests raises ConnectionError so the caller can retry. The caller is responsible for retrying.\",\n  \"plain\": {\n    \"headline\": \"A charge request to Stripe failed because the billing worker's connection to Stripe was refused.\",\n    \"happened\": \"The billing worker tried to reach Stripe to create a charge. The connection was refused before any request was sent. The request library reported this as a connection error.\",\n    \"matters\": \"It points to a network or setup problem on the billing worker's side, not a bug in this library.\",\n    \"fix\": \"Check the billing worker's outbound network, proxy and DNS settings for Stripe, and make sure the worker retries failed charges.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 3,
+  "inputTokens": {
+   "avg": 12410.666666666666,
+   "max": 13057
+  },
+  "mainUsage": {
+   "inputTokens": 37232,
+   "cachedInputTokens": 31191,
+   "outputTokens": 1664
+  },
+  "cacheHitPercent": 83.77470992694457,
+  "wallSeconds": 14.694000005722046,
+  "tools": {
+   "read": 3,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 0
+  },
+  "reads": 3,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.0379767,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.0379767
+}

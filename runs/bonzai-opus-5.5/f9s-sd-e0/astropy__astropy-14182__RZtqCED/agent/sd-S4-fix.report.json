@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 55422,
+ "finalText": "The checks hold up: the PR description is at `/testbed/.factory/pr-S4.md`, the fix is in `astropy/io/ascii/core.py`, and the change is left uncommitted as the benchmark note asked. The regression test failed before the fix and passes after it. It was part of the `astropy/io/ascii/tests` run, which came to 827 passed, 36 skipped and 6 xfailed.\n\nThe cause matched the investigation. Under `python -OO`, `cls.__doc__` is `None`, and `MetaBaseReader.__init__` passed it to `inspect.cleandoc`. I changed both calls (reader and writer) to use `cls.__doc__ or \"\"`. Under `-OO` the per-format help section is now empty.\n\nI used the testbed conda env, since the default `python` on PATH has no `erfa`. The changelog file `docs/changes/io.ascii/14100.bugfix.rst` has a placeholder number, since there is no real PR here.\n\nOpen PRs #1000 and #1001 do not touch this bug. Their uncommitted edits are still in the working tree and are not part of this change.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest astropy/io/ascii/tests -q -p no:cacheprovider -x\", \"passed\": true},\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest astropy/io/ascii/tests/test_read.py -k stripped_docstrings -q -p no:cacheprovider\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"reproductionSteps\": [\n    \"Run: python -OO -c 'from astropy.io import ascii' in an environment with astropy installed\",\n    \"Observe AttributeError: 'NoneType' object has no attribute 'expandtabs' from core.py MetaBaseReader.__init__ (inspect.cleandoc(cls.__doc__))\"\n  ],\n  \"reproductionTest\": {\n    \"path\": \"astropy/io/ascii/tests/test_read.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest astropy/io/ascii/tests/test_read.py -k stripped_docstrings -q -p no:cacheprovider\",\n    \"signature\": \"AttributeError: 'NoneType' object has no attribute 'expandtabs'\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 11,
+  "inputTokens": {
+   "avg": 23127.636363636364,
+   "max": 28939
+  },
+  "mainUsage": {
+   "inputTokens": 254404,
+   "cachedInputTokens": 239357,
+   "outputTokens": 4669
+  },
+  "cacheHitPercent": 94.0853917391236,
+  "wallSeconds": 54.825000047683716,
+  "tools": {
+   "read": 3,
+   "edit": 6,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 5
+  },
+  "reads": 3,
+  "edits": 6,
+  "runs": 5,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 3,
+  "editOperations": 4,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1321659,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1321659
+}

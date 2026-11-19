@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 41903,
+ "finalText": "Everything the request names is in place, and I'm not repeating the checks I already ran.\n\n- **Fix:** `xr.where` takes `keep_attrs`; when it resolves to True the result gets `x`'s attrs. The default still drops them.\n- **Tests:** `test_where_attrs` fails on the base code with `TypeError: where() got an unexpected keyword argument 'keep_attrs'` and passes with the fix. `xarray/tests/test_computation.py` gives 248 passed, 1 skipped.\n- **PR text:** `/testbed/.factory/pr-S3.md` exists, with a one-line title followed by the description.\n- **Uncommitted:** nothing is committed or pushed, as the benchmark note requires.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"checks\": [\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest xarray/tests/test_computation.py -q\", \"passed\": true, \"detail\": \"248 passed, 1 skipped\"}\n  ],\n  \"visual\": false,\n  \"reproduction\": \"Create a = xr.DataArray([1,2,3], dims='x', attrs={'units':'m'}); xr.where(a>1, a, 0) returns attrs == {} and xr.where(..., keep_attrs=True) raises TypeError on the base commit.\",\n  \"reproductionTest\": {\n    \"path\": \"xarray/tests/test_computation.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest xarray/tests/test_computation.py -q -k where_attrs\",\n    \"signature\": \"TypeError: where() got an unexpected keyword argument 'keep_attrs'\"\n  },\n  \"prFile\": \"/testbed/.factory/pr-S3.md\"\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 8,
+  "inputTokens": {
+   "avg": 23822,
+   "max": 27437
+  },
+  "mainUsage": {
+   "inputTokens": 190576,
+   "cachedInputTokens": 177037,
+   "outputTokens": 2755
+  },
+  "cacheHitPercent": 92.8957476282428,
+  "wallSeconds": 41.5939998626709,
+  "tools": {
+   "read": 6,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 2
+  },
+  "reads": 6,
+  "edits": 0,
+  "runs": 2,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.09679489999999999,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.09679489999999999
+}

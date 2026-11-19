@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 63495,
+ "finalText": "The fix is in and checked: `requests.get`, `post` and the other simple-API calls now close the session they create, so no keep-alive socket is left open after a call. The two new tests pass again, and the PR text is at `/testbed/.factory/pr-S5.md`.\n\nThe cause was as the investigation said. `requests/api.py` built a `Session` for every call and never closed it, so the socket stayed pooled until garbage collection. `request()` now uses `with sessions.Session() as session:`, which clears the session's pools and closes those sockets.\n\nNothing is committed or pushed, as the benchmark note required.\n\n- **Reproduction test:** `test_simple_api_closes_connections` runs five `requests.get` calls against a local keep-alive server with gc disabled. Before the fix it failed with `AssertionError: 1 != 0`; after it, it passes.\n- **Streaming test:** `test_simple_api_stream_still_readable` checks that `iter_content` and `content` still return the full body with `stream=True`. It passes.\n- **Failures in the full file:** 32 tests pass and 3 fail (`test_links` and two digest-auth tests), which need external network access and are unrelated to this change. I did not run those 3 on the base commit.\n- **Python version:** the repo does not import on the default Python 3.11, so I ran everything with `/opt/miniconda3/envs/testbed/bin/python` (3.9).\n- **Other changes in the tree:** the working tree already held uncommitted changes to `models.py`, `utils.py` and urllib3 when I started. I left them alone.\n- **Open PRs:** none of #1000, #1001 or #1002 touches session closing, so none of them covers this.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest test_requests.py -k simple_api\", \"passed\": true},\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest test_requests.py\", \"passed\": false, \"alsoOnBase\": null, \"note\": \"3 failures (test_links, 2 digest tests) need external network, unrelated to this change; not run on the base commit\"}\n  ],\n  \"visual\": false,\n  \"missingEnv\": [],\n  \"reproductionSteps\": \"Start a local keep-alive HTTP/1.1 server, disable gc, call requests.get(url) 5 times, count open client sockets connected to the server port; before the fix one or more remain open, after the fix 0.\",\n  \"reproductionTest\": {\n    \"path\": \"test_requests.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest test_requests.py -k simple_api\",\n    \"signature\": \"AssertionError: 1 != 0\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 14,
+  "inputTokens": {
+   "avg": 29971.35714285714,
+   "max": 37813
+  },
+  "mainUsage": {
+   "inputTokens": 419599,
+   "cachedInputTokens": 395670,
+   "outputTokens": 6631
+  },
+  "cacheHitPercent": 94.29717420680221,
+  "wallSeconds": 62.4210000038147,
+  "tools": {
+   "read": 9,
+   "edit": 4,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 6
+  },
+  "reads": 9,
+  "edits": 4,
+  "runs": 6,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 2,
+  "editOperations": 3,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.20525049999999995,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.20525049999999995
+}

@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 32830,
+ "finalText": "The cause is in this repository: `caplog.clear()` replaces the handler's records list instead of emptying it, so `caplog.get_records()` keeps pointing at the old list. The probe environment had no `pytest` or `attr` installed, so I couldn't run a repro. The finding comes from reading the code. The final report below has single-line citation quotes so they match the source exactly.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"caplog.get_records() goes stale after caplog.clear()\",\n  \"cause\": \"At the start of each test phase, pytest stores the handler's current records list in `item.stash[caplog_records_key][when]`, so `get_records(when)` and `caplog.records` share one list. `caplog.clear()` calls `LogCaptureHandler.reset()`, which rebinds `self.records = []` instead of emptying the list. `caplog.records` follows the new list, but `get_records()` keeps the old one. It is never cleared and never receives new records.\",\n  \"files\": [\n    {\"path\": \"src/_pytest/logging.py\", \"why\": \"LogCaptureHandler.reset() replaces the records list; caplog.clear() calls it, and _runtest_for stores the original list in the stash.\"}\n  ],\n  \"plan\": [\n    \"Add LogCaptureHandler.clear(), which runs `self.records.clear()` and then `self.stream = StringIO()`.\",\n    \"Make LogCaptureFixture.clear() call handler.clear() instead of handler.reset().\",\n    \"Leave reset() as it is. _runtest_for calls it at the start of each phase, and the handler is shared across phases, so each phase needs a fresh list. Otherwise the earlier phases' stored lists would be wiped.\",\n    \"Add a changelog entry.\"\n  ],\n  \"verification\": [\n    \"Add a test in testing/logging/test_fixture.py: log a message, call caplog.clear(), log another, then assert that caplog.get_records('call') equals caplog.records and contains only the second message.\",\n    \"Check that records from the setup phase survive a clear() in the call phase.\",\n    \"Run testing/logging.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.9,\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"reset() rebinds the records list rather than clearing it in place.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"src/_pytest/logging.py:345\", \"quote\": \"        self.records = []\"}]},\n    {\"id\": \"c2\", \"text\": \"caplog.clear() delegates to reset().\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"src/_pytest/logging.py:442\", \"quote\": \"\\\"\\\"\\\"Reset the list of log records and the captured log text.\\\"\\\"\\\"\"}]},\n    {\"id\": \"c3\", \"text\": \"The per-phase stash holds the original list object, which is the one that goes stale.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"src/_pytest/logging.py:699\", \"quote\": \"item.stash[caplog_records_key][when] = caplog_handler.records\"}]},\n    {\"id\": \"c4\", \"text\": \"get_records reads from the stale stash list.\", \"role\": \"impact\", \"citations\": [{\"type\": \"code\", \"ref\": \"src/_pytest/logging.py:399\", \"quote\": \"return self._item.stash[caplog_records_key].get(when, [])\"}]}\n  ],\n  \"intendedBehavior\": \"After caplog.clear(), caplog.get_records(when) for the current phase is emptied and then contains the same records as caplog.records for new log calls.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"The docs say clear() resets the list of log records. Nothing says get_records should stay frozen after a clear, and the shared-list design makes that outcome an unhandled case.\"},\n  \"fixType\": \"error\",\n  \"plain\": {\n    \"headline\": \"A test helper that returns captured log records stops updating once you clear the logs.\",\n    \"happened\": \"Pytest keeps two views of the captured log messages for a test phase, and they start out as the same list. Clearing the logs gives one view a brand-new list and leaves the other pointing at the old one. After that, the old view never empties and never sees new messages.\",\n    \"matters\": \"Anyone whose tests clear captured logs and then check per-phase records gets stale or wrong results.\",\n    \"fix\": \"Make clearing empty the existing list in place, so both views stay in sync.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 7,
+  "inputTokens": {
+   "avg": 14514.714285714286,
+   "max": 17654
+  },
+  "mainUsage": {
+   "inputTokens": 101603,
+   "cachedInputTokens": 90957,
+   "outputTokens": 4291
+  },
+  "cacheHitPercent": 89.52196293416533,
+  "wallSeconds": 31.770999908447266,
+  "tools": {
+   "read": 4,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 2
+  },
+  "reads": 4,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 3,
+   "readFile": 3,
+   "shell": 0,
+   "sameFile": 5,
+   "readFileIgnoringRange": 5
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.0877074,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.0877074
+}

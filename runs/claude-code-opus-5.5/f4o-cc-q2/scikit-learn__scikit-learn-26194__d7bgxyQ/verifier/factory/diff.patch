@@ -1,0 +1,209 @@
+diff --git a/doc/modules/model_evaluation.rst b/doc/modules/model_evaluation.rst
+index 537f23e49..c0b0ab67d 100644
+--- a/doc/modules/model_evaluation.rst
++++ b/doc/modules/model_evaluation.rst
+@@ -1366,7 +1366,7 @@ function::
+     >>> tpr
+     array([0. , 0.5, 0.5, 1. , 1. ])
+     >>> thresholds
+-    array([1.8 , 0.8 , 0.4 , 0.35, 0.1 ])
++    array([ inf, 0.8 , 0.4 , 0.35, 0.1 ])
+ 
+ Compared to metrics such as the subset accuracy, the Hamming loss, or the
+ F1 score, ROC doesn't require optimizing a threshold for each label.
+diff --git a/doc/whats_new/v1.3.rst b/doc/whats_new/v1.3.rst
+index e47c74a54..91f1704fe 100644
+--- a/doc/whats_new/v1.3.rst
++++ b/doc/whats_new/v1.3.rst
+@@ -160,6 +160,11 @@ Changelog
+ - |Fix| :class:`feature_selection.SequentialFeatureSelector`'s `cv` parameter
+   now supports generators. :pr:`25973` by `Yao Xiao <Charlie-XIAO>`.
+ 
++- |Fix| :class:`feature_selection.VarianceThreshold` now computes the same
++  (biased, `ddof=0`) variance for dense and sparse inputs. Previously, dense
++  inputs used the unbiased variance, which could select extra features on small
++  datasets.
++
+ :mod:`sklearn.base`
+ ...................
+ 
+@@ -363,6 +368,11 @@ Changelog
+   not normalized, instead of actually normalizing them in the metric. Starting from
+   1.5 this will raise an error. :pr:`25299` by :user:`Omar Salman <OmarManzoor`.
+ 
++- |Fix| :func:`metrics.roc_curve` now sets the first threshold, which
++  corresponds to no instance being predicted as positive, to `np.inf` instead
++  of `max(y_score) + 1`, so that thresholds no longer exceed 1 for probability
++  estimates. :issue:`26193`.
++
+ - |API| The `eps` parameter of the :func:`log_loss` has been deprecated and will be
+   removed in 1.5. :pr:`25299` by :user:`Omar Salman <OmarManzoor>`.
+ 
+@@ -443,6 +453,13 @@ Changelog
+   The `sample_interval_` attribute is deprecated and will be removed in 1.5.
+   :pr:`25190` by :user:`Vincent Maladière <Vincent-Maladiere>`.
+ 
++:mod:`sklearn.svm`
++..................
++
++- |Fix| :func:`svm.l1_min_c` now uses the largest absolute intercept
++  contribution over all classes for multiclass targets. Previously, it could
++  return a value that was too large for imbalanced multiclass problems.
++
+ :mod:`sklearn.tree`
+ ...................
+ 
+diff --git a/sklearn/feature_selection/_variance_threshold.py b/sklearn/feature_selection/_variance_threshold.py
+index 4d25051d3..7c8db9cc7 100644
+--- a/sklearn/feature_selection/_variance_threshold.py
++++ b/sklearn/feature_selection/_variance_threshold.py
+@@ -108,7 +108,7 @@ class VarianceThreshold(SelectorMixin, BaseEstimator):
+                 mins, maxes = min_max_axis(X, axis=0)
+                 peak_to_peaks = maxes - mins
+         else:
+-            self.variances_ = np.nanvar(X, axis=0, ddof=1)
++            self.variances_ = np.nanvar(X, axis=0)
+             if self.threshold == 0:
+                 peak_to_peaks = np.ptp(X, axis=0)
+ 
+diff --git a/sklearn/feature_selection/tests/test_variance_threshold.py b/sklearn/feature_selection/tests/test_variance_threshold.py
+index 4bce46556..d7de9ef5e 100644
+--- a/sklearn/feature_selection/tests/test_variance_threshold.py
++++ b/sklearn/feature_selection/tests/test_variance_threshold.py
+@@ -61,3 +61,23 @@ def test_variance_nan():
+     for X in [arr, csr_matrix(arr), csc_matrix(arr), bsr_matrix(arr)]:
+         sel = VarianceThreshold().fit(X)
+         assert_array_equal([0, 3, 4], sel.get_support(indices=True))
++
++
++@pytest.mark.parametrize("sparse_container", [csr_matrix, csc_matrix, bsr_matrix])
++def test_variance_threshold_dense_sparse_consistency(sparse_container):
++    """Dense and sparse inputs must yield the same variances and selection.
++
++    The dense path used to compute the unbiased (ddof=1) variance while the
++    sparse path uses the population (ddof=0) variance, which could select an
++    extra feature for small dense batches.
++    """
++    X = np.array([[0, 1, 0], [1, 1, 0], [0, 1, 1], [0, 0, 1]], dtype=np.float64)
++    # population variances: [0.1875, 0.1875, 0.25]
++    threshold = 0.2
++    dense = VarianceThreshold(threshold=threshold).fit(X)
++    sparse = VarianceThreshold(threshold=threshold).fit(sparse_container(X))
++
++    np.testing.assert_allclose(dense.variances_, np.var(X, axis=0))
++    np.testing.assert_allclose(dense.variances_, sparse.variances_)
++    assert_array_equal(dense.get_support(), sparse.get_support())
++    assert_array_equal(dense.get_support(), [False, False, True])
+diff --git a/sklearn/metrics/_ranking.py b/sklearn/metrics/_ranking.py
+index 0cdead923..ce98978db 100644
+--- a/sklearn/metrics/_ranking.py
++++ b/sklearn/metrics/_ranking.py
+@@ -1019,7 +1019,7 @@ def roc_curve(
+     thresholds : ndarray of shape = (n_thresholds,)
+         Decreasing thresholds on the decision function used to compute
+         fpr and tpr. `thresholds[0]` represents no instances being predicted
+-        and is arbitrarily set to `max(y_score) + 1`.
++        and is arbitrarily set to `np.inf`.
+ 
+     See Also
+     --------
+@@ -1056,7 +1056,7 @@ def roc_curve(
+     >>> tpr
+     array([0. , 0.5, 0.5, 1. , 1. ])
+     >>> thresholds
+-    array([1.8 , 0.8 , 0.4 , 0.35, 0.1 ])
++    array([ inf, 0.8 , 0.4 , 0.35, 0.1 ])
+     """
+     fps, tps, thresholds = _binary_clf_curve(
+         y_true, y_score, pos_label=pos_label, sample_weight=sample_weight
+@@ -1083,7 +1083,7 @@ def roc_curve(
+     # to make sure that the curve starts at (0, 0)
+     tps = np.r_[0, tps]
+     fps = np.r_[0, fps]
+-    thresholds = np.r_[thresholds[0] + 1, thresholds]
++    thresholds = np.r_[np.inf, thresholds]
+ 
+     if fps[-1] <= 0:
+         warnings.warn(
+diff --git a/sklearn/metrics/tests/test_ranking.py b/sklearn/metrics/tests/test_ranking.py
+index f38f118c3..6cf049319 100644
+--- a/sklearn/metrics/tests/test_ranking.py
++++ b/sklearn/metrics/tests/test_ranking.py
+@@ -413,18 +413,33 @@ def test_roc_curve_toydata():
+     assert_almost_equal(roc_auc_score(y_true, y_score, average="micro"), 0.5)
+ 
+ 
++def test_roc_curve_with_probablity_estimates(global_random_seed):
++    """Check that thresholds do not exceed 1.0 when `y_score` is a probability
++    estimate (apart from the leading `np.inf` sentinel).
++
++    Non-regression test for:
++    https://github.com/scikit-learn/scikit-learn/issues/26193
++    """
++    rng = np.random.RandomState(global_random_seed)
++    y_true = rng.randint(0, 2, size=10)
++    y_score = rng.rand(10)
++    _, _, thresholds = roc_curve(y_true, y_score)
++    assert np.isinf(thresholds[0])
++    assert np.all((thresholds[1:] >= 0) & (thresholds[1:] <= 1))
++
++
+ def test_roc_curve_drop_intermediate():
+     # Test that drop_intermediate drops the correct thresholds
+     y_true = [0, 0, 0, 0, 1, 1]
+     y_score = [0.0, 0.2, 0.5, 0.6, 0.7, 1.0]
+     tpr, fpr, thresholds = roc_curve(y_true, y_score, drop_intermediate=True)
+-    assert_array_almost_equal(thresholds, [2.0, 1.0, 0.7, 0.0])
++    assert_array_almost_equal(thresholds, [np.inf, 1.0, 0.7, 0.0])
+ 
+     # Test dropping thresholds with repeating scores
+     y_true = [0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1]
+     y_score = [0.0, 0.1, 0.6, 0.6, 0.7, 0.8, 0.9, 0.6, 0.7, 0.8, 0.9, 0.9, 1.0]
+     tpr, fpr, thresholds = roc_curve(y_true, y_score, drop_intermediate=True)
+-    assert_array_almost_equal(thresholds, [2.0, 1.0, 0.9, 0.7, 0.6, 0.0])
++    assert_array_almost_equal(thresholds, [np.inf, 1.0, 0.9, 0.7, 0.6, 0.0])
+ 
+ 
+ def test_roc_curve_fpr_tpr_increasing():
+diff --git a/sklearn/svm/_bounds.py b/sklearn/svm/_bounds.py
+index 516f407fe..83cb72d30 100644
+--- a/sklearn/svm/_bounds.py
++++ b/sklearn/svm/_bounds.py
+@@ -72,7 +72,7 @@ def l1_min_c(X, y, *, loss="squared_hinge", fit_intercept=True, intercept_scalin
+         bias = np.full(
+             (np.size(y), 1), intercept_scaling, dtype=np.array(intercept_scaling).dtype
+         )
+-        den = max(den, abs(np.dot(Y, bias).max()))
++        den = max(den, abs(np.dot(Y, bias)).max())
+ 
+     if den == 0.0:
+         raise ValueError(
+diff --git a/sklearn/svm/tests/test_bounds.py b/sklearn/svm/tests/test_bounds.py
+index d51865717..2ac236846 100644
+--- a/sklearn/svm/tests/test_bounds.py
++++ b/sklearn/svm/tests/test_bounds.py
+@@ -62,6 +62,24 @@ def check_l1_min_c(X, y, loss, fit_intercept=True, intercept_scaling=1.0):
+     assert (np.asarray(clf.coef_) != 0).any() or (np.asarray(clf.intercept_) != 0).any()
+ 
+ 
++def test_l1_min_c_multiclass_intercept_imbalanced():
++    """The intercept contribution to the bound must use the largest absolute
++    value over classes, not the absolute value of the (signed) maximum.
++
++    With imbalanced multiclass targets, every row of ``Y @ bias`` is negative
++    and taking ``max`` before ``abs`` underestimates the denominator.
++    """
++    X = np.zeros((10, 1))
++    y = np.array([0] * 8 + [1] + [2])
++    # Y @ bias = [8 - 2, 1 - 9, 1 - 9] = [6, -8, -8]; max abs = 8
++    assert l1_min_c(X, y, fit_intercept=True) == pytest.approx(0.5 / 8)
++
++    y = np.array([0] * 4 + [1] * 3 + [2] * 3)
++    # Y @ bias = [-2, -4, -4]; max abs = 4 (buggy code gave 2)
++    assert l1_min_c(X, y, fit_intercept=True) == pytest.approx(0.5 / 4)
++    assert l1_min_c(X, y, loss="log", fit_intercept=True) == pytest.approx(2.0 / 4)
++
++
+ def test_ill_posed_min_c():
+     X = [[0, 0], [0, 0]]
+     y = [0, 1]

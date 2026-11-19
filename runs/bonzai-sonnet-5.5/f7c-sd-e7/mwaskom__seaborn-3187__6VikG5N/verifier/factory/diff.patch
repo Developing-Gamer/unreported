@@ -1,0 +1,97 @@
+diff --git a/seaborn/_core/moves.py b/seaborn/_core/moves.py
+index 7fd5713b..e5a237d4 100644
+--- a/seaborn/_core/moves.py
++++ b/seaborn/_core/moves.py
+@@ -131,11 +131,15 @@ class Dodge(Move):
+             return w.shift(1).fillna(0).cumsum() + (w - w.sum()) / 2
+ 
+         new_widths = groupby_pos(groups["width"]).transform(scale_widths)
+-        if self.gap:
+-            new_widths *= 1 - self.gap
+ 
++        # Compute offsets from the full-width slots, then shrink the marks,
++        # so that the gap opens up space between them rather than only
++        # narrowing each mark while leaving them adjacent.
+         offsets = groupby_pos(new_widths).transform(widths_to_offsets)
+ 
++        if self.gap:
++            new_widths *= 1 - self.gap
++
+         groups["_dodged"] = groups[orient] + offsets
+         groups["width"] = new_widths
+ 
+diff --git a/seaborn/_core/scales.py b/seaborn/_core/scales.py
+index 55874bf2..c91f6fdc 100644
+--- a/seaborn/_core/scales.py
++++ b/seaborn/_core/scales.py
+@@ -378,6 +378,14 @@ class ContinuousBase(Scale):
+             axis.set_view_interval(vmin, vmax)
+             locs = axis.major.locator()
+             locs = locs[(vmin <= locs) & (locs <= vmax)]
++            # Avoid having an offset / scientific notation in a legend
++            # as we don't represent that anywhere so it ends up incorrect.
++            # This could become an option (e.g. Continuous.label(offset=True))
++            # in which case we would need to figure out how to show it.
++            if hasattr(axis.major.formatter, "set_useOffset"):
++                axis.major.formatter.set_useOffset(False)
++            if hasattr(axis.major.formatter, "set_scientific"):
++                axis.major.formatter.set_scientific(False)
+             labels = axis.major.formatter.format_ticks(locs)
+             new._legend = list(locs), list(labels)
+ 
+diff --git a/seaborn/_marks/base.py b/seaborn/_marks/base.py
+index 547b525c..87e0216d 100644
+--- a/seaborn/_marks/base.py
++++ b/seaborn/_marks/base.py
+@@ -279,7 +279,7 @@ def resolve_color(
+         return mpl.colors.to_rgba(color, alpha)
+     else:
+         if np.ndim(color) == 2 and color.shape[1] == 4:
+-            return mpl.colors.to_rgba_array(color, alpha)
++            return mpl.colors.to_rgba_array(color)
+         alpha = np.where(visible(color, axis=1), alpha, np.nan)
+         return mpl.colors.to_rgba_array(color, alpha)
+ 
+diff --git a/tests/_core/test_scales.py b/tests/_core/test_scales.py
+index c4b39f5d..ee53c138 100644
+--- a/tests/_core/test_scales.py
++++ b/tests/_core/test_scales.py
+@@ -303,6 +303,14 @@ class TestContinuous:
+         label, = a.major.formatter.format_ticks([100])
+         assert r"10^{2}" in label
+ 
++    def test_legend_large_values_no_offset(self):
++
++        x = pd.Series([3e6, 4e6, 5e6, 6e6], name="x", dtype=float)
++        s = Continuous()._setup(x, IntervalProperty())
++        locs, labels = s._legend
++        for loc, label in zip(locs, labels):
++            assert float(label.replace(",", "")) == loc
++
+     def test_label_type_checks(self):
+ 
+         s = Continuous()
+diff --git a/tests/_marks/test_base.py b/tests/_marks/test_base.py
+index 70714aee..e35222b0 100644
+--- a/tests/_marks/test_base.py
++++ b/tests/_marks/test_base.py
+@@ -138,6 +138,19 @@ class TestMappable:
+         expected = mpl.colors.to_rgba_array(colors)
+         assert_array_equal(actual, expected)
+ 
++    def test_color_rgba_array_keeps_alpha(self):
++
++        colors = np.array([(.1, .2, .3, .4), (.5, .6, .7, .4)])
++        m = self.mark()  # default alpha of 1
++        scales = {"color": lambda s: colors}
++        df = pd.DataFrame({"color": ["a", "b"]})
++
++        actual = resolve_color(m, df, "", scales)
++        assert_array_equal(actual, colors)
++
++        scalar = resolve_color(m, {"color": "a"}, "", {"color": lambda s: colors[0]})
++        assert_array_equal(actual[0], scalar)
++
+     def test_fillcolor(self):
+ 
+         c, a = "green", .8

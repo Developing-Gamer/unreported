@@ -1,0 +1,16 @@
+diff --git a/astropy/utils/shapes.py b/astropy/utils/shapes.py
+index 20568b985..6962e2b00 100755
+--- a/astropy/utils/shapes.py
++++ b/astropy/utils/shapes.py
+@@ -125,7 +125,10 @@ class NDArrayShapeMethods:
+         Parameters are as for :meth:`~numpy.ndarray.squeeze`.  All internal
+         data are views of the data of the original.
+         """
+-        return self._apply("squeeze", *args, **kwargs)
++        try:
++            return self._apply("squeeze", *args, **kwargs)
++        except ValueError:
++            return self
+ 
+     def take(self, indices, axis=None, out=None, mode="raise"):
+         """Return a new instance formed from the elements at the given indices.

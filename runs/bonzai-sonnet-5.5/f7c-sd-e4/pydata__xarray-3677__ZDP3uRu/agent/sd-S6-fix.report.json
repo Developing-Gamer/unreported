@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 27734,
+ "finalText": "I opened no pull request and changed nothing. Open PR #1001 (\"Fix Dataset.merge failing when given a DataArray\") already covers this fix, so the outcome is \"failed\" with `coveredBy` 1001.\n\nI could not run any tests or reproduce the error. No Python on this machine has numpy or pytest, and I did not install them, so xarray can't be imported.\n\nI confirmed the cause by reading the code. `dataset_merge_method` in `xarray/core/merge.py` passed a `DataArray` `other` straight to `merge_core`. `coerce_pandas_values` then called `.items()` on it, which is the Sentry error.\n\nThe working tree already holds uncommitted edits that match #1001's changed files. `dataset_merge_method` now converts a `DataArray` with `other.to_dataset()`, and an unnamed one raises the same \"unable to convert unnamed\" `ValueError` as `xr.merge`. The tree also has the `dataset.py` docstring change, a `whats-new.rst` entry and a `test_merge_dataarray` test. Its `variable.py` and `test_variable.py` edits belong to #1000's cause, not this one.\n\nI did not write `/testbed/.factory/pr-S6.md`, since no pull request is being opened.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"failed\",\n  \"coveredBy\": 1001,\n  \"summary\": \"Open PR #1001 already fixes Dataset.merge(DataArray): dataset_merge_method converts a DataArray `other` with to_dataset(), and an unnamed DataArray raises the same ValueError as xr.merge. A test is in test_merge.py. Cause confirmed by reading xarray/core/merge.py: coerce_pandas_values called .items() on a DataArray. No change made and no PR opened. Tests could not run because the environment has no numpy or pytest.\",\n  \"checks\": [],\n  \"visual\": false,\n  \"reproductionTest\": null\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 8,
+  "inputTokens": {
+   "avg": 23234.25,
+   "max": 25726
+  },
+  "mainUsage": {
+   "inputTokens": 185874,
+   "cachedInputTokens": 174044,
+   "outputTokens": 2984
+  },
+  "cacheHitPercent": 93.6354734927962,
+  "wallSeconds": 26.401999950408936,
+  "tools": {
+   "read": 5,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 2
+  },
+  "reads": 5,
+  "edits": 0,
+  "runs": 2,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.09421380000000001,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.09421380000000001
+}

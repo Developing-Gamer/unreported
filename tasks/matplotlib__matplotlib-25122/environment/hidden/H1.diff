@@ -1,0 +1,17 @@
+diff --git a/lib/matplotlib/backends/qt_compat.py b/lib/matplotlib/backends/qt_compat.py
+index b1b96f93d6..a1a239ae9c 100644
+--- a/lib/matplotlib/backends/qt_compat.py
++++ b/lib/matplotlib/backends/qt_compat.py
+@@ -38,10 +38,10 @@ _ETS = {  # Mapping of QT_API_ENV to requested binding.
+ # First, check if anything is already imported.
+ if sys.modules.get("PyQt6.QtCore"):
+     QT_API = QT_API_PYQT6
+-elif sys.modules.get("PySide6.QtCore"):
+-    QT_API = QT_API_PYSIDE6
+ elif sys.modules.get("PyQt5.QtCore"):
+     QT_API = QT_API_PYQT5
++elif sys.modules.get("PySide6.QtCore"):
++    QT_API = QT_API_PYSIDE6
+ elif sys.modules.get("PySide2.QtCore"):
+     QT_API = QT_API_PYSIDE2
+ # Otherwise, check the QT_API environment variable (from Enthought).  This can

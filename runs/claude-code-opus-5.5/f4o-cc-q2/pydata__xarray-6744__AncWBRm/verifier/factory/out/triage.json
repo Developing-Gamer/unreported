@@ -1,0 +1,9 @@
+[
+  {"source": "S1", "decision": "skip", "reason": "Vague report about an export job's decimal settings with no xarray API, code, or reproducer to act on."},
+  {"source": "S2", "decision": "skip", "reason": "Already fixed: Dataset.merge(DataArray) converts the DataArray and the example succeeds in this checkout."},
+  {"source": "S3", "decision": "skip", "reason": "Vague report about off-diagonal cells in exported grids with no reproducer or link to xarray code."},
+  {"source": "S4", "decision": "fix", "reason": "DataArrayRolling.__iter__ ignored center=True and always yielded trailing windows; reproduced and fixed."},
+  {"source": "S5", "decision": "skip", "reason": "Not a defect: sum(skipna=True) of all-NaN returns 0 by design; min_count=1 gives NaN as documented."},
+  {"source": "S6", "decision": "skip", "reason": "Already fixed: _sum_of_weights casts boolean weights to int and the example returns 1.0."},
+  {"source": "S7", "decision": "skip", "reason": "Network connection error to api.stripe.com in an unrelated billing service, outside this repository."}
+]

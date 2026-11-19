@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 184325,
+ "finalText": "I re-checked the report against the request and the quotes in it. The verdict is unchanged: the library causes these 403s, but on purpose, so this is not a bug to fix in this repository.\n\n**What happens.** Every request URL passes through a step that rewrites some percent-encoded characters before sending (`requests/models.py:321`, which calls `unquote_unreserved` in `requests/utils.py:392-407`). It turns `%XX` codes for letters, digits, `-`, `.`, `_` and `~` back into the plain character. Codes like `%2B`, `%2F` and `%3D` are left alone. So a signed link containing, for example, `%7E` goes out with `~` instead. If the server that signed the link compares the exact text, it answers 403 SignatureDoesNotMatch. Links without those codes go out unchanged, which matches \"a small subset\" failing. Redirects are rewritten the same way (`sessions.py:105`).\n\n**What I ran.** In a throwaway copy, I prepared requests with the library and compared the URL it would send:\n- `/bucket/user%7Ejohn/report.pdf?...` becomes `/bucket/user~john/report.pdf?...`\n- `/bucket/a%2Db%5Fc%2Ed.pdf` becomes `/bucket/a-b_c.d.pdf`\n- `/bucket/report.pdf?Expires=1&Signature=ab%2Bcd%3D` is unchanged\n\n**Why it counts as deliberate.**\n- The function's own description says it does this.\n- The URL standard (RFC 3986) treats both spellings as the same URL.\n- The changelog shows an opt-out was added in 0.10.7 (`encode_uri = False`) and then removed in 1.0.0 under \"Removal of all configuration\".\n- This URL code is identical to the published v1.1.0 release.\n\n**What the download service can do today:** prepare the request, set its `url` back to the exact signed link, and send it with `Session.send`.\n\n**Not verified:** I couldn't confirm which codes the failing links contain, because the evidence has no example link. I also didn't run the existing tests or send a real request: the tests need a live test server, and this Python is too new for the bundled HTTP layer.\n\n```json\n{\n  \"verdict\": \"notActionable\",\n  \"title\": \"Signed links with encoded ~ - . _ are rewritten\",\n  \"cause\": \"Every request URL goes through requote_uri (models.py:321), whose unquote_unreserved step (utils.py:392-407) decodes percent-escapes of unreserved characters (%7E, %2D, %2E, %5F, letters, digits) before sending. A signed download link whose path or query holds one of those escapes reaches the server in a different form than the one that was signed, so a signer that checks the exact text answers 403 SignatureDoesNotMatch; links without such escapes go out unchanged, which is why only a subset fails. This normalisation is documented in the function's docstring, follows RFC 3986, and the opt-out (encode_uri=False, 0.10.7) was removed on purpose in 1.0.0 ('Removal of all configuration').\",\n  \"files\": [\n    {\"path\": \"requests/utils.py\", \"why\": \"unquote_unreserved/requote_uri decode %XX escapes of unreserved characters\"},\n    {\"path\": \"requests/models.py\", \"why\": \"prepare_url always passes the URL through requote_uri; path_url sends the rewritten form\"},\n    {\"path\": \"requests/sessions.py\", \"why\": \"redirect Location headers are requoted the same way\"},\n    {\"path\": \"HISTORY.rst\", \"why\": \"records the encode_uri opt-out (0.10.7) and its removal with all configuration in 1.0.0\"}\n  ],\n  \"plan\": [\n    \"No change to this library: the rewrite is documented and deliberate.\",\n    \"In the download service: build the request with Request(...).prepare(), set p.url back to the exact signed URL, then call Session.send(p) so the URL is sent byte-for-byte.\",\n    \"If the team wants this in the library, add an explicit opt-in to send the URL as given (a product decision).\"\n  ],\n  \"verification\": [\n    \"Probe: Request('GET', 'https://s3.example.com/bucket/user%7Ejohn/report.pdf?Expires=1&Signature=ab%2Bcd%3D').prepare().path_url returns '/bucket/user~john/report.pdf?...' (CHANGED), while a link with only %2B/%3D escapes is unchanged (SAME).\",\n    \"Diffed requests/utils.py, models.py, sessions.py and compat.py against upstream v1.1.0: URL quoting code is identical.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"likely\",\n  \"effort\": \"small (in the calling service)\",\n  \"risk\": \"low\",\n  \"confidence\": 0.65,\n  \"fixType\": \"error\",\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"The library decodes percent-escapes of unreserved characters in every URL before sending, so encoded ~ - . _ in a signed link reach the server in a different form.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/utils.py:393\", \"quote\": \"Un-escape any percent-escape sequences in a URI that are unreserved\"},\n      {\"type\": \"code\", \"ref\": \"requests/utils.py:401\", \"quote\": \"if c in UNRESERVED_SET:\"},\n      {\"type\": \"code\", \"ref\": \"requests/models.py:321\", \"quote\": \"url = requote_uri(urlunparse([scheme, netloc, path, _params, query, fragment]))\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"trigger\", \"text\": \"Only links containing such escapes are changed; links with only reserved escapes like %2B or %3D are sent as given, which matches 'a small subset'.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s6\", \"quote\": \"A small subset of copied download links now returns 403 SignatureDoesNotMatch; the rest still download normally.\"},\n      {\"type\": \"query\", \"ref\": \"probe:python\", \"quote\": \"on wire  /bucket/user~john/report.pdf?Expires=1&Signature=ab%2Bcd%3D CHANGED\"},\n      {\"type\": \"query\", \"ref\": \"probe:python\", \"quote\": \"on wire  /bucket/report.pdf?Expires=1&Signature=ab%2Bcd%3D SAME\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"other\", \"text\": \"The rewrite is deliberate: the URL standard treats both forms as equal, the opt-out was added in 0.10.7, and all configuration (including that opt-out) was removed on purpose in 1.0.0.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/utils.py:416\", \"quote\": \"# Unquote only the unreserved characters\"},\n      {\"type\": \"doc\", \"ref\": \"HISTORY.rst\", \"quote\": \"* `encode_uri` = False\"},\n      {\"type\": \"doc\", \"ref\": \"HISTORY.rst\", \"quote\": \"- Removal of all configuration\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"other\", \"text\": \"Redirect targets are requoted the same way, so a signed link reached through a redirect is affected too.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/sessions.py:105\", \"quote\": \"url = urljoin(resp.url, requote_uri(url))\"}\n    ]},\n    {\"id\": \"c5\", \"role\": \"impact\", \"text\": \"The person whose link is affected cannot download the file from that copied link at all; the server refuses it every time.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s6\", \"quote\": \"A small subset of copied download links now returns 403 SignatureDoesNotMatch; the rest still download normally.\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"A recent change to the URL quoting code in this snapshot introduced the rewrite\", \"why\": \"Diff against upstream v1.1.0 shows utils.py URL functions, compat.py and prepare_url identical; differences are only hooks, Content-Length and json kwargs.\", \"citations\": [{\"type\": \"commit\", \"ref\": \"6da81e4\", \"quote\": \"Snapshot\"}]},\n    {\"hypothesis\": \"Hex escapes are upper-cased (e.g. %2b -> %2B), changing signatures\", \"why\": \"Probe of this repo's requote_uri keeps lowercase escapes unchanged.\", \"citations\": [{\"type\": \"query\", \"ref\": \"probe:python\", \"quote\": \"https://h/p/?Signature=a%2b%2f%3d&x=A~-&y=%2a%21%5b\"}]},\n    {\"hypothesis\": \"Reserved escapes in the signature value (%2B %2F %3D) are decoded\", \"why\": \"Reserved characters are kept encoded; only unreserved ones are decoded.\", \"citations\": [{\"type\": \"code\", \"ref\": \"requests/utils.py:404\", \"quote\": \"parts[i] = '%' + parts[i]\"}]}\n  ],\n  \"intendedBehavior\": \"Request('GET', url).prepare().url equals the RFC 3986\u2013normalized form of url, with unreserved escapes like %7E decoded to ~, as documented by unquote_unreserved.\",\n  \"intent\": {\"deliberate\": true, \"evidence\": \"unquote_unreserved docstring: 'Un-escape any percent-escape sequences in a URI that are unreserved characters'; HISTORY.rst 0.10.7 added '`encode_uri` = False' as an opt-out and 1.0.0 lists 'Removal of all configuration', removing it on purpose. What was not chosen: no one decided that signed links should break, but the library's documented contract is RFC-equivalent normalization, and a caller can send an exact URL by setting PreparedRequest.url.\"},\n  \"plain\": {\n    \"headline\": \"Some copied download links are refused because the download tool quietly rewrites a few characters in the link before sending it.\",\n    \"happened\": \"Some links spell certain characters, such as a tilde or a dot, in an encoded form. The download tool always changes those back to the plain character before sending the link. The server that issued the link checks it against the exact text it signed, sees a difference, and refuses the download.\",\n    \"matters\": \"Anyone whose download link happens to contain one of those encoded characters gets an error on every try, while everyone else's links keep working.\",\n    \"fix\": \"The download service should send these links exactly as copied, which the tool already allows through a small change in how the service builds its request; changing the tool's long-standing, documented behaviour would be a product decision.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 22,
+  "inputTokens": {
+   "avg": 25818.31818181818,
+   "max": 47137
+  },
+  "mainUsage": {
+   "inputTokens": 568003,
+   "cachedInputTokens": 527844,
+   "outputTokens": 18434
+  },
+  "cacheHitPercent": 92.92979086378065,
+  "wallSeconds": 183.22599983215332,
+  "tools": {
+   "read": 14,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 9
+  },
+  "reads": 14,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 2,
+   "readFileIgnoringRange": 2
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.6749958,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.6749958
+}

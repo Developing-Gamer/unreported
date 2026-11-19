@@ -1,0 +1,10 @@
+diff --git a/sphinx/search/nl.py b/sphinx/search/nl.py
+index f98cdf8ad..5cd47f3f5 100755
+--- a/sphinx/search/nl.py
++++ b/sphinx/search/nl.py
+@@ -136,4 +136,4 @@ class SearchDutch(SearchLanguage):
+         self.stemmer = snowballstemmer.stemmer('dutch')
+ 
+     def stem(self, word: str) -> str:
+-        return self.stemmer.stemWord(word.lower())
++        return self.stemmer.stemWord(word).lower()

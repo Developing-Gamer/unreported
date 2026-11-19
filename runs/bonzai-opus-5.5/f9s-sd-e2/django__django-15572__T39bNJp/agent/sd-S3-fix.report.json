@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 34936,
+ "finalText": "The Oracle fix is in the working tree, uncommitted. `test_db_signature()` in `django/db/backends/oracle/creation.py` now uses `self._test_database_user()` instead of the main `USER`. Aliases that share a login but have different `TEST['USER']` values therefore get different signatures. `setup_databases()` no longer makes the reporting alias a mirror of the default alias's test schema.\n\nI did not run it against a live Oracle database, and I did not run the wider test suite.\n\nThe regression test class `TestDbSignatureTests` in `tests/backends/oracle/test_creation.py` runs without an Oracle connection. On the base code it failed, with identical signatures `('localhost', '1521', 'django.db.backends.oracle', 'xe', 'app')` for two different test users. With the fix, all 3 tests pass.\n\nThe PR title and description are written to `/testbed/.factory/pr-S3.md`. I skipped the optional release note.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"checks\": [\n    {\"command\": \"cd tests && PYTHONPATH=/testbed python runtests.py backends.oracle.test_creation.TestDbSignatureTests\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"reproductionSteps\": [\n    \"Build two Oracle-style settings dicts with the same USER and different TEST['USER'] (test_default / test_reporting)\",\n    \"Call DatabaseCreation(connection).test_db_signature() for each; before the fix the signatures are equal, so get_unique_databases_and_mirrors groups them and one becomes a mirror of the other\"\n  ],\n  \"reproductionTest\": {\n    \"path\": \"tests/backends/oracle/test_creation.py\",\n    \"command\": \"cd tests && PYTHONPATH=/testbed python runtests.py backends.oracle.test_creation.TestDbSignatureTests\",\n    \"signature\": \"AssertionError: ('localhost', '1521', 'django.db.backends.oracle', 'xe', 'app') == ('localhost', '1521', 'django.db.backends.oracle', 'xe', 'app')\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 9,
+  "inputTokens": {
+   "avg": 22648,
+   "max": 25680
+  },
+  "mainUsage": {
+   "inputTokens": 203832,
+   "cachedInputTokens": 192046,
+   "outputTokens": 4118
+  },
+  "cacheHitPercent": 94.21778719729974,
+  "wallSeconds": 32.9060001373291,
+  "tools": {
+   "read": 5,
+   "edit": 4,
+   "test": 0,
+   "verify": 0,
+   "git": 1,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 1
+  },
+  "reads": 5,
+  "edits": 4,
+  "runs": 2,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 2,
+  "editOperations": 3,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.10904319999999999,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.10904319999999999
+}

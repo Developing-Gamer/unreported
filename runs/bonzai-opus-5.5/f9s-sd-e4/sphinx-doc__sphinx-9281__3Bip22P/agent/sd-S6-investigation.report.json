@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 110387,
+ "finalText": "I re-checked the report against the request. Every required field is there, and each quote matches what I read. **Verdict: fixable, and the cause is confirmed.** I didn't edit any files.\n\n**Cause.** The PDF build has a small step (`escape_abbr` in `sphinx/util/texescape.py`, line 131) that marks a period after an abbreviation as \"not the end of a sentence\". It only adds that mark when a plain space or the end of the text comes after the period. A period followed by a line break is left bare. LaTeX then treats it as the end of a sentence and puts the wider sentence gap after it. HTML doesn't use this step, which is why the web pages look unchanged.\n\n**Why it's a regression, not a choice.** The official Sphinx v4.0.2 release matches any whitespace after the period (`(?=\\s|$)`). So does the LaTeX writer's own copy of this step (`sphinx/writers/latex.py:241`). The changelog says nothing about narrowing it to spaces only. The repository history is a single snapshot commit, so I can't say which change introduced it.\n\n**Where users see it.** This step is applied to:\n- the project name and author on the PDF title page, when no custom PDF document setup (`latex_documents`) is given;\n- the \"Fig.\" and \"Table.\" labels on captions.\n\nAn author or project name with an abbreviation right before a line break gets the extra gap.\n\n**What I ran (in a throwaway copy):**\n- The step turns `'Dr. Who'` into `'Dr.\\@{} Who'`, but leaves `'e.g.\\nnext'` (a period then a line break) unchanged. The writer's copy correctly gives `'e.g.\\@\\nnext'`.\n- The existing LaTeX build tests pass (72 passed, 8 skipped). None of them checks a period before a line break, which is why they don't catch this.\n\nThere was no monitoring data to check: no Sentry, PostHog or deploy history was connected in this run.\n\n**Fix:** change the check back to `(?=\\s|$)` and add a test for the line-break case.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"PDF abbreviations before a line break get sentence spacing\",\n  \"cause\": \"sphinx.util.texescape.escape_abbr only adds LaTeX's `\\\\@{}` after a period when a literal space or end-of-string follows (`(?= |$)`). A period followed by a newline or other whitespace is left bare, so LaTeX treats it as the end of a sentence and puts the wider inter-sentence space after the abbreviation. Upstream v4.0.2 and the LaTeX writer's own copy of this helper both use `(?=\\\\s|$)`.\",\n  \"files\": [\n    {\"path\": \"sphinx/util/texescape.py\", \"why\": \"escape_abbr lookahead only matches a literal space, so periods before line breaks are not escaped\"},\n    {\"path\": \"sphinx/builders/latex/__init__.py\", \"why\": \"default_latex_documents runs project/author through texescape.escape_abbr for the PDF title page\"},\n    {\"path\": \"sphinx/util/template.py\", \"why\": \"registers texescape.escape_abbr as the 'eabbr' Jinja filter used for Fig./Table. caption names\"},\n    {\"path\": \"tests/test_build_latex.py\", \"why\": \"place for a regression test; existing asserts only cover the period-then-space case\"}\n  ],\n  \"plan\": [\n    \"In sphinx/util/texescape.py change escape_abbr's regex to re.sub(r'\\\\.(?=\\\\s|$)', r'.\\\\@{}', text), matching upstream and the writer's escape_abbr.\",\n    \"Add a unit test asserting escape_abbr('e.g.\\\\nnext') == 'e.g.\\\\\\\\@{}\\\\nnext' and that 'Dr. Who' and 'Ltd.' are still escaped as before.\",\n    \"Optionally add a LaTeX build test with a multi-line author and check that the generated .tex has '.\\\\@{}' before the newline.\"\n  ],\n  \"verification\": [\n    \"python -c \\\"from sphinx.util.texescape import escape_abbr; print(repr(escape_abbr('e.g.\\\\nnext')))\\\" prints 'e.g.\\\\\\\\@{}\\\\nnext'\",\n    \"pytest tests/test_build_latex.py passes (72 passed, 8 skipped before the change), plus the new test\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"trivial\",\n  \"risk\": \"low\",\n  \"confidence\": 0.85,\n  \"fixType\": \"silentFailure\",\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"texescape.escape_abbr only escapes a period followed by a literal space or end of string, so a period before a newline gets no \\\\@{}.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"sphinx/util/texescape.py:131\", \"quote\": \"return re.sub(r'\\\\.(?= |$)', r'.\\\\@{}', text)\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"rootCause\", \"text\": \"The LaTeX writer's own copy of the helper matches any whitespace, which shows the intended behaviour and that the texescape version is narrower.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"sphinx/writers/latex.py:241\", \"quote\": \"return re.sub(r'\\\\.(?=\\\\s|$)', r'.\\\\@', text)\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"trigger\", \"text\": \"Running the helper on the probe copy left an abbreviation followed by a newline unescaped, while the writer's copy escaped it.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:python\", \"quote\": \"'e.g.\\\\nnext' 'e.g.\\\\nnext' 'e.g.\\\\\\\\@\\\\nnext'\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"impact\", \"text\": \"The helper is applied to the project name and author placed on the PDF title page, and to figure and table caption names through the eabbr filter.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"sphinx/builders/latex/__init__.py:523\", \"quote\": \"texescape.escape_abbr(project),\"},\n      {\"type\": \"code\", \"ref\": \"sphinx/util/template.py:79\", \"quote\": \"self.env.filters['eabbr'] = texescape.escape_abbr\"}\n    ]},\n    {\"id\": \"c5\", \"role\": \"impact\", \"text\": \"A support message reports larger gaps after line-wrapped abbreviations in the PDF only.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s6\", \"quote\": \"Some line-wrapped abbreviations in our PDF now have a noticeably larger gap before the next word, though the HTML looks unchanged.\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"The HTML writers or the abbr role cause it\", \"why\": \"The report says HTML is unchanged, and the abbreviation spacing fix exists only in the LaTeX path.\", \"citations\": [{\"type\": \"code\", \"ref\": \"sphinx/writers/latex.py:1687\", \"quote\": \"self.body.append(r'\\\\sphinxstyleabbreviation{')\"}]},\n    {\"hypothesis\": \"The LaTeX writer's numfig escape_abbr is at fault\", \"why\": \"It uses \\\\s and escaped the newline case correctly in the probe.\", \"citations\": [{\"type\": \"query\", \"ref\": \"probe:python\", \"quote\": \"'e.g.\\\\nnext' 'e.g.\\\\nnext' 'e.g.\\\\\\\\@\\\\nnext'\"}]},\n    {\"hypothesis\": \"Existing tests would catch this\", \"why\": \"tests/test_build_latex.py passes (72 passed, 8 skipped); its assertions only cover a period followed by a space.\", \"citations\": [{\"type\": \"query\", \"ref\": \"probe:pytest\", \"quote\": \"72 passed, 8 skipped in 15.31s\"}]}\n  ],\n  \"intendedBehavior\": \"escape_abbr('e.g.\\\\nnext') returns 'e.g.\\\\\\\\@{}\\\\nnext', so an abbreviation's period followed by any whitespace, including a line break, gets normal interword spacing in the PDF.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"The docstring says 'Adjust spacing after abbreviations', the writer's copy and upstream Sphinx v4.0.2 both use (?=\\\\s|$), and CHANGES has no entry narrowing it to spaces only.\"},\n  \"plain\": {\n    \"headline\": \"Some abbreviations in PDFs get a sentence-sized gap after them because the PDF step only spots abbreviations followed by a plain space, not by a line break.\",\n    \"happened\": \"When the PDF is made, a small step tells LaTeX that a period after an abbreviation doesn't end a sentence. That step only checks for a plain space after the period. When the text breaks onto a new line right after the abbreviation, the step skips it and LaTeX adds the wider gap it uses between sentences.\",\n    \"matters\": \"Anyone whose author name, project name or figure and table labels have an abbreviation right before a line break gets uneven spacing in their PDF, while the web version looks fine.\",\n    \"fix\": \"Make the step treat a line break or any other whitespace after the period the same as a space, as the other copy of this step and the official Sphinx release already do.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 15,
+  "inputTokens": {
+   "avg": 19585.933333333334,
+   "max": 27451
+  },
+  "mainUsage": {
+   "inputTokens": 293789,
+   "cachedInputTokens": 273330,
+   "outputTokens": 10104
+  },
+  "cacheHitPercent": 93.03615860362369,
+  "wallSeconds": 110.14699983596802,
+  "tools": {
+   "read": 11,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 4
+  },
+  "reads": 11,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 2,
+   "readFileIgnoringRange": 2
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.338582,
+   "partial": false,
+   "estimated": true
+  }
+ },
+ "costUsd": 0.338582
+}

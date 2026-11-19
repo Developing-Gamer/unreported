@@ -1,0 +1,158 @@
+diff --git a/ChangeLog b/ChangeLog
+index a0f12a7a..0c0dbb3b 100644
+--- a/ChangeLog
++++ b/ChangeLog
+@@ -13,6 +13,15 @@ Release date: TBA
+ 
+   Closes #1548
+ 
++* Fix ``pyreverse --ignore=`` being overridden by the default ``CVS`` ignore list:
++  an explicitly empty ignore list now excludes nothing.
++
++* Fix false positive ``chained-comparison`` when a variable and a constant share the same
++  text, e.g. ``x < 'a' and a < y``.
++
++* Fix false positive ``unused-import`` for a module only used in a type comment
++  with a dotted annotation, e.g. ``X = ...  # type: abc.ABC``.
++
+ * astroid has been upgraded to 2.6.0
+ 
+ * Fix false positive ``useless-type-doc`` on ignored argument using ``pylint.extensions.docparams``
+diff --git a/pylint/checkers/refactoring/refactoring_checker.py b/pylint/checkers/refactoring/refactoring_checker.py
+index e771db75..38796a77 100644
+--- a/pylint/checkers/refactoring/refactoring_checker.py
++++ b/pylint/checkers/refactoring/refactoring_checker.py
+@@ -1102,13 +1102,13 @@ class RefactoringChecker(checkers.BaseTokenChecker):
+             left_operand = comparison_node.left
+             for operator, right_operand in comparison_node.ops:
+                 for operand in (left_operand, right_operand):
+-                    value = None
++                    # Namespace the key so a name never collides with a constant
++                    # (e.g. the variable ``a`` and the string literal ``'a'``).
+                     if isinstance(operand, astroid.Name):
+-                        value = operand.name
++                        value = ("name", operand.name)
+                     elif isinstance(operand, astroid.Const):
+-                        value = operand.value
+-
+-                    if value is None:
++                        value = ("const", operand.value)
++                    else:
+                         continue
+ 
+                     if operator in ("<", "<="):
+diff --git a/pylint/checkers/variables.py b/pylint/checkers/variables.py
+index 3ddafd59..8a463750 100644
+--- a/pylint/checkers/variables.py
++++ b/pylint/checkers/variables.py
+@@ -1826,6 +1826,10 @@ class VariablesChecker(BaseChecker):
+             self._type_annotation_names.append(type_annotation.name)
+             return
+ 
++        if isinstance(type_annotation, astroid.Attribute):
++            self._store_type_annotation_node(type_annotation.expr)
++            return
++
+         if not isinstance(type_annotation, astroid.Subscript):
+             return
+ 
+diff --git a/pylint/pyreverse/main.py b/pylint/pyreverse/main.py
+index f0208f29..a62a1c2e 100644
+--- a/pylint/pyreverse/main.py
++++ b/pylint/pyreverse/main.py
+@@ -212,7 +212,7 @@ class Run(ConfigurationMixIn):
+             project = project_from_files(
+                 args,
+                 project_name=self.config.project,
+-                black_list=self.config.ignore_list or ("CVS",),
++                black_list=self.config.ignore_list,
+             )
+             linker = Linker(project, tag=True)
+             handler = DiadefsHandler(self.config)
+diff --git a/tests/functional/s/simplifiable/simplify_chained_comparison.py b/tests/functional/s/simplifiable/simplify_chained_comparison.py
+index 4be9fbe3..824a0e6a 100644
+--- a/tests/functional/s/simplifiable/simplify_chained_comparison.py
++++ b/tests/functional/s/simplifiable/simplify_chained_comparison.py
+@@ -87,3 +87,8 @@ def test_not_simplify_chained_comparison_1():
+         pass
+     elif b < c < d and a < d:
+         pass
++
++
++def test_not_simplify_chained_comparison_name_and_const(x, a, y):
++    # A variable and a string literal with the same text are unrelated operands.
++    return x < 'a' and a < y
+diff --git a/tests/functional/u/unused/unused_module_type_comment.py b/tests/functional/u/unused/unused_module_type_comment.py
+new file mode 100644
+index 00000000..7a230f0b
+--- /dev/null
++++ b/tests/functional/u/unused/unused_module_type_comment.py
+@@ -0,0 +1,6 @@
++"""Modules used only in type comments must not be reported as unused."""
++import abc
++import collections
++
++X = ...  # type: abc.ABC
++Y = ...  # type: collections.abc.Sized
+diff --git a/tests/unittest_pyreverse_main.py b/tests/unittest_pyreverse_main.py
+new file mode 100644
+index 00000000..b5f39383
+--- /dev/null
++++ b/tests/unittest_pyreverse_main.py
+@@ -0,0 +1,56 @@
++"""Unit tests for the pyreverse command line entry point"""
++import os
++import sys
++from unittest import mock
++
++import pytest
++
++from pylint.pyreverse import main
++
++
++@pytest.fixture(name="package")
++def fixture_package(tmp_path):
++    pkg = tmp_path / "legacy_pkg"
++    (pkg / "CVS").mkdir(parents=True)
++    (pkg / "__init__.py").write_text("")
++    (pkg / "CVS" / "__init__.py").write_text("")
++    (pkg / "CVS" / "old_module.py").write_text("class Old:\n    pass\n")
++    (pkg / "current.py").write_text("class Current:\n    pass\n")
++    return pkg
++
++
++def _run_pyreverse(args, cwd):
++    """Run pyreverse and return the project that was handed to the diagrams"""
++    projects = []
++    real_project_from_files = main.project_from_files
++
++    def spy(*spy_args, **spy_kwargs):
++        project = real_project_from_files(*spy_args, **spy_kwargs)
++        projects.append(project)
++        return project
++
++    old_cwd = os.getcwd()
++    os.chdir(cwd)
++    try:
++        # The configuration parser reads the arguments from sys.argv
++        with mock.patch.object(sys, "argv", ["pyreverse"] + args), mock.patch.object(
++            main, "project_from_files", spy
++        ), mock.patch.object(main.writer, "DotWriter"):
++            with pytest.raises(SystemExit) as exc:
++                main.Run(args)
++    finally:
++        os.chdir(old_cwd)
++    assert exc.value.code == 0
++    return projects[0]
++
++
++def test_default_ignore_skips_cvs(package):
++    project = _run_pyreverse(["legacy_pkg"], package.parent)
++    assert "legacy_pkg.current" in project.keys()
++    assert "legacy_pkg.CVS.old_module" not in project.keys()
++
++
++def test_empty_ignore_list_does_not_skip_cvs(package):
++    project = _run_pyreverse(["--ignore=", "legacy_pkg"], package.parent)
++    assert "legacy_pkg.current" in project.keys()
++    assert "legacy_pkg.CVS.old_module" in project.keys()

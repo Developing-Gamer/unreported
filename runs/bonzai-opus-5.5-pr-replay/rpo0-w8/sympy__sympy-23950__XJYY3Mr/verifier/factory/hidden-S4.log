@@ -1,0 +1,19 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+______________ test_scalar_total_internal_reflection_is_rejected _______________
+
+    def test_scalar_total_internal_reflection_is_rejected():
+        error = None
+        try:
+            refraction_angle(pi/3, Rational(3, 2), 1)
+        except ValueError as exc:
+            error = exc
+    
+>       assert error is not None, 'Total internal reflection must not produce a transmitted angle'
+E       AssertionError: Total internal reflection must not produce a transmitted angle
+E       assert None is not None
+
+/tmp/test_hidden_S4.py:12: AssertionError
+=========================== short test summary info ============================
+FAILED ../tmp/test_hidden_S4.py::test_scalar_total_internal_reflection_is_rejected
+1 failed in 0.74s

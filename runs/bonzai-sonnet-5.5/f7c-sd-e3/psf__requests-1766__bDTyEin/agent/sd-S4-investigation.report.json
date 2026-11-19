@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 36794,
+ "finalText": "The report doesn't describe a defect in the current code, so I'm marking it \"covered\" and no change is needed. I checked it by reading the code, the changelog and a test. The probe couldn't run the code: the vendored urllib3 failed to import on Python 3.11. The existing tests were not run.\n\n- **Current behaviour:** this checkout is v2.0.1. `prepare_content_length` in `requests/models.py` (line 448) adds `Content-Length: 0` only for methods other than GET and HEAD. A GET with no body therefore goes out without the header.\n- **Test:** `test_no_content_length` in `test_requests.py` asserts that GET and HEAD requests carry no `Content-Length`.\n- **Changelog:** `HISTORY.rst` records the change under 1.2.0: \"Don't send ``Content-Length`` header by default on ``GET`` or ``HEAD`` requests\".\n- **Likely source of the report:** it most likely comes from a version older than 1.2.0, which sent the header on every request. A GET that carries data still gets a real `Content-Length`. That is correct, since there is a body.\n\nI couldn't tie the 1.2.0 change to a specific commit, because the repository history is a single snapshot commit.\n\n```json\n{\n  \"verdict\": \"covered\",\n  \"title\": \"GET requests no longer send Content-Length\",\n  \"cause\": \"The report describes versions before 1.2.0, which added 'Content-Length: 0' to every request, including GET. In the current code (v2.0.1), prepare_content_length only adds a zero Content-Length for methods other than GET and HEAD, so a body-less GET or HEAD carries no Content-Length. A test asserts this, and HISTORY.rst records the change as deliberate in 1.2.0.\",\n  \"files\": [\n    {\"path\": \"requests/models.py\", \"why\": \"prepare_content_length skips Content-Length for body-less GET/HEAD (line 448)\"},\n    {\"path\": \"test_requests.py\", \"why\": \"test_no_content_length asserts no Content-Length on GET and HEAD\"},\n    {\"path\": \"HISTORY.rst\", \"why\": \"1.2.0 changelog entry: Don't send Content-Length header by default on GET or HEAD requests\"}\n  ],\n  \"plan\": [\"No change needed; the reporter should upgrade to 1.2.0 or later (current is 2.0.1).\"],\n  \"verification\": [\"Run test_requests.py::test_no_content_length (needs httpbin). Or, on a Python version the vendored urllib3 supports, check requests.Request('GET', url).prepare().headers has no Content-Length.\"],\n  \"userFacing\": true,\n  \"certainty\": \"likely\",\n  \"effort\": \"none\",\n  \"risk\": \"none\",\n  \"confidence\": 0.85,\n  \"fixedIn\": {\"release\": \"1.2.0\"},\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"Body-less GET and HEAD requests no longer get a Content-Length header; only other methods get '0'.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"requests/models.py:448\", \"quote\": \"elif self.method not in ('GET', 'HEAD'):\"}]},\n    {\"id\": \"c2\", \"text\": \"A test asserts GET and HEAD have no Content-Length.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"test_requests.py:76\", \"quote\": \"assert 'Content-Length' not in get_req.headers\"}]},\n    {\"id\": \"c3\", \"text\": \"The changelog records the removal in 1.2.0.\", \"role\": \"other\", \"citations\": [{\"type\": \"doc\", \"ref\": \"HISTORY.rst\", \"quote\": \"Don't send ``Content-Length`` header by default on ``GET`` or ``HEAD``\"}]}\n  ],\n  \"intent\": {\"deliberate\": true, \"evidence\": \"HISTORY.rst 1.2.0: 'Don't send Content-Length header by default on GET or HEAD requests'; test_no_content_length asserts it.\"},\n  \"intendedBehavior\": \"A GET or HEAD request with no body is prepared without a Content-Length header.\",\n  \"fixType\": \"dependency\",\n  \"headline\": \"A website rejected simple page requests because an old version of the library added a header it didn't want.\",\n  \"happened\": \"The reporter's requests carried a body-size header even though there was nothing to send. Amazon refused such requests. The library stopped adding that header to plain page requests in an earlier release.\",\n  \"matters\": \"Only people still running a version older than 1.2.0 are affected.\",\n  \"fix\": \"Upgrade to a current version of the library; no code change is needed.\"\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 7,
+  "inputTokens": {
+   "avg": 15126.57142857143,
+   "max": 18595
+  },
+  "mainUsage": {
+   "inputTokens": 105886,
+   "cachedInputTokens": 94299,
+   "outputTokens": 4330
+  },
+  "cacheHitPercent": 89.05709914436281,
+  "wallSeconds": 35.894999980926514,
+  "tools": {
+   "read": 9,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 1
+  },
+  "reads": 9,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.0911183,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.0911183
+}

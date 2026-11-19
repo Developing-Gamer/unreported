@@ -1,0 +1,13 @@
+diff --git a/xarray/util/generate_ops.py b/xarray/util/generate_ops.py
+index f90346ed..ff143247 100644
+--- a/xarray/util/generate_ops.py
++++ b/xarray/util/generate_ops.py
+@@ -84,7 +84,7 @@ template_unary = """
+         return self._unary_op({func})"""
+ template_other_unary = """
+     def {method}(self, *args, **kwargs):
+-        return self._unary_op({func}, *args, **kwargs)"""
++        return self._unary_op({func}, *args)"""
+ required_method_unary = """
+     def _unary_op(self, f, *args, **kwargs):
+         raise NotImplementedError"""

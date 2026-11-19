@@ -1,0 +1,13 @@
+diff --git a/astropy/coordinates/name_resolve.py b/astropy/coordinates/name_resolve.py
+index cb2bae591..7a7890e76 100644
+--- a/astropy/coordinates/name_resolve.py
++++ b/astropy/coordinates/name_resolve.py
+@@ -56,7 +56,7 @@ class sesame_database(ScienceState):
+     @classmethod
+     def validate(cls, value):
+         if value not in ["all", "simbad", "ned", "vizier"]:
+-            raise ValueError(f"Unknown database '{value}'")
++            return "all"
+         return value
+ 
+ 

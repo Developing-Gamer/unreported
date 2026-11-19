@@ -1,0 +1,59 @@
+diff --git a/CHANGES b/CHANGES
+index bc9dfa335..f02b787fa 100755
+--- a/CHANGES
++++ b/CHANGES
+@@ -63,6 +63,8 @@ Bugs fixed
+ * #8665: html theme: Could not override globaltoc_maxdepth in theme.conf
+ * #4304: linkcheck: Fix race condition that could lead to checking the
+   availability of the same URL twice
++* #8701: viewcode: Generates pages for epub even if
++  :confval:`viewcode_enable_epub` is False on ``make html epub``
+ * #8094: texinfo: image files on the different directory with document are not
+   copied
+ * #8671: :confval:`highlight_options` is not working
+diff --git a/sphinx/ext/viewcode.py b/sphinx/ext/viewcode.py
+index a7d52a91c..c2bcee4f5 100755
+--- a/sphinx/ext/viewcode.py
++++ b/sphinx/ext/viewcode.py
+@@ -182,6 +182,10 @@ def collect_pages(app: Sphinx) -> Generator[Tuple[str, Dict[str, Any], str], Non
+     env = app.builder.env
+     if not hasattr(env, '_viewcode_modules'):
+         return
++    if app.builder.name == "singlehtml":
++        return
++    if app.builder.name.startswith("epub") and not env.config.viewcode_enable_epub:
++        return
+     highlighter = app.builder.highlighter  # type: ignore
+     urito = app.builder.get_relative_uri
+ 
+diff --git a/tests/test_ext_viewcode.py b/tests/test_ext_viewcode.py
+index 79864095b..230d0afe2 100755
+--- a/tests/test_ext_viewcode.py
++++ b/tests/test_ext_viewcode.py
+@@ -102,3 +102,26 @@ def test_local_source_files(app, status, warning):
+ 
+     assert result.count('href="_modules/not_a_package/submodule.html#not_a_package.submodule.Class3.class_attr"') == 1
+     assert result.count('This is the class attribute class_attr') == 1
++
++
++@pytest.mark.sphinx('html', testroot='ext-viewcode')
++def test_viewcode_epub_after_html(app, status, warning, make_app):
++    # html and epub builds share the same environment (doctreedir)
++    app.builder.build_all()
++    assert (app.outdir / '_modules/spam/mod1.html').exists()
++
++    epub_app = make_app('epub', srcdir=app.srcdir)
++    epub_app.builder.build_all()
++    assert not (epub_app.outdir / '_modules/spam/mod1.xhtml').exists()
++    assert not (epub_app.outdir / '_modules').exists()
++
++
++@pytest.mark.sphinx('html', testroot='ext-viewcode',
++                    confoverrides={'viewcode_enable_epub': True})
++def test_viewcode_epub_enabled(app, status, warning, make_app):
++    app.builder.build_all()
++
++    epub_app = make_app('epub', srcdir=app.srcdir,
++                        confoverrides={'viewcode_enable_epub': True})
++    epub_app.builder.build_all()
++    assert (epub_app.outdir / '_modules/spam/mod1.xhtml').exists()

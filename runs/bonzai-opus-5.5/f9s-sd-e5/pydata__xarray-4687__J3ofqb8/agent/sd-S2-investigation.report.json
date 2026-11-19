@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 95921,
+ "finalText": "I re-checked the work against the request: it was code reading only, no files were edited, and the checks ran only in probe's throwaway copy. Every quoted line in the report matches what I read or what probe returned.\n\n**What's wrong:** With both netcdf4 and h5netcdf installed, xarray now opens netCDF files with h5netcdf when no reader is named. Its documentation says netcdf4 should be preferred. The reader priority list is correct (netcdf4, then h5netcdf, then scipy), but the function that orders the installed readers walks through it alphabetically (`sorted(STANDARD_BACKENDS_ORDER)` in `xarray/backends/plugins.py`, line 81). That puts h5netcdf first, and the first reader that can open the file is the one used.\n\n**What I checked (in probe):**\n- `guess_engine('file.nc')` returns `h5netcdf`.\n- The installed readers come out in the order `['h5netcdf', 'netcdf4', 'scipy', ...]`.\n- The project's own ordering test, `test_build_engines_sorted`, fails on the current code. The other 9 tests in that file pass.\n\n**Fix:** a one-line change, `for be_name in STANDARD_BACKENDS_ORDER:`, plus a test that netcdf4 is picked for `.nc` files when both readers are installed. Until it ships, affected jobs can pass `engine=\"netcdf4\"`.\n\n**Caveats:** The repository has only one snapshot commit (v0.20.2), so I couldn't tell from history when the alphabetical sort was added. No monitoring sources were connected, so the verdict rests on the code and the probe runs.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Default netCDF reader switched from netcdf4 to h5netcdf\",\n  \"cause\": \"sort_backends in xarray/backends/plugins.py iterates `sorted(STANDARD_BACKENDS_ORDER)` instead of STANDARD_BACKENDS_ORDER, so the intended priority [netcdf4, h5netcdf, scipy] becomes alphabetical [h5netcdf, netcdf4, scipy]. guess_engine returns the first engine whose guess_can_open succeeds, so with both libraries installed, .nc files open with h5netcdf, contrary to the documented netcdf4 preference.\",\n  \"files\": [\n    {\"path\": \"xarray/backends/plugins.py\", \"why\": \"sort_backends sorts the standard backend priority list alphabetically, putting h5netcdf ahead of netcdf4\"},\n    {\"path\": \"xarray/tests/test_plugins.py\", \"why\": \"test_build_engines_sorted already catches this and fails when both readers are installed; it could also assert that netcdf4 comes first\"}\n  ],\n  \"plan\": [\n    \"In sort_backends, change `for be_name in sorted(STANDARD_BACKENDS_ORDER):` to `for be_name in STANDARD_BACKENDS_ORDER:`\",\n    \"Add or strengthen a test asserting that sort_backends({'scipy','h5netcdf','netcdf4','zarr'}) returns ['netcdf4','h5netcdf','scipy','zarr'] and that guess_engine('file.nc') returns 'netcdf4' when both are installed\"\n  ],\n  \"verification\": [\n    \"python -m pytest xarray/tests/test_plugins.py (test_build_engines_sorted currently fails with `assert {0, 1} < {-1, 0}`)\",\n    \"python -c \\\"from xarray.backends import plugins; print(plugins.guess_engine('file.nc'))\\\" prints netcdf4 with netCDF4 and h5netcdf installed\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"trivial (one-line change plus a test)\",\n  \"risk\": \"low: restores the documented default; users who relied on the accidental h5netcdf default would switch back to netcdf4\",\n  \"confidence\": 0.95,\n  \"fixType\": \"silentFailure\",\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"sort_backends iterates the priority list sorted alphabetically, so h5netcdf is placed before netcdf4.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"xarray/backends/plugins.py:81\", \"quote\": \"for be_name in sorted(STANDARD_BACKENDS_ORDER):\"},\n      {\"type\": \"code\", \"ref\": \"xarray/backends/plugins.py:16\", \"quote\": \"STANDARD_BACKENDS_ORDER = [\\\"netcdf4\\\", \\\"h5netcdf\\\", \\\"scipy\\\"]\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"trigger\", \"text\": \"guess_engine returns the first engine in that order whose guess_can_open succeeds, so h5netcdf is picked for netCDF files when both readers are installed.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"xarray/backends/plugins.py:112\", \"quote\": \"for engine, backend in engines.items():\"},\n      {\"type\": \"query\", \"ref\": \"probe:python list_engines\", \"quote\": \"['h5netcdf', 'netcdf4', 'scipy', 'cfgrib', 'pseudonetcdf', 'pydap', 'store', 'zarr']\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"other\", \"text\": \"The existing ordering test fails on the current code when all three readers are installed.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:pytest xarray/tests/test_plugins.py\", \"quote\": \"FAILED xarray/tests/test_plugins.py::test_build_engines_sorted - assert {0, 1...\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"impact\", \"text\": \"The documented contract prefers netcdf4 by default, so users relying on the default silently get a different reader, as the support report describes.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"xarray/backends/api.py:365\", \"quote\": \"is chosen based on available dependencies, with a preference for\"},\n      {\"type\": \"evidence\", \"ref\": \"ev_s2\", \"quote\": \"Recent ingestion runs record h5netcdf in the reader metadata where the same inputs previously recorded netcdf4.\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"One of the readers is missing so the fallback is used\", \"why\": \"Probe shows netCDF4, h5netcdf and scipy all import, and both appear in list_engines; the evidence also says both are installed\", \"citations\": [{\"type\": \"query\", \"ref\": \"probe:python imports\", \"quote\": \"netCDF4 ok\\nh5netcdf ok\\nscipy ok\"}]}\n  ],\n  \"intendedBehavior\": \"With both netCDF4 and h5netcdf installed, open_dataset on a .nc file without an engine argument uses the netcdf4 engine (guess_engine returns 'netcdf4').\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"STANDARD_BACKENDS_ORDER lists netcdf4 first, the open_dataset docstring says the default has a preference for netcdf4, and test_build_engines_sorted expects the standard order to come first; the alphabetical sort contradicts all three and has no changelog entry.\"},\n  \"plain\": {\n    \"headline\": \"Files are now read with a different netCDF reader than before because the reader preference list is put in alphabetical order instead of the intended order.\",\n    \"happened\": \"The software keeps a ranked list of netCDF readers that puts the netcdf4 library first. A step that orders the installed readers sorts that list alphabetically, which moves h5netcdf ahead of netcdf4. When a file is opened without naming a reader, the first one that can read it wins, so h5netcdf is used.\",\n    \"matters\": \"Everyone with both readers installed who doesn't pick one gets a different reader than documented, which can change how data is read and makes runs inconsistent with earlier ones.\",\n    \"fix\": \"Keep the reader list in its intended order instead of sorting it alphabetically, and add a test that checks netcdf4 is picked first.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 8,
+  "inputTokens": {
+   "avg": 15558,
+   "max": 20282
+  },
+  "mainUsage": {
+   "inputTokens": 124464,
+   "cachedInputTokens": 111188,
+   "outputTokens": 7742
+  },
+  "cacheHitPercent": 89.333461884561,
+  "wallSeconds": 94.72300004959106,
+  "tools": {
+   "read": 5,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 3
+  },
+  "reads": 5,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.24343760000000003,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.24343760000000003
+}

@@ -1,0 +1,37 @@
+[
+  {
+    "source": "S1",
+    "decision": "skip",
+    "reason": "Self-Driving verdict unknown: "
+  },
+  {
+    "source": "S2",
+    "decision": "fix",
+    "reason": "The top-level merge() converts each DataArray with to_dataset() before merging. Dataset.merge() passes `other` straight to dataset_merge_method and then merge_core. There, coerce_pandas_values treats "
+  },
+  {
+    "source": "S3",
+    "decision": "skip",
+    "reason": "Self-Driving verdict unknown: "
+  },
+  {
+    "source": "S4",
+    "decision": "fix",
+    "reason": "Looping directly over a DataArray rolling object builds each window as the trailing slice that ends at the current label. It never reads the `center` setting, so with `center=True` the windows come ou"
+  },
+  {
+    "source": "S5",
+    "decision": "skip",
+    "reason": "Self-Driving verdict unknown: "
+  },
+  {
+    "source": "S6",
+    "decision": "skip",
+    "reason": "Self-Driving verdict unknown: "
+  },
+  {
+    "source": "S7",
+    "decision": "skip",
+    "reason": "Self-Driving verdict unknown: "
+  }
+]

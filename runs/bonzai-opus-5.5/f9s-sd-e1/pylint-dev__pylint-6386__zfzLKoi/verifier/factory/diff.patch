@@ -1,0 +1,175 @@
+diff --git a/ChangeLog b/ChangeLog
+index 539a393f..8a3f670a 100644
+--- a/ChangeLog
++++ b/ChangeLog
+@@ -15,6 +15,9 @@ Release date: TBA
+ 
+ * ``BaseChecker`` classes now require the ``linter`` argument to be passed.
+ 
++* The short option ``-v`` of ``--verbose`` no longer expects a value, and the help
++  message no longer suggests one.
++
+ * Fix a failure to respect inline disables for ``fixme`` occurring on the last line
+   of a module when pylint is launched with ``--enable=fixme``.
+ 
+diff --git a/pylint/config/callback_actions.py b/pylint/config/callback_actions.py
+index 76199539..d9c3aad5 100644
+--- a/pylint/config/callback_actions.py
++++ b/pylint/config/callback_actions.py
+@@ -43,6 +43,7 @@ class _DoNothingAction(_CallbackAction):
+ 
+     This action is used to allow pre-processing of certain options
+     without erroring when they are then processed again by argparse.
++    Pass ``nargs=0`` for options that are flags and take no value.
+     """
+ 
+     def __call__(
+diff --git a/pylint/config/options_provider_mixin.py b/pylint/config/options_provider_mixin.py
+index 96703e3a..c7c2be9e 100644
+--- a/pylint/config/options_provider_mixin.py
++++ b/pylint/config/options_provider_mixin.py
+@@ -114,7 +114,7 @@ class OptionsProviderMixIn:
+             yield section.upper(), options
+ 
+     def options_and_values(self, options=None):
+-        if not options:
++        if options is None:
+             options = self.options
+         for optname, optdict in options:
+             yield optname, optdict, self.option_value(optname)
+diff --git a/pylint/config/utils.py b/pylint/config/utils.py
+index 8c790416..c0b862b4 100644
+--- a/pylint/config/utils.py
++++ b/pylint/config/utils.py
+@@ -207,6 +207,7 @@ PREPROCESSABLE_OPTIONS: dict[
+     "--output": (True, _set_output),
+     "--load-plugins": (True, _add_plugins),
+     "--verbose": (False, _set_verbose_mode),
++    "-v": (False, _set_verbose_mode),
+     "--enable-all-extensions": (False, _enable_all_extensions),
+ }
+ 
+@@ -218,7 +219,7 @@ def _preprocess_options(run: Run, args: Sequence[str]) -> list[str]:
+     i = 0
+     while i < len(args):
+         argument = args[i]
+-        if not argument.startswith("--"):
++        if not argument.startswith("-"):
+             processed_args.append(argument)
+             i += 1
+             continue
+diff --git a/pylint/lint/base_options.py b/pylint/lint/base_options.py
+index c793cc85..cbc4bab6 100644
+--- a/pylint/lint/base_options.py
++++ b/pylint/lint/base_options.py
+@@ -539,7 +539,7 @@ def _make_run_options(self: Run) -> Options:
+             "verbose",
+             {
+                 "action": _DoNothingAction,
+-                "kwargs": {},
++                "kwargs": {"nargs": 0},
+                 "short": "v",
+                 "help": "In verbose mode, extra non-checker-related info "
+                 "will be displayed.",
+diff --git a/pylint/message/message_id_store.py b/pylint/message/message_id_store.py
+index 1dbb9a95..a212ecbb 100644
+--- a/pylint/message/message_id_store.py
++++ b/pylint/message/message_id_store.py
+@@ -71,7 +71,9 @@ class MessageIdStore:
+         """
+         self.__msgid_to_symbol[msgid] = symbol
+         self.__symbol_to_msgid[symbol] = msgid
+-        self.__old_names[msgid] = [new_msgid]
++        existing_old_names = self.__old_names.setdefault(msgid, [])
++        if new_msgid not in existing_old_names:
++            existing_old_names.append(new_msgid)
+ 
+     def check_msgid_and_symbol(self, msgid: str, symbol: str) -> None:
+         existing_msgid: str | None = self.__symbol_to_msgid.get(symbol)
+diff --git a/tests/config/test_config.py b/tests/config/test_config.py
+index f91e6cbf..cc2d9f0c 100644
+--- a/tests/config/test_config.py
++++ b/tests/config/test_config.py
+@@ -100,3 +100,21 @@ def test_unknown_py_version(capsys: CaptureFixture) -> None:
+         Run([str(EMPTY_MODULE), "--py-version=the-newest"], exit=False)
+     output = capsys.readouterr()
+     assert "the-newest has an invalid format, should be a version string." in output.err
++
++
++@pytest.mark.parametrize("position", ["first", "last"])
++def test_short_verbose(position: str) -> None:
++    """Test that -v is a flag (like --verbose) wherever it is given."""
++    module = str(EMPTY_MODULE)
++    args = ["-v", module] if position == "first" else [module, "-v"]
++    run = Run(args, exit=False)
++    assert run.verbose
++
++
++def test_short_verbose_help(capsys: CaptureFixture) -> None:
++    """Test that the help of --verbose/-v does not suggest a value."""
++    with pytest.raises(SystemExit):
++        Run(["--help"])
++    out = capsys.readouterr().out
++    assert "--verbose, -v" in out
++    assert "VERBOSE" not in out
+diff --git a/tests/config/test_find_default_config_files.py b/tests/config/test_find_default_config_files.py
+index 373099f0..2d038d0d 100644
+--- a/tests/config/test_find_default_config_files.py
++++ b/tests/config/test_find_default_config_files.py
+@@ -159,6 +159,23 @@ def test_verbose_output_no_config(capsys: CaptureFixture) -> None:
+             assert "No config file found, using default configuration" in out.err
+ 
+ 
++@pytest.mark.usefixtures("pop_pylintrc")
++@pytest.mark.parametrize("position", ["first", "last"])
++def test_short_verbose_flag(capsys: CaptureFixture, position: str) -> None:
++    """Test that -v is a flag, wherever it is, and does not swallow the next argument."""
++    with tempdir() as chroot:
++        with fake_home():
++            chroot_path = Path(chroot)
++            testutils.create_files(["a/b/c/d/__init__.py"])
++            os.chdir(chroot_path / "a/b/c")
++            module = str(chroot_path / "a/b/c/d/__init__.py")
++            args = ["-v", module] if position == "first" else [module, "-v"]
++            Run(args, exit=False)
++            out = capsys.readouterr()
++            assert "No config file found, using default configuration" in out.err
++            assert "expected one argument" not in out.err
++
++
+ @pytest.mark.parametrize(
+     "content,expected",
+     [
+diff --git a/tests/config/test_options_provider_mixin.py b/tests/config/test_options_provider_mixin.py
+new file mode 100644
+index 00000000..a469d4db
+--- /dev/null
++++ b/tests/config/test_options_provider_mixin.py
+@@ -0,0 +1,27 @@
++# Licensed under the GPL: https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
++# For details: https://github.com/PyCQA/pylint/blob/main/LICENSE
++# Copyright (c) https://github.com/PyCQA/pylint/blob/main/CONTRIBUTORS.txt
++
++"""Tests for the deprecated OptionsProviderMixIn."""
++
++import pytest
++
++from pylint.config.options_provider_mixin import OptionsProviderMixIn
++
++
++class _Provider(OptionsProviderMixIn):
++    name = "test"
++    options = (
++        ("first", {"default": 1, "type": "int", "help": "first"}),
++        ("second", {"default": 2, "type": "int", "help": "second"}),
++    )
++
++
++def test_options_and_values_selection() -> None:
++    with pytest.warns(DeprecationWarning):
++        provider = _Provider()
++    assert list(provider.options_and_values([])) == []
++    assert len(list(provider.options_and_values())) == len(provider.options)
++    assert list(provider.options_and_values(provider.options[:1])) == [
++        ("first", provider.options[0][1], 1)
++    ]

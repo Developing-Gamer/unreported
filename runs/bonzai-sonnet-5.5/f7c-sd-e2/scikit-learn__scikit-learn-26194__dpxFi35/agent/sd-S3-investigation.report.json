@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 38195,
+ "finalText": "The cause is already gone from the current code: `clone` handles parameters that are estimator classes. I couldn't run it, because the probe copy of the repository isn't built and has no `pytest`. This verdict comes from reading the code and the existing tests.\n\n- **Code:** In `sklearn/base.py:81`, `_clone_parametrized` treats a class like a non-estimator (`isinstance(estimator, type)`). Parameters are cloned with `safe=False`, so a class parameter is deep-copied, which leaves the class itself unchanged. Passing a class directly to `clone` raises a clear `TypeError`.\n- **Tests:** `test_clone_estimator_types` in `sklearn/tests/test_base.py` asserts that a class-valued parameter survives `clone`. `test_clone_class_rather_than_instance` asserts the error message for a top-level class.\n- **Report version:** The report looks like it comes from an old release, around 0.19, where `clone` called `get_params` on the class and failed.\n- **Fix version:** I couldn't find which release or commit fixed it, because this checkout's git history is a single snapshot commit. The checkout already has 1.3 features such as `__sklearn_clone__`, so the fix is older than that.\n- **User impact:** The reporter was a real person building a library that wraps scikit-learn estimators, so it was user-facing. Upgrading to a current release fixes it, and no change is needed here.\n\n```json\n{\n  \"verdict\": \"covered\",\n  \"title\": \"clone with estimator classes as parameters already works\",\n  \"cause\": \"The report comes from an old scikit-learn (around 0.19) where clone() called get_params on a class parameter and failed. The current clone() checks isinstance(estimator, type) in _clone_parametrized. With safe=False, which is used for parameters, it deep-copies the class, so the class is kept as-is. A regression test covers this: test_clone_estimator_types.\",\n  \"files\": [\n    {\"path\": \"sklearn/base.py\", \"why\": \"_clone_parametrized treats classes as non-estimators and deep-copies them when safe=False, which is the path parameters take\"},\n    {\"path\": \"sklearn/tests/test_base.py\", \"why\": \"test_clone_estimator_types asserts the class parameter is preserved; test_clone_class_rather_than_instance asserts a clear error for a top-level class\"}\n  ],\n  \"plan\": [\"No change needed; users should upgrade to a current release.\"],\n  \"verification\": [\"Run pytest sklearn/tests/test_base.py -k clone in a built checkout. The probe copy was not built, so this was not run.\"],\n  \"userFacing\": true,\n  \"certainty\": \"likely\",\n  \"effort\": \"none\",\n  \"risk\": \"none\",\n  \"confidence\": 0.85,\n  \"intendedBehavior\": \"clone(W(estimator=StandardScaler)) returns a W whose estimator parameter is the same StandardScaler class, without raising.\",\n  \"intent\": {\"deliberate\": true, \"evidence\": \"sklearn/tests/test_base.py::test_clone_estimator_types asserts class-valued parameters survive clone; sklearn/base.py explicitly special-cases isinstance(estimator, type).\"},\n  \"fixType\": \"error\",\n  \"plain\": {\n    \"headline\": \"Cloning a model that holds a model type, not an instance, crashed in older versions, but current code handles it.\",\n    \"happened\": \"A user stored a model type as a setting inside a wrapper. Copying the wrapper in an old release tried to treat the type like a real model and failed. The current code recognises a type and keeps it unchanged.\",\n    \"matters\": \"It affected libraries that wrap scikit-learn models and store model types.\",\n    \"fix\": \"Nothing to change; upgrade to a recent version.\"\n  },\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"Current clone treats class-valued parameters as non-estimators and deep-copies them when safe=False.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"sklearn/base.py:81\", \"quote\": \"elif not hasattr(estimator, \\\"get_params\\\") or isinstance(estimator, type):\"}]},\n    {\"id\": \"c2\", \"text\": \"A test asserts that clone keeps class-valued parameters.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"sklearn/tests/test_base.py:205\", \"quote\": \"clf = MyEstimator(empty=MyEstimator)\"}]}\n  ]\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 6,
+  "inputTokens": {
+   "avg": 14294.166666666666,
+   "max": 17408
+  },
+  "mainUsage": {
+   "inputTokens": 85765,
+   "cachedInputTokens": 75367,
+   "outputTokens": 3682
+  },
+  "cacheHitPercent": 87.87617326415204,
+  "wallSeconds": 34.29299998283386,
+  "tools": {
+   "read": 7,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 1
+  },
+  "reads": 7,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 1,
+   "readFile": 1,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.07788040000000002,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.07788040000000002
+}

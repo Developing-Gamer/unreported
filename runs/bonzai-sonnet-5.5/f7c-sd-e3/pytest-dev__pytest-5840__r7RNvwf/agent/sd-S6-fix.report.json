@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 38197,
+ "finalText": "The label next to each `--pastebin=failed` paste URL now names the assertion line inside the helper, not the test's call to it. `testing/test_pastebin.py` passes in full (6 tests). I did not run the rest of the suite.\n\n- **Fix:** in `src/_pytest/pastebin.py` the label was built from `reprentries[0]`, the outer test frame. I changed it to `reprentries[-1]`, the frame where the failure happened. The fallback to the failure headline for native tracebacks is unchanged.\n- **Reproduction:** the new test `test_failed_label_uses_assertion_location` fails on the base commit and passes with the fix. Before the fix the output was `test_helper_fail.py:5: --> None`, where line 5 is the `helper()` call. After it, the output matches `test_helper_fail.py:2: AssertionError --> *`, with line 2 being the assertion.\n- **Environment:** the default `python` has no pytest installed, so I ran the tests with `/opt/miniconda3/envs/testbed/bin/python`.\n- **Working tree:** it also contains uncommitted changes in `config/__init__.py`, `pathlib.py`, `python.py` and the changelog files. They were there before I started (they match the open PRs #1000\u2013#1002) and I did not touch them.\n- **Nothing committed or pushed:** per the benchmark note, the change is left uncommitted.\n- **Changelog:** I added no entry under `changelog/`, because I had no issue number to name it with.\n\nThe PR text is in `.factory/pr-S6.md`.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest testing/test_pastebin.py -q\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"reproductionSteps\": [\n    \"Create a test file where test_fail() calls helper() and helper() does `assert 0`\",\n    \"Run pytest --pastebin=failed\",\n    \"Observe the label 'test_helper_fail.py:5: --> ...' (the call line) instead of the assertion line 2\"\n  ],\n  \"reproductionTest\": {\n    \"path\": \"testing/test_pastebin.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest testing/test_pastebin.py -q -k label\",\n    \"signature\": \"test_helper_fail.py:5: --> None\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 12,
+  "inputTokens": {
+   "avg": 22479.333333333332,
+   "max": 25569
+  },
+  "mainUsage": {
+   "inputTokens": 269752,
+   "cachedInputTokens": 258071,
+   "outputTokens": 4287
+  },
+  "cacheHitPercent": 95.66972626708977,
+  "wallSeconds": 36.675999879837036,
+  "tools": {
+   "read": 6,
+   "edit": 4,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 3
+  },
+  "reads": 6,
+  "edits": 4,
+  "runs": 3,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 4,
+  "editOperations": 4,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.12367270000000001,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.12367270000000001
+}

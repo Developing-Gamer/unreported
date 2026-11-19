@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 37308,
+ "finalText": "The fix, the regression test and the PR text (`.factory/pr-S2.md`) are all in place, and the `view_tests.tests.test_defaults` and `handlers` suites pass (40 tests).\n\nThe working tree also has uncommitted changes to `django/utils/dateformat.py` and `tests/utils_tests/test_dateformat.py`. I did not make them. They match open PR #1000 (the dateformat `o` fix), so I left them alone. They are unrelated to this fix and should not go into this PR.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"checks\": [\n    {\"command\": \"cd tests && PYTHONPATH=/testbed python runtests.py view_tests.tests.test_defaults handlers\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"reproduction\": [\n    \"Configure a 500.html template containing {% include 'missing_partial.html' %}\",\n    \"Call django.views.defaults.server_error(request)\",\n    \"Before the fix it returns the generic 'Server Error (500)' page; after the fix it raises TemplateDoesNotExist\"\n  ],\n  \"reproductionTest\": {\n    \"path\": \"tests/view_tests/tests/test_defaults.py\",\n    \"command\": \"cd tests && PYTHONPATH=/testbed python runtests.py view_tests.tests.test_defaults\",\n    \"signature\": \"AssertionError: TemplateDoesNotExist not raised\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 10,
+  "inputTokens": {
+   "avg": 23288.5,
+   "max": 26645
+  },
+  "mainUsage": {
+   "inputTokens": 232885,
+   "cachedInputTokens": 220132,
+   "outputTokens": 4088
+  },
+  "cacheHitPercent": 94.52390664920455,
+  "wallSeconds": 35.450000047683716,
+  "tools": {
+   "read": 6,
+   "edit": 4,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 4
+  },
+  "reads": 6,
+  "edits": 4,
+  "runs": 4,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 4,
+  "editOperations": 4,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.11677689999999999,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.11677689999999999
+}

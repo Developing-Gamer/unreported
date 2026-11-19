@@ -1,0 +1,30 @@
+{
+ "task": "psf__requests-1766",
+ "kept": [
+  {
+   "path": "requests/api.py",
+   "category": "silent wrong result (a value or output that is subtly wrong, no exception)",
+   "defect_patch": "diff --git a/requests/api.py b/requests/api.py\nindex baf43dd..2b79f3a 100644\n--- a/requests/api.py\n+++ b/requests/api.py\n@@ -73,7 +73,7 @@ def head(url, **kwargs):\n     :param \\*\\*kwargs: Optional arguments that ``request`` takes.\n     \"\"\"\n \n-    kwargs.setdefault('allow_redirects', False)\n+    kwargs['allow_redirects'] = False\n     return request('head', url, **kwargs)\n \n \n",
+   "test_code": "import requests\n\n\ndef test_head_honors_explicit_redirect_opt_in(monkeypatch):\n    observed = {}\n    response = object()\n\n    def record_request(self, method, url, **kwargs):\n        observed.update(kwargs)\n        return response\n\n    monkeypatch.setattr(requests.sessions.Session, 'request', record_request)\n\n    result = requests.head(\n        'http://monitor.example/health', allow_redirects=True\n    )\n\n    assert result is response\n    assert observed['allow_redirects'] is True\n",
+   "signal": {
+    "kind": "user",
+    "source": "uptime-monitor support",
+    "text": "Some URL checks now report 301 instead of the destination's 200, even though redirect following is enabled. Checks against direct URLs still look fine."
+   },
+   "summary": "The HEAD helper unconditionally disables redirects, silently ignoring an explicit allow_redirects=True."
+  },
+  {
+   "path": "requests/packages/urllib3/response.py",
+   "category": "silent wrong result (a value or output that is subtly wrong, no exception)",
+   "defect_patch": "diff --git a/requests/packages/urllib3/response.py b/requests/packages/urllib3/response.py\nindex 6a1fe1a..87d8ffb 100644\n--- a/requests/packages/urllib3/response.py\n+++ b/requests/packages/urllib3/response.py\n@@ -192,8 +192,6 @@ class HTTPResponse(io.IOBase):\n                     self._fp.close()\n                     flush_decoder = True\n \n-            self._fp_bytes_read += len(data)\n-\n             try:\n                 if decode_content and self._decoder:\n                     data = self._decoder.decompress(data)\n@@ -207,6 +205,8 @@ class HTTPResponse(io.IOBase):\n                 buf = self._decoder.decompress(binary_type())\n                 data += buf + self._decoder.flush()\n \n+            self._fp_bytes_read += len(data)\n+\n             if cache_content:\n                 self._body = data\n \n",
+   "test_code": "import io\nimport zlib\n\nimport pytest\n\nfrom requests.packages.urllib3.response import HTTPResponse\n\n\n@pytest.mark.parametrize('encoding,wbits', [\n    ('gzip', 16 + zlib.MAX_WBITS),\n    ('deflate', zlib.MAX_WBITS),\n])\ndef test_tell_counts_wire_bytes_for_decoded_responses(encoding, wbits):\n    payload = b'order_id,status\\n' + b'12345,complete\\n' * 1000\n    compressor = zlib.compressobj(wbits=wbits)\n    encoded = compressor.compress(payload) + compressor.flush()\n    response = HTTPResponse(\n        body=io.BytesIO(encoded),\n        headers={'content-encoding': encoding},\n        preload_content=False,\n    )\n    try:\n        assert response.tell() == 0\n        assert response.read() == payload\n        assert response.tell() == len(encoded)\n    finally:\n        response.close()\n",
+   "signal": {
+    "kind": "user",
+    "source": "data-export-support",
+    "text": "Export download progress occasionally reads over 600% just before completing, although the downloaded CSV contents look fine."
+   },
+   "summary": "Moving byte accounting after decompression makes tell() report decoded byte counts instead of bytes received over the wire for compressed responses."
+  }
+ ],
+ "rejected": []
+}

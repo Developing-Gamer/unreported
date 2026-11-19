@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 18428,
+ "finalText": "I found no code for this service in the repository, so I'm reporting it as not coming from here.\n\n```json\n{\n  \"verdict\": \"notActionable\",\n  \"title\": \"Webhook relay timeout is not from this repository\",\n  \"cause\": \"The error comes from a separate 'webhook-relay' service (relay/deliver.py, aiohttp) that timed out waiting on api.github.com. This repository is pylint, a static analysis tool. A search found no relay/ directory, no post_webhook function, no webhook code and no aiohttp use. The only asyncio mentions are pylint checkers and test fixtures that analyse other people's code. A 30 s upstream timeout to GitHub looks like a transient network or provider issue in that other service.\",\n  \"files\": [],\n  \"plan\": [\"No change in this repository. If the timeouts recur, look at the webhook-relay service's own code and retry settings.\"],\n  \"verification\": [\"Searched the repository for post_webhook, webhook, api.github.com, aiohttp and a relay/ directory. None of them exist here.\"],\n  \"userFacing\": false,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"none\",\n  \"risk\": \"none\",\n  \"confidence\": 0.95,\n  \"deliberate\": false,\n  \"intent\": \"Not applicable: the failing code is not in this repository.\",\n  \"fixType\": \"dependency\",\n  \"intendedBehavior\": \"Not applicable to this repository; the webhook relay service would need to retry or time out gracefully when GitHub is slow.\",\n  \"headline\": \"A webhook delivery timed out in a separate relay service, not in this product's code.\",\n  \"happened\": \"The relay service waited 30 seconds for GitHub to answer and gave up. This repository is a code-checking tool and has no webhook or relay code.\",\n  \"matters\": \"It affects only the separate relay service when GitHub is slow, and nothing in this repository.\",\n  \"fix\": \"No change here; check the relay service's own retries and GitHub's status if it keeps happening.\",\n  \"ruledOut\": [\n    {\"hypothesis\": \"The relay code lives in this repository\", \"why\": \"Searches for post_webhook, webhook, api.github.com and a relay/ path found nothing, and the repository has no aiohttp use.\", \"citations\": []}\n  ],\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"The failing frames (relay/deliver.py post_webhook) are not in this repository.\", \"role\": \"other\", \"citations\": [{\"type\": \"evidence\", \"ref\": \"ev_s6\", \"quote\": \"at relay/deliver.py in post_webhook\"}]}\n  ]\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 3,
+  "inputTokens": {
+   "avg": 12216.666666666666,
+   "max": 12557
+  },
+  "mainUsage": {
+   "inputTokens": 36650,
+   "cachedInputTokens": 31109,
+   "outputTokens": 1162
+  },
+  "cacheHitPercent": 84.88130968622102,
+  "wallSeconds": 14.702999830245972,
+  "tools": {
+   "read": 3,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 0
+  },
+  "reads": 3,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.0316903,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.0316903
+}

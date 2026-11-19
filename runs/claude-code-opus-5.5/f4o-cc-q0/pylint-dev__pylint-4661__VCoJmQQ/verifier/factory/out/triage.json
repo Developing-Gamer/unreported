@@ -1,0 +1,8 @@
+[
+  {"source": "S1", "decision": "fix", "reason": "Reproduced: _check_protected_attribute_access only exempted instance-of-own-class access inside classmethods, so it flagged instance.__value inside a staticmethod of the same class."},
+  {"source": "S2", "decision": "fix", "reason": "PYLINT_HOME still defaulted to ~/.pylint.d; it now uses platformdirs.user_cache_dir('pylint'), which honours XDG_CACHE_HOME."},
+  {"source": "S3", "decision": "skip", "reason": "Nothing in this checkout imports appdirs, so this checkout cannot raise this error; the S2 fix deliberately uses platformdirs (installed and declared in install_requires) so it does not bring this error in."},
+  {"source": "S4", "decision": "fix", "reason": "LintModuleTest.multiset_difference used Counter subtraction, which drops non-positive counts, so the 'Unexpected in testdata' part of the mismatch summary was always empty."},
+  {"source": "S5", "decision": "fix", "reason": "docparams visit_raise used exc.split('.', 1)[-1], so documented names with more than one dot (e.g. pkg.errors.ValueError) never matched the raised class name and triggered missing-raises-doc."},
+  {"source": "S6", "decision": "skip", "reason": "A Stripe connection-refused error in an unrelated billing service; it has nothing to do with this repository."}
+]

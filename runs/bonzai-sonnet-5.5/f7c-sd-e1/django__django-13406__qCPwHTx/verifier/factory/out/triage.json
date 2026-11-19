@@ -1,0 +1,32 @@
+[
+  {
+    "source": "S1",
+    "decision": "fix",
+    "reason": "In django/utils/dateformat.py, DateFormat.o() is documented as the ISO 8601 year matching the ISO week number (W), but it returns self.data.year, the calendar year. W correctly uses isocalendar()[1]. "
+  },
+  {
+    "source": "S2",
+    "decision": "fix",
+    "reason": "server_error wraps both get_template and template.render in one try/except TemplateDoesNotExist. If 500.html exists but something it extends or includes is missing, the exception raised during render "
+  },
+  {
+    "source": "S3",
+    "decision": "fix",
+    "reason": "QuerySet.query's setter only stores the query and leaves _iterable_class as ModelIterable. When a pickled values()/annotate() query is assigned to a fresh queryset, the SQL selects only the values col"
+  },
+  {
+    "source": "S4",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: Django templates call any callable they resolve with no arguments. Enum classes are callable and need a value, so `{% if x == YearInSchool.FRESHMAN %}` raised an error. The metaclass for Choices, Inte"
+  },
+  {
+    "source": "S5",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: The report came from older Django. Its parse_bits rejected a keyword-only argument that had a default as unexpected, and passing the same keyword twice gave the wrong error. In this tree (3.2 alpha) p"
+  },
+  {
+    "source": "S6",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The error comes from a separate service called webhook-relay. Its stack points at relay/deliver.py (post_webhook) and aiohttp, and its upstream call to api.github.com did not answer within 30 s. This "
+  }
+]

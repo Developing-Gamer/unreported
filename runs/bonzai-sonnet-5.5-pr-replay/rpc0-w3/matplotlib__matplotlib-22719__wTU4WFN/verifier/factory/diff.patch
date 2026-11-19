@@ -1,0 +1,41 @@
+diff --git a/lib/matplotlib/category.py b/lib/matplotlib/category.py
+index c823b68fd9..ac33ed4ea0 100644
+--- a/lib/matplotlib/category.py
++++ b/lib/matplotlib/category.py
+@@ -53,6 +53,9 @@ class StrCategoryConverter(units.ConversionInterface):
+         StrCategoryConverter._validate_unit(unit)
+         # dtype = object preserves numerical pass throughs
+         values = np.atleast_1d(np.array(value, dtype=object))
++        if values.size == 0:
++            # Nothing to convert; this is not a numeric pass-through.
++            return np.asarray(values, dtype=float)
+         # pass through sequence of non binary numbers
+         with _api.suppress_matplotlib_deprecation_warning():
+             is_numlike = all(units.ConversionInterface.is_numlike(v)
+diff --git a/lib/matplotlib/tests/test_category.py b/lib/matplotlib/tests/test_category.py
+index f0e424bd8e..9af2acf1d4 100644
+--- a/lib/matplotlib/tests/test_category.py
++++ b/lib/matplotlib/tests/test_category.py
+@@ -1,4 +1,6 @@
+ """Catch all for categorical functions"""
++import warnings
++
+ import pytest
+ import numpy as np
+ 
+@@ -312,3 +314,15 @@ def test_hist():
+     n, bins, patches = ax.hist(['a', 'b', 'a', 'c', 'ff'])
+     assert n.shape == (10,)
+     np.testing.assert_allclose(n, [2., 0., 0., 1., 0., 0., 1., 0., 0., 1.])
++
++
++def test_plot_empty_on_category_axis():
++    # Empty data must not be treated as deprecated numeric pass-through.
++    fig, ax = plt.subplots()
++    ax.plot(['a', 'b'], [1, 2])
++    with warnings.catch_warnings():
++        warnings.simplefilter('error', MatplotlibDeprecationWarning)
++        ax.plot([], [])
++        result = ax.xaxis.convert_units(np.array([]))
++    assert result.shape == (0,)
++    assert result.dtype == float

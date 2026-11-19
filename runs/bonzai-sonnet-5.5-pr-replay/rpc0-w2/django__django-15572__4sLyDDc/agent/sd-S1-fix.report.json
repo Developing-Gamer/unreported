@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 42015,
+ "finalText": "The fix is in the working tree, uncommitted, and the PR text is at `.factory/pr-S1.md` as requested. A status check shows only the three expected changes: the `django/template/autoreload.py` fix, the new test and the PR file.\n\n**What changed**\n- **Cause:** with `DIRS=['']`, `get_template_directories()` turned the empty entry into the project root. `template_changed()` then treated every changed non-`.py` file as a template change and returned True, so the reloader never restarted.\n- **Fix:** `get_template_directories()` now skips empty entries from both `engine.dirs` and `loader.get_dirs()`.\n- **Test:** `test_empty_template_dir_ignored` in `tests/template_tests/test_autoreloader.py` sets `DIRS=['']`. It checks that the current directory is not returned and that `template_changed` on an unrelated file returns None without resetting loaders.\n\n**Verification**\n- On the starting commit the new test failed with `AssertionError: PosixPath('/testbed') unexpectedly found in {PosixPath('/testbed')}`.\n- After the fix, `PYTHONPATH=/testbed python tests/runtests.py template_tests.test_autoreloader` passes all 11 tests.\n- I did not run the manual `runserver` check from the investigation.\n- I installed `asgiref`, `sqlparse` and `jinja2` with pip so the tests could run.\n\n```json\n{\"kind\":\"fix\",\"outcome\":\"ready\",\"checks\":[{\"name\":\"PYTHONPATH=/testbed python tests/runtests.py template_tests.test_autoreloader\",\"passed\":true}],\"visual\":false,\"reproductionSteps\":\"Set TEMPLATES DIRS=[''] and call template_changed(None, Path.cwd()/'file.txt'); it resets loaders and returns True because the project root is treated as a template dir, so the reloader skips the restart.\",\"reproductionTest\":{\"path\":\"tests/template_tests/test_autoreloader.py\",\"command\":\"PYTHONPATH=/testbed python tests/runtests.py template_tests.test_autoreloader\",\"signature\":\"AssertionError: PosixPath('/testbed') unexpectedly found in {PosixPath('/testbed')}\"}}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 11,
+  "inputTokens": {
+   "avg": 22740.090909090908,
+   "max": 25896
+  },
+  "mainUsage": {
+   "inputTokens": 250141,
+   "cachedInputTokens": 238135,
+   "outputTokens": 3884
+  },
+  "cacheHitPercent": 95.20030702683687,
+  "wallSeconds": 40.484999895095825,
+  "tools": {
+   "read": 4,
+   "edit": 5,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 4
+  },
+  "reads": 4,
+  "edits": 5,
+  "runs": 4,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 4,
+  "editOperations": 5,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.11646899999999999,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.11646899999999999
+}

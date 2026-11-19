@@ -1,0 +1,9 @@
+[
+  {"source": "S1", "decision": "fix", "reason": "RST.__init__ did not accept header_rows, so writing/reading ascii.rst with header_rows raised TypeError; RST now forwards header_rows to FixedWidth and positions its border lines/data start accordingly."},
+  {"source": "S2", "decision": "fix", "reason": "The exact message in the issue is already improved, but the required-columns check was weakened to a set-subset test, so a TimeSeries with a non-required column inserted ahead of 'time' (or required columns out of order) was no longer rejected; restored the ordered prefix comparison."},
+  {"source": "S3", "decision": "skip", "reason": "Describes a change in the format of downstream CSV downloads (an extra 0/1 field before the timestamp) with no astropy call, error or wrong output to act on; the related TimeSeries ordering check is restored under S2."},
+  {"source": "S4", "decision": "fix", "reason": "Importing astropy.io.ascii under python -OO still crashes because MetaBaseReader passes a None class docstring to inspect.cleandoc; now falls back to an empty string."},
+  {"source": "S5", "decision": "skip", "reason": "Already fixed: minversion now compares with packaging.version.Version instead of LooseVersion and minversion('numpy', '1.14dev') returns True."},
+  {"source": "S6", "decision": "skip", "reason": "Vague report about an unnamed dimension-normalization step in an external pipeline with no astropy function, input or traceback to identify a defect in this repository."},
+  {"source": "S7", "decision": "skip", "reason": "OOM kill of an external export-job service (export/worker.py, export/csv_writer.py) is a resource-limit problem in code outside this repository."}
+]

@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 36311,
+ "finalText": "The fix is in: empty `DIRS` entries such as `['']` are now skipped, so the project root no longer counts as a template directory. That means editing a non-template file restarts the server again. I did not run `runserver` by hand, so that is covered by the test only.\n\nThe test I added, `test_empty_template_dir_ignored`, failed on the unfixed code with `AssertionError: PosixPath('/testbed') unexpectedly found in {PosixPath('/testbed')}`. It passes after the fix. I re-ran the exact command from the reproduction, `PYTHONPATH=/testbed python tests/runtests.py template_tests.test_autoreloader`: 11 tests, OK, 3 skipped. The command needs `PYTHONPATH=/testbed`; without it the runner cannot find Django.\n\nThe change is in `django/template/autoreload.py` (both the `engine.dirs` loop and the `loader.get_dirs()` loop skip falsy entries), plus the new test in `tests/template_tests/test_autoreloader.py`. Nothing is committed. The PR title and description are in `.factory/pr-S1.md`.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"checks\": [\n    {\n      \"name\": \"template_tests.test_autoreloader\",\n      \"command\": \"PYTHONPATH=/testbed python tests/runtests.py template_tests.test_autoreloader\",\n      \"passed\": true\n    }\n  ],\n  \"visual\": false,\n  \"reproductionSteps\": \"Set TEMPLATES DIRS=[''] and call django.template.autoreload.template_changed(None, Path.cwd()/'unrelated.txt'); before the fix the project root is returned as a template dir and True is returned (reloader skips the restart).\",\n  \"reproductionTest\": {\n    \"path\": \"tests/template_tests/test_autoreloader.py\",\n    \"command\": \"PYTHONPATH=/testbed python tests/runtests.py template_tests.test_autoreloader\",\n    \"signature\": \"AssertionError(\\\"PosixPath('/testbed') unexpectedly found in {PosixPath('/testbed')}\\\")\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 10,
+  "inputTokens": {
+   "avg": 22625.7,
+   "max": 25924
+  },
+  "mainUsage": {
+   "inputTokens": 226257,
+   "cachedInputTokens": 214225,
+   "outputTokens": 4218
+  },
+  "cacheHitPercent": 94.6821534803343,
+  "wallSeconds": 34.367000102996826,
+  "tools": {
+   "read": 3,
+   "edit": 5,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 4
+  },
+  "reads": 3,
+  "edits": 5,
+  "runs": 4,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 4,
+  "editOperations": 5,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.115093,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.115093
+}

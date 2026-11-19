@@ -1,0 +1,117 @@
+diff --git a/lib/matplotlib/axis.py b/lib/matplotlib/axis.py
+index 0b4646cd5d..bfe10df34d 100644
+--- a/lib/matplotlib/axis.py
++++ b/lib/matplotlib/axis.py
+@@ -866,6 +866,11 @@ class Axis(martist.Artist):
+         - registered callbacks
+         """
+         self.label._reset_visual_defaults()
++        # The above resets the label formatting using text rcParams,
++        # so we then update the formatting using axes rcParams
++        self.label.set_color(mpl.rcParams['axes.labelcolor'])
++        self.label.set_fontsize(mpl.rcParams['axes.labelsize'])
++        self.label.set_fontweight(mpl.rcParams['axes.labelweight'])
+         self.offsetText._reset_visual_defaults()
+         self.labelpad = mpl.rcParams['axes.labelpad']
+ 
+diff --git a/lib/matplotlib/backends/qt_compat.py b/lib/matplotlib/backends/qt_compat.py
+index a1a239ae9c..b1b96f93d6 100644
+--- a/lib/matplotlib/backends/qt_compat.py
++++ b/lib/matplotlib/backends/qt_compat.py
+@@ -38,10 +38,10 @@ _ETS = {  # Mapping of QT_API_ENV to requested binding.
+ # First, check if anything is already imported.
+ if sys.modules.get("PyQt6.QtCore"):
+     QT_API = QT_API_PYQT6
+-elif sys.modules.get("PyQt5.QtCore"):
+-    QT_API = QT_API_PYQT5
+ elif sys.modules.get("PySide6.QtCore"):
+     QT_API = QT_API_PYSIDE6
++elif sys.modules.get("PyQt5.QtCore"):
++    QT_API = QT_API_PYQT5
+ elif sys.modules.get("PySide2.QtCore"):
+     QT_API = QT_API_PYSIDE2
+ # Otherwise, check the QT_API environment variable (from Enthought).  This can
+diff --git a/lib/matplotlib/mlab.py b/lib/matplotlib/mlab.py
+index 3552904c3d..b90c7ada60 100644
+--- a/lib/matplotlib/mlab.py
++++ b/lib/matplotlib/mlab.py
+@@ -427,7 +427,7 @@ def _spectral_helper(x, y=None, NFFT=None, Fs=None, detrend_func=None,
+             result /= (np.abs(window)**2).sum()
+         else:
+             # In this case, preserve power in the segment, not amplitude
+-            result /= np.abs(window).sum()**2
++            result /= window.sum()**2
+ 
+     t = np.arange(NFFT/2, len(x) - NFFT/2 + 1, NFFT - noverlap)/Fs
+ 
+diff --git a/lib/matplotlib/tests/test_axes.py b/lib/matplotlib/tests/test_axes.py
+index b12b5d0bab..2134443427 100644
+--- a/lib/matplotlib/tests/test_axes.py
++++ b/lib/matplotlib/tests/test_axes.py
+@@ -130,6 +130,16 @@ def test_label_loc_rc(fig_test, fig_ref):
+     cbar.set_label("Z Label", x=1, ha='right')
+ 
+ 
++def test_axis_label_rcparams():
++    with mpl.rc_context({'axes.labelsize': 22, 'axes.labelcolor': 'red',
++                         'axes.labelweight': 'bold'}):
++        fig, ax = plt.subplots()
++    for label in [ax.xaxis.label, ax.yaxis.label]:
++        assert label.get_size() == 22
++        assert label.get_color() == 'red'
++        assert label.get_weight() == 'bold'
++
++
+ def test_label_shift():
+     fig, ax = plt.subplots()
+ 
+diff --git a/lib/matplotlib/tests/test_backend_qt.py b/lib/matplotlib/tests/test_backend_qt.py
+index 64d59b853f..8e0947fe8a 100644
+--- a/lib/matplotlib/tests/test_backend_qt.py
++++ b/lib/matplotlib/tests/test_backend_qt.py
+@@ -642,3 +642,25 @@ def test_enums_available(env):
+         env={**os.environ, "SOURCE_DATE_EPOCH": "0", **env},
+         timeout=_test_timeout, check=True,
+         stdout=subprocess.PIPE, text=True)
++
++
++@pytest.mark.skipif(not importlib.util.find_spec("PyQt5"),
++                    reason="PyQt5 cannot be imported")
++def test_qt_api_prefers_qt6_family_when_already_imported():
++    # With both PySide6 and PyQt5 already imported, PySide6 must be preferred.
++    # PySide6 is faked (and thus fails to set up), which is how we tell that
++    # it, and not PyQt5, was selected.
++    code = (
++        "import sys, types\n"
++        "import PyQt5.QtCore\n"
++        "for name in ['PySide6', 'PySide6.QtCore']:\n"
++        "    sys.modules[name] = types.ModuleType(name)\n"
++        "try:\n"
++        "    import matplotlib.backends.qt_compat\n"
++        "except ImportError as e:\n"
++        "    print('PySide6' in str(e))\n"
++        "else:\n"
++        "    print('imported')\n")
++    out = subprocess.run([sys.executable, "-c", code], env={**os.environ},
++                         capture_output=True, text=True, check=True).stdout
++    assert out.strip() == "True"
+diff --git a/lib/matplotlib/tests/test_mlab.py b/lib/matplotlib/tests/test_mlab.py
+index 86beb5c8c8..276a032444 100644
+--- a/lib/matplotlib/tests/test_mlab.py
++++ b/lib/matplotlib/tests/test_mlab.py
+@@ -682,6 +682,15 @@ class TestSpectral:
+         assert_allclose(fsp, freqs, atol=1e-06)
+         assert spec.shape == freqs.shape
+ 
++    def test_psd_windowarray_negative_values_no_scale_by_freq(self):
++        # The window correction must use the signed sum of the window; with a
++        # constant signal the DC bin is then exactly 1.
++        win = np.ones(16)
++        win[::4] = -0.5
++        spec, _ = mlab.psd(x=np.ones(64), NFFT=16, Fs=1, noverlap=0,
++                           window=win, scale_by_freq=False)
++        assert_allclose(spec[0], 1)
++
+     def test_psd_windowarray_scale_by_freq(self):
+         win = mlab.window_hanning(np.ones(self.NFFT_density_real))
+ 

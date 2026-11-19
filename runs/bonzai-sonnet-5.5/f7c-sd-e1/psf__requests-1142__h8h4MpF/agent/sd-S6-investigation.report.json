@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 51968,
+ "finalText": "The signal does come from this repository: the code that rewrites a URL before sending it changes some signed links, so those links stop matching their signatures. I read the code and ran the URL-rewriting function on sample links. I did not reproduce an actual 403, because no S3 or Sentry source is connected in this run. That the rewrite causes the 403 is inferred, not observed.\n\n**What happens:** `prepare_url` in `requests/models.py` (line 321) passes every URL through `requote_uri`. That function calls `unquote_unreserved` in `requests/utils.py` (lines 392\u2013407), which decodes percent-escapes of \"unreserved\" characters. For example, `%7E` becomes `~`, `%41` becomes `A`, and `%2D`, `%5F` and `%2E` become `-`, `_` and `.`.\n\n**Why only a subset fails:** only links whose signed path or query contains such escapes are rewritten. A presigned link is a signature over its exact text, so those links no longer match and the storage service returns 403 `SignatureDoesNotMatch`. All other links pass through unchanged.\n\n**What I ran:** the extracted `requote_uri` turned `a%7Eb?k=%7e` into `a~b?k=~` and `%41%2f` into `A%2f`. Escapes like `%2B`, `%2F` and `%3D` stay encoded, so that is not the cause.\n\n**Related bug in the same function:** the hex check uses `isalnum()`, so a link containing `%zz` raises a ValueError. Unicode digits such as `%\u0663\u0663` are wrongly decoded to `3`3.\n\n**Intent:** nothing in `HISTORY.rst`, the docs or the tests says rewriting unreserved escapes was chosen. The docstring only says the URL should be \"consistently quoted\", so I treated this as a defect.\n\n**Fix:**\n1. Leave valid existing `%XX` escapes exactly as written, and only quote characters that are actually illegal.\n2. Check hex digits strictly.\n3. Add tests: a presigned-style URL with `%7E`, `%41`, `%2D` and `%5F` stays byte-identical, a space is still quoted as `%20`, and `%zz` does not raise.\n\nConfidence is 0.6 and certainty is \"likely\". Effort is small and risk is low.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Signed download links altered before they are sent\",\n  \"cause\": \"Before every request, PreparedRequest.prepare_url runs the whole URL through requote_uri, which calls unquote_unreserved. That function silently decodes percent-escapes of unreserved characters: %7E becomes ~, %41 becomes A, and %2D, %5F and %2E become -, _ and . Only links whose signed path or query contains such escapes are rewritten, which matches the subset in the report. A presigned link is a byte-exact signature over the URL, so for those links the signature no longer matches and the storage service returns 403 SignatureDoesNotMatch. A related defect in the same function: its hex check uses isalnum(), so a non-hex %zz raises ValueError, and Unicode digits such as %\u0663\u0663 are decoded to the wrong character.\",\n  \"files\": [\n    {\"path\": \"requests/utils.py\", \"why\": \"unquote_unreserved (lines 392-407) rewrites existing percent-escapes, and its isalnum() hex check is wrong. requote_uri (410-419) applies it.\"},\n    {\"path\": \"requests/models.py\", \"why\": \"prepare_url line 321 passes the full user URL, including already-escaped path and query, through requote_uri.\"}\n  ],\n  \"plan\": [\n    \"Make requote_uri leave valid existing %XX escapes exactly as written (no decoding of unreserved characters). Only quote characters that are actually illegal, such as spaces, quotes and braces.\",\n    \"Check hex digits strictly (string.hexdigits) so %zz and Unicode digits no longer raise or decode.\",\n    \"Add tests: a presigned-style URL with %7E, %41, %2D and %5F stays byte-identical after prepare_url; a space in the path is still quoted as %20; %zz does not raise.\"\n  ],\n  \"verification\": [\n    \"Run the new tests in test_requests.py. They fail before the change and pass after.\",\n    \"Build a PreparedRequest for a URL containing %7E and %41, and assert that .url equals the input.\",\n    \"Confirm existing URL-quoting tests still pass.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"likely\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.6,\n  \"intendedBehavior\": \"A URL that is already validly percent-encoded is sent to the server byte-for-byte as given, and only illegal characters are newly escaped.\",\n  \"intent\": {\n    \"deliberate\": false,\n    \"note\": \"The docstring says the quote cycle is meant to make the URL 'fully and consistently quoted', so normalisation is intended. Nothing in HISTORY.rst, the docs or the tests records that escapes of unreserved characters should be rewritten, and the non-hex crash is plainly unintended.\"\n  },\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"unquote_unreserved decodes percent-escapes of unreserved characters, changing the URL bytes a caller supplied.\", \"role\": \"rootCause\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/utils.py:399\", \"quote\": \"if len(h) == 2 and h.isalnum():\"},\n      {\"type\": \"code\", \"ref\": \"requests/utils.py:401\", \"quote\": \"if c in UNRESERVED_SET:\"}\n    ]},\n    {\"id\": \"c2\", \"text\": \"Every prepared request URL, including its query string, goes through requote_uri.\", \"role\": \"rootCause\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/models.py:321\", \"quote\": \"url = requote_uri(urlunparse([scheme, netloc, path, _params, query, fragment]))\"}\n    ]},\n    {\"id\": \"c3\", \"text\": \"Running the extracted requote_uri showed a%7Eb?k=%7e becoming a~b?k=~, and %41%2f becoming A%2f. %zz raised ValueError.\", \"role\": \"impact\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/utils.py:419\", \"quote\": \"return quote(unquote_unreserved(uri), safe=\\\"!#$%&'()*+,/:;=?@[]~\\\")\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"Query-parameter encoding (_encode_params) corrupts signature characters.\", \"why\": \"Reserved escapes such as %2B, %2F and %3D stay encoded under requote_uri's safe set. Only unreserved escapes are rewritten.\"},\n    {\"hypothesis\": \"The behaviour was documented or changelogged as intentional.\", \"why\": \"A search of HISTORY.rst, the docs and the tests found no mention of unreserved decoding.\"}\n  ],\n  \"fixType\": \"error\",\n  \"plain\": {\n    \"headline\": \"A few copied download links stopped working because the app quietly changed some characters in them before opening them.\",\n    \"happened\": \"Before fetching any link, the app tidies it up. Part of that tidying rewrites certain encoded characters back into plain ones. Download links are cryptographically signed over their exact text, so a link containing those encoded characters no longer matches its signature. The storage service then rejects it.\",\n    \"matters\": \"Anyone whose download link contains one of those encoded characters gets a refusal, while all other links keep working, which makes it look random.\",\n    \"fix\": \"Stop rewriting encoded characters that are already valid, and only escape characters that are actually illegal.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 8,
+  "inputTokens": {
+   "avg": 15239.375,
+   "max": 19076
+  },
+  "mainUsage": {
+   "inputTokens": 121915,
+   "cachedInputTokens": 109845,
+   "outputTokens": 7290
+  },
+  "cacheHitPercent": 90.09965959890087,
+  "wallSeconds": 51.799999952316284,
+  "tools": {
+   "read": 6,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 2
+  },
+  "reads": 6,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.125034,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.125034
+}

@@ -1,0 +1,37 @@
+[
+  {
+    "source": "S1",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: The report came from an old version where get_feature_names did not validate the vocabulary passed to the constructor, so it raised NotFittedError even though transform worked. In the current code get"
+  },
+  {
+    "source": "S2",
+    "decision": "fix",
+    "reason": "In l1_min_c the absolute value is applied after the max, not before it: `abs(np.dot(Y, bias).max())`. Y is the +1/-1 one-vs-rest label matrix. Each row's intercept term is intercept_scaling times that"
+  },
+  {
+    "source": "S3",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: The report comes from an old scikit-learn (around 0.19) where clone() called get_params on a class parameter and failed. The current clone() checks isinstance(estimator, type) in _clone_parametrized. "
+  },
+  {
+    "source": "S4",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The error comes from a separate service, webhook-relay, in relay/deliver.py using aiohttp. This repository is scikit-learn and has no webhook, relay or aiohttp code. A search for webhook, post_webhook"
+  },
+  {
+    "source": "S5",
+    "decision": "fix",
+    "reason": "roc_curve adds an extra first threshold so the curve starts at (0, 0). It sets that value to thresholds[0] + 1, i.e. max(y_score) + 1. For probability scores in [0, 1] this always gives a threshold ab"
+  },
+  {
+    "source": "S6",
+    "decision": "fix",
+    "reason": "VarianceThreshold computes variance for dense input with np.nanvar(..., ddof=1), a sample variance. For sparse input it uses mean_variance_axis, a population variance (ddof=0). Upstream scikit-learn u"
+  },
+  {
+    "source": "S7",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The tree builder compares the raw row count (n_node_samples) to min_samples_split. Weighted node size is only used for min_weight_fraction_leaf. The tree user guide states this on purpose and points u"
+  }
+]

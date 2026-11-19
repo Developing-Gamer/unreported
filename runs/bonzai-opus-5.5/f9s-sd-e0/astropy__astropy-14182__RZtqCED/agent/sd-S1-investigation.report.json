@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 98123,
+ "finalText": "I re-checked the report against the request. One citation was invalid: a \"9 passed\" quote from the test run is shorter than the 20-character minimum. I removed it and kept the test result in the explanation. Everything else checks out, and I didn't edit any files.\n\nThe `ascii.rst` writer still doesn't accept `header_rows` in the current code, so this isn't fixed in a newer version.\n\n**What happens:** I ran the issue's table in the testbed environment. `tbl.write(sys.stdout, format=\"ascii.rst\", header_rows=[\"name\", \"unit\"])` stops with `TypeError: __init__() got an unexpected keyword argument 'header_rows'`. The same call with `ascii.fixed_width` prints the unit row. Anyone writing a table with units to reStructuredText (for example, for Sphinx docs) can't include the units without editing the output by hand.\n\n**Cause:** There are three single-header-row assumptions in `astropy/io/ascii/rst.py`:\n- **Setup:** the reStructuredText writer is built on the fixed-width writer, which supports `header_rows`. But its setup takes no arguments and doesn't pass `header_rows` on (lines 60\u201361).\n- **Writing:** it uses `lines[1]` as the `=====` border line (line 65). With two header rows, `lines[1]` would be the unit row.\n- **Reading:** it assumes the data starts on line 3 (`start_line = 3`), which is only true with one header row.\n\n**Deliberate?** No. The class docstring lists only continuation lines and column spans as unsupported. No test or changelog entry says `header_rows` is refused.\n\n**Checks:** besides reproducing the error above, I ran the existing reStructuredText tests, which pass (9 passed). None of them uses `header_rows`. The fix (add `header_rows`, move the border to the right line, adjust where reading starts) isn't written or tested yet. How reading would handle extra header rows comes from the code, not from a run.\n\n**Plain summary**\n- **Headline:** People can't add a units row to tables they save as reStructuredText, because that format refuses the option that other fixed-width formats accept.\n- **What happened:** A user asked astropy to write a table with units as reStructuredText, adding a units row under the column names. The fixed-width format does this, but the reStructuredText format stops with an error because it never takes the option. Its border-drawing code also assumes there is only ever one header row.\n- **Why it matters:** Anyone producing documentation tables with units has to edit the output by hand or switch formats.\n- **Fix:** Let the reStructuredText format accept the extra header rows and place its border lines after however many there are, for both writing and reading.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"RST table output rejects header_rows (e.g. units row)\",\n  \"cause\": \"The RST writer subclasses FixedWidth but its __init__ takes no arguments and calls super().__init__(delimiter_pad=None, bookend=False) without header_rows, so passing header_rows raises TypeError. Its write() also hard-codes lines[1] as the '=====' border, and SimpleRSTData.start_line = 3 hard-codes the read layout, both assuming a single header row.\",\n  \"files\": [\n    {\"path\": \"astropy/io/ascii/rst.py\", \"why\": \"RST.__init__ does not accept or forward header_rows; write() uses lines[1] as the border line; SimpleRSTData.start_line is fixed at 3.\"},\n    {\"path\": \"astropy/io/ascii/tests/test_rst.py\", \"why\": \"Add write and round-trip tests with header_rows=['name','unit'].\"},\n    {\"path\": \"astropy/io/ascii/fixedwidth.py\", \"why\": \"Reference only: FixedWidth.__init__ already supports header_rows and FixedWidthData.write emits one line per header row before the position line.\"}\n  ],\n  \"plan\": [\n    \"Change RST.__init__ to accept header_rows=None and forward it: super().__init__(delimiter_pad=None, bookend=False, header_rows=header_rows).\",\n    \"In RST.write, use idx = len(self.header.header_rows) and border = lines[idx] instead of lines[1].\",\n    \"For reading, set data.start_line = len(header_rows) + 2 (for example in an RST.read override) instead of the fixed start_line = 3.\",\n    \"Add tests: write with header_rows=['name','unit'] gives a border line, name row, unit row, border line, data rows and a closing border line; reading it back with the same header_rows restores the units; the default output is unchanged.\",\n    \"Add a changelog fragment and mention RST in the header_rows docs.\"\n  ],\n  \"verification\": [\n    \"QTable({'wave': [350,950]*u.nm, 'response': [0.7,1.2]*u.count}).write(sys.stdout, format='ascii.rst', header_rows=['name','unit']) prints '===== ========' / ' wave response' / '   nm       ct' / '===== ========' / data / '===== ========' without an error.\",\n    \"Reading that output with format='ascii.rst', header_rows=['name','unit'] gives columns with units nm and ct.\",\n    \"The existing astropy/io/ascii/tests/test_rst.py (9 tests) still passes.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.93,\n  \"fixType\": \"error\",\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"RST.__init__ accepts no keyword arguments and does not forward header_rows to FixedWidth, so passing header_rows raises a TypeError.\", \"role\": \"rootCause\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"astropy/io/ascii/rst.py:61\", \"quote\": \"super().__init__(delimiter_pad=None, bookend=False)\"},\n      {\"type\": \"query\", \"ref\": \"probe:python\", \"quote\": \"TypeError: __init__() got an unexpected keyword argument 'header_rows'\"}\n    ]},\n    {\"id\": \"c2\", \"text\": \"Even with header_rows forwarded, RST.write would take the wrong line as its border, because it assumes the position line is always the second line.\", \"role\": \"rootCause\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"astropy/io/ascii/rst.py:65\", \"quote\": \"lines = [lines[1]] + lines + [lines[1]]\"},\n      {\"type\": \"code\", \"ref\": \"astropy/io/ascii/fixedwidth.py:293\", \"quote\": \"for vals in hdrs_list:\\n            lines.append(self.splitter.join(vals, widths))\"}\n    ]},\n    {\"id\": \"c3\", \"text\": \"The parent FixedWidth writer already supports header_rows, so the same table writes a units row with format ascii.fixed_width.\", \"role\": \"other\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"astropy/io/ascii/fixedwidth.py:354\", \"quote\": \"self.header.header_rows = header_rows\"},\n      {\"type\": \"evidence\", \"ref\": \"ev_s1\", \"quote\": \"tbl.write(sys.stdout, format=\\\"ascii.fixed_width\\\", header_rows=[\\\"name\\\", \\\"unit\\\"])\"}\n    ]},\n    {\"id\": \"c4\", \"text\": \"The user cannot write an RST table with a units row and has to edit output by hand or use another format.\", \"role\": \"impact\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s1\", \"quote\": \"Please support header rows in RestructuredText output\"}\n    ]},\n    {\"id\": \"c5\", \"text\": \"Reading RST assumes data always starts on line 3, which only holds for one header row.\", \"role\": \"other\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"astropy/io/ascii/rst.py:30\", \"quote\": \"start_line = 3\\n    end_line = -1\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"The issue comes from an older astropy version and is already fixed.\", \"why\": \"The current rst.py still lacks header_rows, and a probe on the current checkout reproduces the TypeError.\", \"citations\": [{\"type\": \"code\", \"ref\": \"astropy/io/ascii/rst.py:60\", \"quote\": \"def __init__(self):\\n        super().__init__(delimiter_pad=None, bookend=False)\"}]},\n    {\"hypothesis\": \"The existing RST tests are failing.\", \"why\": \"astropy/io/ascii/tests/test_rst.py passes (9 tests) on the current checkout; none of them uses header_rows, so they don't cover this path.\", \"citations\": []}\n  ],\n  \"intendedBehavior\": \"Writing a table with format='ascii.rst' and header_rows=['name','unit'] outputs an RST simple table whose header has a name row and a unit row between '=' border lines, and reading it back with the same header_rows restores the units.\",\n  \"intent\": {\n    \"deliberate\": false,\n    \"evidence\": \"The RST class docstring lists only continuation lines and column-span header lines as unsupported. No test or changelog entry says header_rows is refused. The narrower __init__ was not updated when header_rows was added to FixedWidth and FixedWidthTwoLine.\"\n  },\n  \"plain\": {\n    \"headline\": \"People can't add a units row to tables they save as reStructuredText, because that format refuses the option that other fixed-width formats accept.\",\n    \"happened\": \"A user asked astropy to write a table with units as reStructuredText, adding a units row under the column names. The fixed-width format does this, but the reStructuredText format stops with an error because it never takes the option. Its border-drawing code also assumes there is only ever one header row.\",\n    \"matters\": \"Anyone producing documentation tables with units has to edit the output by hand or switch formats.\",\n    \"fix\": \"Let the reStructuredText format accept the extra header rows and place its border lines after however many there are, for both writing and reading.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 8,
+  "inputTokens": {
+   "avg": 15683.375,
+   "max": 22602
+  },
+  "mainUsage": {
+   "inputTokens": 125467,
+   "cachedInputTokens": 109871,
+   "outputTokens": 9986
+  },
+  "cacheHitPercent": 87.56963982561152,
+  "wallSeconds": 97.30800008773804,
+  "tools": {
+   "read": 4,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 4
+  },
+  "reads": 4,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.2996542,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.2996542
+}

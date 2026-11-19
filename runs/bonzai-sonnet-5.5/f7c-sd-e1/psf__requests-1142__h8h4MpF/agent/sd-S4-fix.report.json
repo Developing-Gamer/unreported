@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 66812,
+ "finalText": "Body-less GET and HEAD requests no longer get a `Content-Length` header. POST and other methods without a body still send `Content-Length: 0`. I re-checked the diff and the new tests just now, and they pass. The full `test_requests.py` run has 3 failures that I did not trace to this change.\n\n**The fix:** `prepare_content_length` in `requests/models.py` used to set `Content-Length: 0` before it looked at the body. It now sets `0` only when the body is `None` and the method is not GET or HEAD. `prepare_auth` calls the same function, so it follows the same rule.\n\n**Tests:** I added three to `test_requests.py`. One checks that GET and HEAD have no `Content-Length`; it failed before the fix with `AssertionError: False is not true`. The other two check that a POST with no data gets `'0'` and a POST with `data='hello'` gets `'5'`.\n\n**Full suite:** 35 passed and 3 failed (`python -m pytest test_requests.py` with `/opt/miniconda3/envs/testbed/bin/python`). Two digest-auth tests fail with `'MockRequest' object has no attribute 'origin_req_host'`, and `test_links` fails on an SSL certificate verification error. Neither error mentions `Content-Length`, but I did not re-run them with the fix reverted.\n\n**Other changes in the tree:** the working tree already had uncommitted changes from #1000 and #1001 (`requests/utils.py`, `requests/exceptions.py`, urllib3 `connectionpool.py`, `.travis.yml`). Neither open PR touches this cause, so they don't cover the issue. I left those changes alone.\n\nNothing was committed or pushed. The PR text is in `.factory/pr-S4.md`.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"checks\": [\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest test_requests.py -k content_length\", \"passed\": true},\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest test_requests.py\", \"passed\": false, \"note\": \"3 failures (2 digest auth MockRequest.origin_req_host, test_links SSL cert verification) whose errors do not mention Content-Length; not re-run with the fix reverted\"}\n  ],\n  \"visual\": false,\n  \"reproductionSteps\": [\n    \"Run requests.Request('GET', 'http://example.com/').prepare().headers\",\n    \"Observe that 'Content-Length: 0' is present; servers like amazon.com reject such GETs with 503\"\n  ],\n  \"reproductionTest\": {\n    \"path\": \"test_requests.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest test_requests.py -k content_length\",\n    \"signature\": \"AssertionError: False is not true\"\n  },\n  \"prFile\": \".factory/pr-S4.md\"\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 14,
+  "inputTokens": {
+   "avg": 24424.5,
+   "max": 29939
+  },
+  "mainUsage": {
+   "inputTokens": 341943,
+   "cachedInputTokens": 325888,
+   "outputTokens": 5620
+  },
+  "cacheHitPercent": 95.30477301772518,
+  "wallSeconds": 66.58299994468689,
+  "tools": {
+   "read": 8,
+   "edit": 4,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 3
+  },
+  "reads": 8,
+  "edits": 4,
+  "runs": 3,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 4,
+  "editOperations": 4,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1614991,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1614991
+}

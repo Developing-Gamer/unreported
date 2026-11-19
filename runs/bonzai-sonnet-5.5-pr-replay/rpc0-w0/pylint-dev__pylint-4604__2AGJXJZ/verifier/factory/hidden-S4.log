@@ -1,0 +1,41 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+____________ test_set_on_right_preserves_partial_ordering_exemption ____________
+
+    def test_set_on_right_preserves_partial_ordering_exemption():
+        module = astroid.parse('''
+    class TagSet(set):
+        pass
+    
+    selected = TagSet({1})
+    result = not selected <= {2}
+    ''')
+        node = next(module.nodes_of_class(astroid.UnaryOp))
+        linter = UnittestLinter()
+        checker = NotChecker(linter)
+    
+        checker.visit_unaryop(node)
+    
+        messages = linter.release_messages()
+>       assert messages == [], (
+            "A negated subset comparison must not be simplified to a strict "
+            "superset comparison: these differ for incomparable sets. "
+            f"Unexpected messages: {messages!r}"
+        )
+E       AssertionError: A negated subset comparison must not be simplified to a strict superset comparison: these differ for incomparable sets. Unexpected messages: [Message(msg_id='unneeded-not', line=None, node=<UnaryOp l.6 at 0x7f1f7fba9ca0>, args=('not selected <= {2}', 'selected > {2}'), confidence=Confidence(name='UNDEFINED', description='Warning without any associated confidence level.'))]
+E       assert [Message(msg_...nce level.'))] == []
+E         Left contains one more item: Message(msg_id='unneeded-not', line=None, node=<UnaryOp l.6 at 0x7f1f7fba9ca0>, args=('not selected <= {2}', 'selected > {2}'), confidence=Confidence(name='UNDEFINED', description='Warning without any associated confidence level.'))
+E         Full diff:
+E         - []
+E         + [Message(msg_id='unneeded-not', line=None, node=<UnaryOp l.6 at 0x7f1f7fba9ca0>, args=('not selected <= {2}', 'selected > {2}'), confidence=Confidence(name='UNDEFINED', description='Warning without any associated confidence level.'))]
+
+/tmp/test_hidden_S4.py:22: AssertionError
+=============================== warnings summary ===============================
+../opt/miniconda3/envs/testbed/lib/python3.9/site-packages/astroid/interpreter/_import/util.py:6
+  /opt/miniconda3/envs/testbed/lib/python3.9/site-packages/astroid/interpreter/_import/util.py:6: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html
+    import pkg_resources
+
+-- Docs: https://docs.pytest.org/en/stable/warnings.html
+=========================== short test summary info ============================
+FAILED ../tmp/test_hidden_S4.py::test_set_on_right_preserves_partial_ordering_exemption
+1 failed, 1 warning in 0.63s

@@ -1,0 +1,139 @@
+diff --git a/CHANGES b/CHANGES
+index 64410011e..4b95d8fb1 100644
+--- a/CHANGES
++++ b/CHANGES
+@@ -51,6 +51,12 @@ Bugs fixed
+ ----------
+ 
+ * #8872: autodoc: stacked singledispatches are wrongly rendered
++* LaTeX: abbreviation spacing fix (``\@``) was not applied to a period
++  followed by a newline or tab, leaving a wider gap after it in PDF output
++* autosummary: templates_path entries were searched in reverse order, so a
++  same-named template in a later entry overrode the earlier one
++* #9189: autodoc: Python Enum values used as default values in signatures are
++  rendered as ``<MyEnum.ValueA: 1>`` instead of ``MyEnum.ValueA``
+ * #8597: autodoc: a docsting having metadata only should be treated as
+   undocumented
+ * #9185: autodoc: typehints for overloaded functions and methods are inaccurate
+diff --git a/sphinx/util/inspect.py b/sphinx/util/inspect.py
+index a415a7074..95a7d534d 100644
+--- a/sphinx/util/inspect.py
++++ b/sphinx/util/inspect.py
+@@ -432,6 +432,8 @@ def safe_getattr(obj: Any, name: str, *defargs: Any) -> Any:
+ 
+ def object_description(object: Any) -> str:
+     """A repr() implementation that returns text safe to use in reST context."""
++    if isinstance(object, enum.Enum):
++        return "%s.%s" % (object.__class__.__name__, object.name)
+     if isinstance(object, dict):
+         try:
+             sorted_keys = sorted(object)
+diff --git a/sphinx/util/template.py b/sphinx/util/template.py
+index 330c41404..a61008602 100644
+--- a/sphinx/util/template.py
++++ b/sphinx/util/template.py
+@@ -111,7 +111,7 @@ class SphinxTemplateLoader(BaseLoader):
+ 
+         for templates_path in templates_paths:
+             loader = SphinxFileSystemLoader(path.join(confdir, templates_path))
+-            self.loaders.insert(0, loader)
++            self.loaders.append(loader)
+ 
+         for templates_path in system_templates_paths:
+             loader = SphinxFileSystemLoader(templates_path)
+diff --git a/sphinx/util/texescape.py b/sphinx/util/texescape.py
+index 3b80dcfa2..8dcc08a9b 100644
+--- a/sphinx/util/texescape.py
++++ b/sphinx/util/texescape.py
+@@ -128,7 +128,7 @@ def hlescape(s: str, latex_engine: str = None) -> str:
+ 
+ def escape_abbr(text: str) -> str:
+     """Adjust spacing after abbreviations. Works with @ letter or other."""
+-    return re.sub(r'\.(?= |$)', r'.\@{}', text)
++    return re.sub(r'\.(?=\s|$)', r'.\@{}', text)
+ 
+ 
+ def init() -> None:
+diff --git a/tests/test_util_inspect.py b/tests/test_util_inspect.py
+index de4ad9236..1c90e72f4 100644
+--- a/tests/test_util_inspect.py
++++ b/tests/test_util_inspect.py
+@@ -502,6 +502,21 @@ def test_frozenset_sorting_fallback():
+     assert description in ("frozenset({1, None})", "frozenset({None, 1})")
+ 
+ 
++def test_enum_object_description():
++    import enum
++
++    class MyEnum(enum.Enum):
++        a = 1
++
++    assert inspect.object_description(MyEnum.a) == "MyEnum.a"
++
++    def func(e: MyEnum = MyEnum.a):
++        pass
++
++    sig = inspect.signature(func)
++    assert stringify_signature(sig).endswith(' = MyEnum.a)')
++
++
+ def test_dict_customtype():
+     class CustomType:
+         def __init__(self, value):
+diff --git a/tests/test_util_template.py b/tests/test_util_template.py
+index bc325ac9d..d17caff14 100644
+--- a/tests/test_util_template.py
++++ b/tests/test_util_template.py
+@@ -8,7 +8,7 @@
+     :license: BSD, see LICENSE for details.
+ """
+ 
+-from sphinx.util.template import ReSTRenderer
++from sphinx.util.template import ReSTRenderer, SphinxTemplateLoader
+ 
+ 
+ def test_ReSTRenderer_escape():
+@@ -35,3 +35,13 @@ def test_ReSTRenderer_heading():
+     template = '{{ "русский язык" | heading }}'
+     assert r.render_string(template, {}) == ('русский язык\n'
+                                              '=======================')
++
++
++def test_SphinxTemplateLoader_precedence(tmp_path):
++    for name in ('first', 'second'):
++        (tmp_path / name).mkdir()
++        (tmp_path / name / 'module.rst').write_text('from %s' % name)
++
++    loader = SphinxTemplateLoader(str(tmp_path), ['first', 'second'], [])
++    source, _, _ = loader.get_source(None, 'module.rst')
++    assert source == 'from first'
+diff --git a/tests/test_util_texescape.py b/tests/test_util_texescape.py
+new file mode 100644
+index 000000000..3a0735225
+--- /dev/null
++++ b/tests/test_util_texescape.py
+@@ -0,0 +1,24 @@
++"""
++    test_util_texescape
++    ~~~~~~~~~~~~~~~~~~~
++
++    Test the sphinx.util.texescape module.
++
++    :copyright: Copyright 2007-2021 by the Sphinx team, see AUTHORS.
++    :license: BSD, see LICENSE for details.
++"""
++
++import pytest
++
++from sphinx.util.texescape import escape_abbr
++
++
++@pytest.mark.parametrize('text, expected', [
++    ('e.g. foo', 'e.g.\\@{} foo'),
++    ('e.g.\nfoo', 'e.g.\\@{}\nfoo'),
++    ('e.g.\tfoo', 'e.g.\\@{}\tfoo'),
++    ('e.g.', 'e.g.\\@{}'),
++    ('e.g.foo', 'e.g.foo'),
++])
++def test_escape_abbr(text, expected):
++    assert escape_abbr(text) == expected

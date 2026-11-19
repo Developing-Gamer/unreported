@@ -1,0 +1,110 @@
+diff --git a/sympy/polys/densearith.py b/sympy/polys/densearith.py
+index bce08bb356..7f7a88b10a 100644
+--- a/sympy/polys/densearith.py
++++ b/sympy/polys/densearith.py
+@@ -269,7 +269,7 @@ def dup_mul_ground(f, c, K):
+     if not c or not f:
+         return []
+     else:
+-        return [ cf * c for cf in f ]
++        return dup_strip([ cf * c for cf in f ])
+ 
+ 
+ def dmp_mul_ground(f, c, u, K):
+@@ -291,7 +291,7 @@ def dmp_mul_ground(f, c, u, K):
+ 
+     v = u - 1
+ 
+-    return [ dmp_mul_ground(cf, c, v, K) for cf in f ]
++    return dmp_strip([ dmp_mul_ground(cf, c, v, K) for cf in f ], u)
+ 
+ 
+ def dup_quo_ground(f, c, K):
+diff --git a/sympy/polys/orthopolys.py b/sympy/polys/orthopolys.py
+index deb78155d8..d2c56739f1 100644
+--- a/sympy/polys/orthopolys.py
++++ b/sympy/polys/orthopolys.py
+@@ -302,11 +302,8 @@ def laguerre_poly(n, x=None, alpha=None, polys=False):
+         raise ValueError("can't generate Laguerre polynomial of degree %s" % n)
+ 
+     if alpha is not None:
+-        try:
+-            K, alpha = construct_domain(
+-                alpha, field=True)  # XXX: ground_field=True
+-        except (TypeError, ValueError):
+-            K, alpha = QQ, QQ(0)
++        K, alpha = construct_domain(
++            alpha, field=True)  # XXX: ground_field=True
+     else:
+         K, alpha = QQ, QQ(0)
+ 
+diff --git a/sympy/polys/partfrac.py b/sympy/polys/partfrac.py
+index 104885e4fc..fb6d323653 100644
+--- a/sympy/polys/partfrac.py
++++ b/sympy/polys/partfrac.py
+@@ -81,7 +81,7 @@ def apart(f, x=None, full=False, **options):
+         (P, Q), opt = parallel_poly_from_expr((P, Q), x, **options)
+     except PolynomialError as msg:
+         if f.is_commutative:
+-            return f
++            raise PolynomialError(msg)
+         # non-commutative
+         if f.is_Mul:
+             c, nc = f.args_cnc(split_1=False)
+diff --git a/sympy/polys/tests/test_orthopolys.py b/sympy/polys/tests/test_orthopolys.py
+index 86b2ecb501..5aa1b04329 100644
+--- a/sympy/polys/tests/test_orthopolys.py
++++ b/sympy/polys/tests/test_orthopolys.py
+@@ -120,6 +120,8 @@ def test_legendre_poly():
+ 
+ def test_laguerre_poly():
+     raises(ValueError, lambda: laguerre_poly(-1, x))
++    # an invalid alpha must not silently fall back to alpha=0
++    raises(ValueError, lambda: laguerre_poly(2, x, alpha=object()))
+ 
+     assert laguerre_poly(1, x, polys=True) == Poly(-x + 1, domain='QQ')
+ 
+diff --git a/sympy/polys/tests/test_partfrac.py b/sympy/polys/tests/test_partfrac.py
+index 7808bc6be9..f706c91d26 100644
+--- a/sympy/polys/tests/test_partfrac.py
++++ b/sympy/polys/tests/test_partfrac.py
+@@ -8,7 +8,8 @@
+ )
+ 
+ from sympy import (S, Poly, E, pi, I, Matrix, Eq, RootSum, Lambda,
+-                   Symbol, Dummy, factor, together, sqrt, Expr, Rational)
++                   Symbol, Dummy, factor, together, sqrt, Expr, Rational, sin)
++from sympy.polys.polyerrors import PolynomialError
+ from sympy.testing.pytest import raises, ON_TRAVIS, skip, XFAIL
+ from sympy.abc import x, y, a, b, c
+ 
+@@ -51,6 +52,10 @@ def test_apart():
+ 
+     raises(NotImplementedError, lambda: apart(1/(x + 1)/(y + 2)))
+ 
++    # non-rational input is an error, not silently returned unchanged
++    raises(PolynomialError, lambda: apart(sin(x)/(x + 1), x))
++    raises(PolynomialError, lambda: apart(1/(x**y + 1), x))
++
+ 
+ def test_apart_matrix():
+     M = Matrix(2, 2, lambda i, j: 1/(x + i + 1)/(x + j))
+diff --git a/sympy/polys/tests/test_polytools.py b/sympy/polys/tests/test_polytools.py
+index c774fc41e2..a60c1fceb4 100644
+--- a/sympy/polys/tests/test_polytools.py
++++ b/sympy/polys/tests/test_polytools.py
+@@ -1444,6 +1444,14 @@ def test_Poly_clear_denoms():
+     assert coeff == 3 and poly == Poly(
+         x + 3*sqrt(2), x, domain='EX') and poly.get_domain() == EX
+ 
++    # coefficient that only becomes zero after multiplying by the denominator
++    e = 1/(1 + sqrt(2)) - sqrt(2) + 1
++    coeff, poly = Poly(e*x + e, x, domain='EX').clear_denoms()
++    assert coeff == 1 + sqrt(2)
++    assert poly.rep.rep == []
++    assert poly.is_zero
++    assert poly.terms_gcd() == ((0,), poly)
++
+ 
+ def test_Poly_rat_clear_denoms():
+     f = Poly(x**2/y + 1, x)

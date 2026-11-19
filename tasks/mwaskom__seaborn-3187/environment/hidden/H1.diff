@@ -1,0 +1,18 @@
+diff --git a/seaborn/_core/moves.py b/seaborn/_core/moves.py
+index 179926e7..7fd5713b 100644
+--- a/seaborn/_core/moves.py
++++ b/seaborn/_core/moves.py
+@@ -131,11 +131,11 @@ class Dodge(Move):
+             return w.shift(1).fillna(0).cumsum() + (w - w.sum()) / 2
+ 
+         new_widths = groupby_pos(groups["width"]).transform(scale_widths)
+-        offsets = groupby_pos(new_widths).transform(widths_to_offsets)
+-
+         if self.gap:
+             new_widths *= 1 - self.gap
+ 
++        offsets = groupby_pos(new_widths).transform(widths_to_offsets)
++
+         groups["_dodged"] = groups[orient] + offsets
+         groups["width"] = new_widths
+ 

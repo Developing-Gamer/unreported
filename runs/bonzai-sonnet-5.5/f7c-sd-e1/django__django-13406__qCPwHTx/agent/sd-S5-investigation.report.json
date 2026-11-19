@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 59755,
+ "finalText": "The signal is already fixed in this repository, so no change is needed. I couldn't run it: probe has no `asgiref` installed, so this comes from reading the code and tests.\n\n- **Why the report happened:** older Django rejected a keyword-only argument that had a default (`hello(*, greeting='hello')`) as unexpected. It also gave the wrong error when the same keyword was passed twice.\n- **Current code:** in this 3.2 alpha tree, `parse_bits` in `django/template/library.py` checks the supplied keyword against all keyword-only names (`param not in kwonly`, line 264), so defaulted ones are accepted. A repeated keyword raises \"received multiple values for keyword argument\" (line 272).\n- **Tests:** `tests/template_tests/test_custom.py` covers both cases for `simple_tag` and `inclusion_tag`. It passes `kwarg=37` to a defaulted keyword-only tag and expects the \"multiple values\" error for a repeated keyword. I did not run it.\n- **Commit and release:** I couldn't identify the fixing commit because the history is a single snapshot commit, so the `fixedIn` commit is \"unknown\". Anyone on an older release needs to upgrade to a version that includes the fix.\n\n```json\n{\n  \"verdict\": \"covered\",\n  \"title\": \"Keyword-only tag args with defaults already work\",\n  \"cause\": \"The report came from older Django. Its parse_bits rejected a keyword-only argument that had a default as unexpected, and passing the same keyword twice gave the wrong error. In this tree (3.2 alpha) parse_bits checks the full list of keyword-only names, so those arguments are accepted. A duplicate keyword raises the 'multiple values' error. Tests cover both cases for simple_tag and inclusion_tag. I could not run the code: probe has no asgiref installed. This conclusion comes from reading the code and the tests.\",\n  \"files\": [\n    {\"path\": \"django/template/library.py\", \"why\": \"parse_bits checks `param not in kwonly`, which includes keyword-only arguments that have defaults, then checks `param in kwargs` for duplicates\"},\n    {\"path\": \"tests/template_tests/test_custom.py\", \"why\": \"Covers keyword-only defaults being supplied and the 'multiple values' error for simple and inclusion tags\"}\n  ],\n  \"plan\": [\"No change needed; users on older releases should upgrade to a release that includes this behaviour.\"],\n  \"verification\": [\"Run tests/template_tests/test_custom.py: the simple_keyword_only_default and inclusion_keyword_only_default cases pass kwarg=37 and expect no error.\"],\n  \"userFacing\": true,\n  \"certainty\": \"likely\",\n  \"effort\": \"none\",\n  \"risk\": \"low\",\n  \"confidence\": 0.8,\n  \"coveredBy\": null,\n  \"fixedIn\": {\"commit\": \"unknown\", \"release\": \"3.2 (this tree is 3.2 alpha; the history is squashed into one snapshot commit, so the exact commit is not identifiable)\"},\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"parse_bits validates the supplied keyword against the full keyword-only list, so defaulted keyword-only args are accepted.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"django/template/library.py:264\", \"quote\": \"if param not in params and param not in kwonly and varkw is None:\"}]},\n    {\"id\": \"c2\", \"text\": \"A repeated keyword raises the 'multiple values' error.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"django/template/library.py:272\", \"quote\": \"\\\"'%s' received multiple values for keyword argument '%s'\\\" %\"}]},\n    {\"id\": \"c3\", \"text\": \"Tests assert that a defaulted keyword-only argument can be supplied.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"tests/template_tests/test_custom.py:66\", \"quote\": \"'{% load custom %}{% simple_keyword_only_default kwarg=37 %}',\"}]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"Defaulted keyword-only arguments are still rejected as unexpected\", \"why\": \"The unexpected-keyword rejection of defaulted keyword-only arguments is absent from the current code.\", \"citations\": [{\"type\": \"code\", \"ref\": \"django/template/library.py:264\", \"quote\": \"if param not in params and param not in kwonly and varkw is None:\"}]}\n  ],\n  \"intendedBehavior\": \"{% hello greeting='hi' %} renders for a tag defined as hello(*, greeting='hello'), and repeating the keyword raises a 'received multiple values for keyword argument' error.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"Not applicable: the reported defect no longer exists in this code.\"},\n  \"fixType\": \"error\",\n  \"plain\": {\n    \"headline\": \"Custom template tags with optional named settings used to reject them, but that is already fixed.\",\n    \"happened\": \"A developer defined a tag whose named option has a default value. Supplying that option made the template fail with an 'unexpected argument' error. Repeating an option also gave a confusing message.\",\n    \"matters\": \"It affected developers writing custom template tags on older versions.\",\n    \"fix\": \"Nothing to change in the current code; people on older versions should upgrade.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 11,
+  "inputTokens": {
+   "avg": 15995.09090909091,
+   "max": 20764
+  },
+  "mainUsage": {
+   "inputTokens": 175946,
+   "cachedInputTokens": 162182,
+   "outputTokens": 5732
+  },
+  "cacheHitPercent": 92.17714526047764,
+  "wallSeconds": 59.164000034332275,
+  "tools": {
+   "read": 10,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 1
+  },
+  "reads": 10,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.12415340000000001,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.12415340000000001
+}

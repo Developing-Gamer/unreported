@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 30385,
+ "finalText": "```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Fix spacing in CREATE INDEX column ordering\",\n  \"cause\": \"The code that renders index columns builds each column's text without proper whitespace. Without opclasses, Columns joins the quoted name and the DESC suffix with no space, giving (\\\"name\\\"DESC). With opclasses (PostgreSQL), IndexColumns always appends a space plus the suffix. A field with no explicit ordering has an empty suffix, so it renders (\\\"name\\\" text_pattern_ops ) with a stray trailing space.\",\n  \"files\": [\n    {\"path\": \"django/db/backends/ddl_references.py\", \"why\": \"Columns.__str__ concatenates quote_name(column) + col_suffixes[idx] with no separator. IndexColumns.__str__ always formats '{} {}' with the suffix, even when the suffix is empty.\"},\n    {\"path\": \"tests/backends/test_ddl_references.py\", \"why\": \"Add tests for Columns with col_suffixes=('DESC',) and for IndexColumns with opclasses and an empty suffix.\"},\n    {\"path\": \"django/db/models/indexes.py\", \"why\": \"Source of the '' or 'DESC' suffixes in fields_orders. It needs no change, but explains why the empty suffix reaches the renderer.\"}\n  ],\n  \"plan\": [\n    \"In Columns.__str__, add a space only when the suffix is non-empty: '{} {}'.format(quoted, suffix) if suffix else quoted. Keep the IndexError fallback.\",\n    \"In IndexColumns.__str__, build the column as quoted + ' ' + opclass, then append ' ' + suffix only when the suffix is non-empty.\",\n    \"Add unit tests for the three cases: DESC without opclasses, opclasses with no ordering, and opclasses with DESC.\",\n    \"Update the existing schema/index tests that assert on the generated SQL, if any.\"\n  ],\n  \"verification\": [\n    \"Run tests/backends/test_ddl_references.py and tests/schema and tests/indexes.\",\n    \"Check that Index(fields=['-name'], name='idx') produces CREATE INDEX \\\"idx\\\" ON \\\"schema_author\\\" (\\\"name\\\" DESC).\",\n    \"On PostgreSQL, check that Index(fields=['name'], opclasses=['varchar_pattern_ops']) has no trailing space before the closing parenthesis.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.9,\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"Columns.__str__ concatenates the quoted column and the suffix with no space, so a descending index renders as \\\"name\\\"DESC.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"django/db/backends/ddl_references.py:87\", \"quote\": \"return self.quote_name(column) + self.col_suffixes[idx]\"}]},\n    {\"id\": \"c2\", \"text\": \"IndexColumns.__str__ always appends the suffix after a space, so an empty suffix leaves a trailing space after the opclass.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"django/db/backends/ddl_references.py:117\", \"quote\": \"col = '{} {}'.format(col, self.col_suffixes[idx])\"}]},\n    {\"id\": \"c3\", \"text\": \"Index.fields_orders uses an empty string for ascending fields and 'DESC' for descending ones, so the empty suffix does reach the renderer.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"django/db/models/indexes.py:32\", \"quote\": \"(field_name[1:], 'DESC') if field_name.startswith('-') else (field_name, '')\"}]}\n  ],\n  \"intendedBehavior\": \"Index(fields=['-name']) produces (\\\"name\\\" DESC), and an index with opclasses but no ordering produces (\\\"name\\\" opclass) with no trailing space.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"Nothing in the code or its comments suggests the missing or extra spaces were chosen. The user's expected output is the ordinary SQL format.\"},\n  \"fixType\": \"frustration\",\n  \"plain\": {\n    \"headline\": \"Database index statements come out with odd spacing, such as \\\"name\\\"DESC, instead of \\\"name\\\" DESC.\",\n    \"happened\": \"When someone defines a descending index, the generated database command has no space between the column name and DESC. When an index on PostgreSQL uses an operator class but no sort direction, the command gets a stray space before the closing bracket. Both forms are valid, so they still work, but they look wrong.\",\n    \"matters\": \"It affects developers who define indexes and read or log the generated SQL.\",\n    \"fix\": \"Add a space only when there is a sort direction, and never add one when there isn't.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 4,
+  "inputTokens": {
+   "avg": 13335.5,
+   "max": 14814
+  },
+  "mainUsage": {
+   "inputTokens": 53342,
+   "cachedInputTokens": 45542,
+   "outputTokens": 2388
+  },
+  "cacheHitPercent": 85.37737617637134,
+  "wallSeconds": 22.76799988746643,
+  "tools": {
+   "read": 4,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 0
+  },
+  "reads": 4,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.0524834,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.0524834
+}

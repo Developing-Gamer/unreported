@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 175003,
+ "finalText": "I checked the report against the request and fixed one overstatement. My earlier write-up said pylint lets the wrong name `asyncio.subprocess.pwd` through. That's what the reporter saw on Python 3.9. My test here ran on Python 3.11, where pylint flags `pwd` too, though still as a missing member of the standalone `subprocess` module. The cause and verdict don't change.\n\n**The cause isn't in this repository.** It's in astroid, the separate library pylint uses to work out what each name in the code refers to.\n\n- **What I ran:** the reporter's two-line file through this checkout of pylint, with astroid 2.11.2 on Python 3.11. Pylint reported `E1101: Module 'subprocess' has no 'Process' member` for `asyncio.subprocess.Process`. Plain Python runs the same line without complaint and prints the class, so the code is valid.\n- **Why it happens:** asyncio's own setup file pulls in several of its parts with `from .x import *`. When astroid reads those lines, it records every public name in each part and ignores the list (`__all__`) that Python actually uses. Three of those parts use Python's standalone `subprocess` module internally. The last one (line 45, `unix_events`) wins, so astroid decides `asyncio.subprocess` is the standalone module rather than asyncio's own.\n- **Why pylint can't fix it:** pylint only uses astroid's answer when it checks whether a name exists. astroid's current main branch still records names this way, and this checkout only allows astroid 2.11.x, so changing the astroid version here wouldn't help either.\n- **Upstream status:** the original report (pylint issue #4223) was closed as \"won't fix\". The maintainers judged by a different example, so nobody actually chose this outcome.\n- **Workaround:** adding `--generated-members='asyncio.subprocess.*'` to the pylint run made the false error go away in my test.\n\n```json\n{\n  \"verdict\": \"outsideCode\",\n  \"title\": \"Wrong 'no member' error on asyncio.subprocess\",\n  \"cause\": \"astroid (the separate library pylint relies on to work out what names refer to) records names brought in by a package's `from .x import *` from the imported module's public names, ignoring that module's __all__. It also never treats the imported submodule as an attribute of its parent package the way Python does. In asyncio, `subprocess` is therefore bound by the * imports from base_events, events and unix_events (which import the stdlib subprocess), and astroid infers `asyncio.subprocess` as the stdlib `subprocess` module. Pylint's no-member check only uses that answer: it flags valid `asyncio.subprocess.Process` and checks other attributes against the wrong module (on the reporter's Python 3.9 it accepted `asyncio.subprocess.pwd`).\",\n  \"files\": [\n    {\"path\": \"pylint/checkers/typecheck.py\", \"why\": \"Emits E1101 using astroid's inferred owner; nothing here decides which module `asyncio.subprocess` is. The only lever is the generated-members escape hatch.\"},\n    {\"path\": \"setup.cfg\", \"why\": \"Pins astroid>=2.11.2,<=2.12.0-dev0; the wrong inference comes from that dependency, and its current main branch still has the same logic, so no version bump fixes it.\"}\n  ],\n  \"plan\": [\n    \"In astroid's builder (add_from_names_to_locals), when handling `from .x import *`, add only the names in the imported module's wildcard_import_names() (which honours __all__) instead of public_names().\",\n    \"In astroid, make a relative `from .x import ...` inside a package's __init__ also bind the submodule `x` on the package, as CPython does at runtime.\",\n    \"Add an astroid test showing that `import asyncio; asyncio.subprocess` infers to the Module named 'asyncio.subprocess', and a pylint functional test showing no E1101 for `asyncio.subprocess.Process`.\"\n  ],\n  \"verification\": [\n    \"Probe: `python -c \\\"import asyncio; print(asyncio.subprocess.Process)\\\"` prints <class 'asyncio.subprocess.Process'>, so the code is valid at runtime.\",\n    \"Probe: this checkout's pylint (astroid 2.11.2, Python 3.11) on a file containing `import asyncio; print(asyncio.subprocess.Process)` reports `E1101: Module 'subprocess' has no 'Process' member (no-member)`.\",\n    \"Probe: in astroid 2.11.2, `\\\"subprocess\\\" in asyncio_subprocess.public_names()` is True while `wildcard_import_names()` excludes it, and asyncio.locals['subprocess'] comes from the * imports at lines 8 (base_events), 10 (events), 18 (subprocess) and 45 (unix_events).\",\n    \"Probe: with --generated-members='asyncio.subprocess.*' the false E1101 is gone (workaround).\",\n    \"Checked astroid's main branch builder.py: it still iterates `imported.public_names()` for wildcard imports.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"medium (in astroid)\",\n  \"risk\": \"medium: changing how * imports bind names changes inference broadly in astroid\",\n  \"confidence\": 0.85,\n  \"action\": \"Fix this in the astroid project: wildcard imports should only bind names from the imported module's __all__, and a relative import inside a package should bind the submodule on the package. Until then, users can add `generated-members=asyncio.subprocess.*` to their pylint config or disable no-member on that line.\",\n  \"fixType\": \"dependency\",\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"trigger\", \"text\": \"The user reports pylint flagging a real attribute of asyncio.subprocess and checking it against the stdlib subprocess module.\", \"citations\": [{\"type\": \"evidence\", \"ref\": \"ev_s3\", \"quote\": \"a top-level module (which was never imported) is being preferred over a sub-module (in another top-level module.)\"}]},\n    {\"id\": \"c2\", \"role\": \"impact\", \"text\": \"This checkout reproduces the false positive on valid code.\", \"citations\": [{\"type\": \"query\", \"ref\": \"probe:pylint\", \"quote\": \"/tmp/ex.py:3:6: E1101: Module 'subprocess' has no 'Process' member (no-member)\"}]},\n    {\"id\": \"c3\", \"role\": \"rootCause\", \"text\": \"astroid's builder binds every public name of a *-imported module into the importing package, ignoring __all__, so asyncio's `subprocess` name is bound by * imports from submodules that import the stdlib subprocess.\", \"citations\": [{\"type\": \"query\", \"ref\": \"probe:astroid.builder source\", \"quote\": \"for name in imported.public_names():\\n                    node.parent.set_local(name, node)\"}, {\"type\": \"query\", \"ref\": \"probe:astroid\", \"quote\": \"subprocess in public_names of asyncio.subprocess: True\\nwildcard_import_names: False\"}]},\n    {\"id\": \"c4\", \"role\": \"rootCause\", \"text\": \"Because of that, asyncio's `subprocess` local has four bindings and the last (unix_events, line 45) is the stdlib module, which is what pylint then checks attributes against.\", \"citations\": [{\"type\": \"query\", \"ref\": \"probe:astroid\", \"quote\": \"8 base_events\\n10 events\\n18 subprocess\\n45 unix_events\"}]},\n    {\"id\": \"c5\", \"role\": \"other\", \"text\": \"Pylint's no-member check only consumes astroid's inference; the only local lever is the generated-members pattern, which can be used as a workaround.\", \"citations\": [{\"type\": \"code\", \"ref\": \"pylint/checkers/typecheck.py:964\", \"quote\": \"for name in (node.attrname, node.as_string())\"}]},\n    {\"id\": \"c6\", \"role\": \"other\", \"text\": \"This repo only allows astroid 2.11.x, and astroid's current main branch still uses public_names() for wildcard imports, so neither an upgrade nor a pin change fixes it.\", \"citations\": [{\"type\": \"code\", \"ref\": \"setup.cfg:50\", \"quote\": \"astroid>=2.11.2,<=2.12.0-dev0\"}]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"Pylint's sys.path / module-name handling (fix_import_path, expand_modules) makes the top-level subprocess module win.\", \"why\": \"The wrong binding happens inside astroid when it builds the stdlib asyncio package, independent of the linted file's path; astroid alone reproduces it.\", \"citations\": [{\"type\": \"code\", \"ref\": \"pylint/lint/utils.py:84\", \"quote\": \"sys.path[:] = changes + sys.path\"}]},\n    {\"hypothesis\": \"Pylint is right because Python does not expose asyncio.subprocess after `import asyncio`.\", \"why\": \"At runtime asyncio.subprocess is the submodule and has Process.\", \"citations\": [{\"type\": \"query\", \"ref\": \"probe:python\", \"quote\": \"<class 'asyncio.subprocess.Process'> True\"}]}\n  ],\n  \"intendedBehavior\": \"Linting `import asyncio; print(asyncio.subprocess.Process)` reports no E1101, and any missing attribute such as `asyncio.subprocess.pwd` is reported against module 'asyncio.subprocess', not 'subprocess'.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"Upstream (pylint #4223) was closed as won't fix after a maintainer said pylint 'is consistent with the way python works here', judging by a different example. Nobody chose the reported outcome: CPython resolves asyncio.subprocess to the submodule, while astroid's builder ignores __all__ even though its own wildcard_import_names() honours it.\"},\n  \"plain\": {\n    \"headline\": \"Pylint wrongly says asyncio's subprocess tools don't exist, because the library it uses to understand code mixes them up with Python's separate subprocess module.\",\n    \"happened\": \"Someone checked code that uses asyncio's built-in subprocess helpers. The library pylint relies on to work out what each name means picked Python's standalone subprocess module instead of asyncio's own. Pylint then reported a real feature as missing, and in the reporter's setup it stayed quiet about a name that really is missing.\",\n    \"matters\": \"Anyone using asyncio's subprocess features gets a false error on correct code and can miss real mistakes there.\",\n    \"fix\": \"Fix the separate code-understanding library so it follows Python's own rules for these imports. Until then, users can tell pylint to skip these names in their settings.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 15,
+  "inputTokens": {
+   "avg": 27487.666666666668,
+   "max": 41887
+  },
+  "mainUsage": {
+   "inputTokens": 412315,
+   "cachedInputTokens": 377420,
+   "outputTokens": 15563
+  },
+  "cacheHitPercent": 91.53681044832227,
+  "wallSeconds": 174.09100008010864,
+  "tools": {
+   "read": 9,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 5
+  },
+  "reads": 9,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.561185,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.561185
+}

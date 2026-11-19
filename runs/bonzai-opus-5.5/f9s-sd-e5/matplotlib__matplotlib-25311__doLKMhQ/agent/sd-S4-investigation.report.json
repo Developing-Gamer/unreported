@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 110404,
+ "finalText": "My earlier checks still hold. The gap is real but it comes from matplotlib's deliberate default margins, not a bug, so the verdict is not actionable. I re-ran nothing; every cited line was read in this task.\n\n**What the user sees:** with `plt.subplots(20, 1, figsize=(10, 20))` and the default layout, there are about 1.6 inches of blank space between the bottom plot's tick labels and the `supxlabel`. Changing `y` seems to \"not work\".\n\n**What I ran:** I rendered the reporter's exact example against this checkout (v3.7.0), in the probe copy with the repo's built extensions and the testbed Python.\n\n| Case | Label position | Gap between label and the plots' tick labels |\n|---|---|---|\n| No layout engine | label at 0.2 in (y=0.01 of a 20 in figure) | **1.58 in** |\n| `layout='constrained'` | label moved to the bottom pad | 0.08 in |\n| `layout='tight'` | label at 0.2 in | 0.10 in |\n| `y=0.05`, 2 rows, 4 in tall | label at 0.2 in | plots start at 0.44 in |\n| `y=0.05`, 20 rows, 20 in tall | label at 1.0 in | plots start at 2.2 in |\n\n**Why it happens:**\n- **`y` works as documented.** `supxlabel` places its text at `y` \"in figure coordinates\", default 0.01 (lib/matplotlib/figure.py:315, 371, 399). So the label always sits at 1% of the figure height.\n- **The gap is the default bottom margin.** Without a layout engine, the plots start at `figure.subplot.bottom: 0.11` of the figure height (matplotlib's default settings file, line 573). On a 20-inch figure that is 2.2 inches, while the label stays near the bottom edge. Only the figure height matters, not the number of rows.\n- **The supported fix already exists.** Constrained layout moves an auto-placed `supxlabel` to the bottom pad and shrinks the margin to fit it (lib/matplotlib/_constrained_layout.py:464\u2013470). Tight layout also closes the gap. The gallery example for `supxlabel` uses `layout='constrained'`.\n\n**What a change would mean:** anchoring the label to the plots, or making margins absolute, would change matplotlib's long-standing coordinate design rather than fix a bug. What the reporter asks for (\"ideally independent of `nrows` and `figsize`\") is a request for a different design. A small optional improvement would be a line in the `supxlabel` docs pointing to the layout options.\n\n```json\n{\n  \"verdict\": \"notActionable\",\n  \"title\": \"supxlabel gap is the default fractional margin\",\n  \"cause\": \"supxlabel places its text at y (default 0.01) in figure coordinates, exactly as documented. Without a layout engine, the plots' bottom edge sits at rcParams figure.subplot.bottom = 0.11 of the figure height, so on a 20-inch-tall figure the plots start 2.2 in up while the label sits 0.2 in up, leaving about 1.6 in empty. Constrained layout and tight_layout already remove the gap; this is the default-margin design, not a defect in supxlabel.\",\n  \"files\": [\n    {\"path\": \"lib/matplotlib/figure.py\", \"why\": \"_suplabels/supxlabel place the label at fractional figure coordinates (y0=0.01), as documented\"},\n    {\"path\": \"lib/matplotlib/mpl-data/matplotlibrc\", \"why\": \"figure.subplot.bottom 0.11 fractional default margin is where the gap comes from\"},\n    {\"path\": \"lib/matplotlib/_constrained_layout.py\", \"why\": \"constrained layout already repositions an auto-placed supxlabel and shrinks the margin\"}\n  ],\n  \"plan\": [],\n  \"verification\": [\n    \"Probe on v3.7.0: plt.subplots(20,1,figsize=(10,20)); fig.supxlabel(...) -> gap 1.58 in with no layout engine, 0.08 in with layout='constrained', 0.10 in with layout='tight'.\",\n    \"Probe: supxlabel(y=0.05) lands at 0.05*figure height (0.2 in for a 4 in figure, 1.0 in for a 20 in figure), so y behaves as the documented figure fraction.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"none\",\n  \"risk\": \"none\",\n  \"confidence\": 0.85,\n  \"fixType\": \"frustration\",\n  \"intent\": {\n    \"deliberate\": true,\n    \"evidence\": \"_suplabels documents 'y : float, default: %(y0)s  The y location of the text in figure coordinates.' Subplot margins are fractional by the rcParam 'figure.subplot.bottom: 0.11'. The supported way to get tight margins is a layout engine: _constrained_layout.py explicitly repositions an auto-placed supxlabel and edits the bottom margin, and the supxlabel gallery example uses layout='constrained'.\"\n  },\n  \"intendedBehavior\": \"With layout='constrained', fig.supxlabel on plt.subplots(20, 1, figsize=(10, 20)) sits within about 0.1 in of the bottom axes' tick labels, and supxlabel(y=f) is always placed at fraction f of the figure height.\",\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"other\", \"text\": \"supxlabel places the label at a fixed fraction of the figure height (default 0.01), as its docstring documents.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/figure.py:399\", \"quote\": \"info = {'name': '_supxlabel', 'x0': 0.5, 'y0': 0.01,\"},\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/figure.py:315\", \"quote\": \"The y location of the text in figure coordinates.\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"trigger\", \"text\": \"Without a layout engine, the bottom margin is a fraction of the figure height, so a tall figure gets a large absolute gap between the plots and the label.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/mpl-data/matplotlibrc:573\", \"quote\": \"#figure.subplot.bottom: 0.11   # the bottom of the subplots of the figure\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"impact\", \"text\": \"The reporter sees a large empty band above the supxlabel on tall figures with many rows.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s4\", \"quote\": \"Not terrible with few `nrows`, but really bad with many.\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"other\", \"text\": \"Constrained layout already handles supxlabel by repositioning it and shrinking the bottom margin, which removes the gap.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/_constrained_layout.py:467\", \"quote\": \"fig._supxlabel.set_position((p[0], h_pad_local))\"},\n      {\"type\": \"code\", \"ref\": \"galleries/examples/subplots_axes_and_figures/figure_title.py:36\", \"quote\": \"fig, axs = plt.subplots(3, 5, figsize=(8, 5), layout='constrained',\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"The y argument to supxlabel is ignored or computed wrongly.\", \"why\": \"In the probe, y=0.05 placed the label at exactly 0.05 of the figure height (0.2 in on a 4 in figure, 1.0 in on a 20 in figure). _suplabels passes x and y straight to self.text.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/figure.py:371\", \"quote\": \"sup = self.text(x, y, t, **kwargs)\"}\n    ]},\n    {\"hypothesis\": \"Constrained layout mishandles supxlabel on many-row figures.\", \"why\": \"In the probe on the reporter's 20x1, 10x20 in figure, layout='constrained' left only 0.08 in between the label and the tick labels.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/_constrained_layout.py:469\", \"quote\": \"layoutgrids[fig].edit_margin_min('bottom',\"}\n    ]}\n  ],\n  \"plain\": {\n    \"headline\": \"On tall figures, the shared bottom label sits far below the plots because the default page margin grows with the figure's height, not because the label is placed wrongly.\",\n    \"happened\": \"The person made a tall figure with 20 stacked plots and added one shared label under them. By default the plots leave a margin at the bottom equal to about a ninth of the figure's height, while the label sits right at the bottom edge. On a 20-inch-tall figure that leaves about one and a half inches of blank space.\",\n    \"matters\": \"Anyone making very tall figures without turning on automatic layout sees a large gap, but the existing automatic layout options already remove it.\",\n    \"fix\": \"No code change is needed: turn on the automatic layout when creating the figure (the 'constrained' or 'tight' layout option) and the gap closes to about a tenth of an inch.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 13,
+  "inputTokens": {
+   "avg": 16704,
+   "max": 23528
+  },
+  "mainUsage": {
+   "inputTokens": 217152,
+   "cachedInputTokens": 200620,
+   "outputTokens": 9706
+  },
+  "cacheHitPercent": 92.38689949896846,
+  "wallSeconds": 109.50699996948242,
+  "tools": {
+   "read": 7,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 6
+  },
+  "reads": 7,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.316874,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.316874
+}

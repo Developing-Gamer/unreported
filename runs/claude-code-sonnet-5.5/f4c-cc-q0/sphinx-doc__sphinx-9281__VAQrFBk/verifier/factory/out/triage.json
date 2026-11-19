@@ -1,0 +1,9 @@
+[
+  {"source": "S1", "decision": "skip", "reason": "Not reproducible here: napoleon already splits 'x1, x2 : array_like, optional' into separate :param:/:type: entries (napoleon_use_param=True) and keeps the type/optional in the grouped field (False)."},
+  {"source": "S2", "decision": "skip", "reason": "Not reproducible in this checkout: the 'variable' info field (ivar/var/cvar) has no rolename and py:attribute/py:data names produce no cross-references to same-named objects."},
+  {"source": "S3", "decision": "fix", "reason": "object_description() used repr() for enum members, giving '<MyEnum.A: 10>' in signature defaults; now renders 'MyEnum.A'."},
+  {"source": "S4", "decision": "skip", "reason": "C macro parameters are plain identifiers, so 'char* message' is correctly rejected; typed arguments belong in c:function, not a Sphinx defect."},
+  {"source": "S5", "decision": "skip", "reason": "Vague report of mixed old/new branding on a deployed site with no reproducer; likely deployment or caching, not enough to identify a defect in this repository."},
+  {"source": "S6", "decision": "fix", "reason": "texescape.escape_abbr only matched a period followed by a literal space, so periods before a line break lost the '\\@' spacing fix and produced wider gaps in PDF."},
+  {"source": "S7", "decision": "skip", "reason": "Timeout from the external webhook-relay service calling api.github.com; unrelated to this repository's code."}
+]

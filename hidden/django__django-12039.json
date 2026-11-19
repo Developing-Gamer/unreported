@@ -1,0 +1,30 @@
+{
+ "task": "django__django-12039",
+ "kept": [
+  {
+   "path": "django/template/backends/base.py",
+   "category": "silent wrong result (a value or output that is subtly wrong, no exception)",
+   "defect_patch": "diff --git a/django/template/backends/base.py b/django/template/backends/base.py\nindex 22628c6355..1e17281707 100644\n--- a/django/template/backends/base.py\n+++ b/django/template/backends/base.py\n@@ -62,7 +62,7 @@ class BaseEngine:\n         # Immutable return value because it's cached and shared by callers.\n         template_dirs = tuple(self.dirs)\n         if self.app_dirs:\n-            template_dirs += get_app_template_dirs(self.app_dirname)\n+            template_dirs = get_app_template_dirs(self.app_dirname) + template_dirs\n         return template_dirs\n \n     def iter_template_filenames(self, template_name):\n",
+   "test_code": "from pathlib import Path\n\nfrom django.template.backends import base\n\n\nclass AppTemplateEngine(base.BaseEngine):\n    app_dirname = 'templates'\n\n\ndef test_explicit_template_directory_overrides_app_templates(tmp_path, monkeypatch):\n    overrides = tmp_path / 'overrides'\n    packaged = tmp_path / 'packaged'\n    overrides.mkdir()\n    packaged.mkdir()\n    (overrides / 'receipt.html').write_text('Custom receipt', encoding='utf-8')\n    (packaged / 'receipt.html').write_text('Default receipt', encoding='utf-8')\n\n    monkeypatch.setattr(\n        base, 'get_app_template_dirs', lambda dirname: (str(packaged),)\n    )\n    engine = AppTemplateEngine({\n        'NAME': 'receipts',\n        'DIRS': [str(overrides)],\n        'APP_DIRS': True,\n    })\n\n    selected = next(\n        Path(filename)\n        for filename in engine.iter_template_filenames('receipt.html')\n        if Path(filename).is_file()\n    )\n    assert selected.read_text(encoding='utf-8') == 'Custom receipt'\n",
+   "signal": {
+    "kind": "user",
+    "source": "Customer support",
+    "text": "Some receipt emails switched back to the bundled branding after the upgrade, even though our custom receipt templates are still present and unchanged."
+   },
+   "summary": "Application template directories are searched before explicitly configured directories, causing packaged templates to shadow custom overrides."
+  },
+  {
+   "path": "django/core/management/commands/showmigrations.py",
+   "category": "silent wrong result (a value or output that is subtly wrong, no exception)",
+   "defect_patch": "diff --git a/django/core/management/commands/showmigrations.py b/django/core/management/commands/showmigrations.py\nindex 48bea1f3f0..e60e8ccfb9 100644\n--- a/django/core/management/commands/showmigrations.py\n+++ b/django/core/management/commands/showmigrations.py\n@@ -121,7 +121,7 @@ class Command(BaseCommand):\n         # Generate the plan\n         for target in targets:\n             for migration in graph.forwards_plan(target):\n-                if migration not in seen:\n+                if migration not in seen and (not app_names or migration[0] in app_names):\n                     node = graph.node_map[migration]\n                     plan.append(node)\n                     seen.add(migration)\n",
+   "test_code": "from io import StringIO\n\nimport django\nfrom django.conf import settings\nfrom django.core.management.commands.showmigrations import Command\nfrom django.test.utils import override_settings\n\n\ndef test_filtered_plan_keeps_cross_app_prerequisites(tmp_path, monkeypatch):\n    if not settings.configured:\n        settings.configure(\n            SECRET_KEY='migration-plan-test',\n            INSTALLED_APPS=[],\n            DATABASES={},\n            USE_I18N=False,\n        )\n    django.setup()\n\n    accounts = 'plan_test_accounts'\n    orders = 'plan_test_orders'\n    for app_label, dependencies in (\n        (accounts, []),\n        (orders, [(accounts, '0001_initial')]),\n    ):\n        package = tmp_path / app_label\n        migrations = package / 'migrations'\n        migrations.mkdir(parents=True)\n        (package / '__init__.py').write_text('', encoding='utf-8')\n        (migrations / '__init__.py').write_text('', encoding='utf-8')\n        (migrations / '0001_initial.py').write_text(\n            'from django.db import migrations\\n\\n'\n            'class Migration(migrations.Migration):\\n'\n            '    dependencies = %r\\n'\n            '    operations = []\\n' % dependencies,\n            encoding='utf-8',\n        )\n\n    monkeypatch.syspath_prepend(str(tmp_path))\n    with override_settings(\n        INSTALLED_APPS=[accounts, orders],\n        MIGRATION_MODULES={},\n    ):\n        output = StringIO()\n        command = Command(stdout=output, no_color=True)\n        command.verbosity = 1\n        # A connection of None loads the real migration graph without a database.\n        command.show_plan(None, [orders])\n\n    assert output.getvalue().splitlines() == [\n        '[ ]  plan_test_accounts.0001_initial',\n        '[ ]  plan_test_orders.0001_initial',\n    ]\n",
+   "signal": {
+    "kind": "user",
+    "source": "Deployment support channel",
+    "text": "The migration plan for just the orders app skips an accounts migration that still appears ahead of it in the full project plan."
+   },
+   "summary": "Filtering a migration plan by app label incorrectly omits prerequisite migrations belonging to other apps."
+  }
+ ],
+ "rejected": []
+}

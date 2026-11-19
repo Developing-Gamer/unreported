@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 68757,
+ "finalText": "A module used only in a dotted type comment, such as `import abc` with `X = ...  # type: abc.ABC`, is no longer reported as `unused-import`. The new functional test passes now and failed before the fix. The PR text is in `.factory/pr-S6.md`, and nothing is committed.\n\n**Cause.** The investigation was right. `_store_type_annotation_node` in `pylint/checkers/variables.py` recorded only bare names and subscripts. A dotted annotation is an attribute node, so `abc` was never recorded as used.\n\n**Fix.** An attribute annotation now recurses into its left-hand side, which records `abc` for `abc.ABC` and `collections` for `collections.abc.Sized`. I also added a ChangeLog entry.\n\n**Test.** The test is `tests/functional/u/unused/unused_module_type_comment.py`, and it expects no messages. It does not use the issue's `from abc import ABC` line, because in this environment that line raises an unrelated `no-name-in-module` error. Before the fix it fails with `Unexpected in testdata: 2: unused-import, 3: unused-import`.\n\n**Other failures.** Running the `unused`, `typing` and `type_comment` tests together with `tests/checkers/unittest_variables.py` gives 8 other failures, such as `unused_import` and several `typing_*` tests. They are identical with and without my change, so they predate it.\n\n**Not covered.** `import a.b` used only as `a.b.C` in a type comment is still reported, because dotted imports are matched by their full name. That is a separate problem from this issue.\n\n**Working tree.** It already held changes from open pull requests #1000 and #1001 before I started. Neither fixes this problem.\n\n```json\n{\"kind\":\"fix\",\"outcome\":\"ready\",\"pullRequest\":null,\"checks\":[{\"name\":\"python -m pytest tests/test_functional.py -k unused_module_type_comment\",\"passed\":true},{\"name\":\"python -m pytest tests/test_functional.py -k \\\"unused or typing or type_comment\\\" tests/checkers/unittest_variables.py\",\"passed\":false,\"alsoOnBase\":true,\"note\":\"8 other pre-existing failures, identical before and after the change\"}],\"visual\":false,\"reproductionSteps\":[\"Create a file with `import abc` and `X = ...  # type: abc.ABC`\",\"Run pylint (or the functional test) with unused-import enabled\",\"W0611 unused-import is reported for `import abc`\"],\"reproductionTest\":{\"path\":\"tests/functional/u/unused/unused_module_type_comment.py\",\"command\":\"python -m pytest tests/test_functional.py -k unused_module_type_comment\",\"signature\":\"Unexpected in testdata: 2: unused-import, 3: unused-import\"}}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 17,
+  "inputTokens": {
+   "avg": 27282.941176470587,
+   "max": 37137
+  },
+  "mainUsage": {
+   "inputTokens": 463810,
+   "cachedInputTokens": 440551,
+   "outputTokens": 6764
+  },
+  "cacheHitPercent": 94.98523102132339,
+  "wallSeconds": 68.52300000190735,
+  "tools": {
+   "read": 6,
+   "edit": 7,
+   "test": 3,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 2
+  },
+  "reads": 6,
+  "edits": 7,
+  "runs": 5,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 4,
+  "editOperations": 4,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.2138787,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.2138787
+}

@@ -1,0 +1,10 @@
+[
+{"source":"S1","decision":"skip","reason":"Report names no message, option or version, so there is no identifiable defect to reproduce or fix."},
+{"source":"S2","decision":"skip","reason":"Already handled: pyreverse reads the annotation and renders `a : Optional[str]` for the example."},
+{"source":"S3","decision":"skip","reason":"Reproduces, but the wrong inference of `asyncio.subprocess` as the top-level `subprocess` module comes from astroid, not this repository."},
+{"source":"S4","decision":"fix","reason":"The argparse SystemExit(2) from `pylint -v` is the same root cause as S7 (short verbose option expects an argument)."},
+{"source":"S5","decision":"skip","reason":"Not reproducible in this checkout: no unused-import is reported for `abc` used in a type comment."},
+{"source":"S6","decision":"skip","reason":"Upstream timeout in an unrelated webhook-relay service; not code in this repository."},
+{"source":"S7","decision":"fix","reason":"`-v` was never preprocessed and its argparse action required an argument, so `pylint -v` exited with a usage error."},
+{"source":"S8","decision":"skip","reason":"Too vague to act on: no command or option is identified, so no defect in this code can be located."}
+]

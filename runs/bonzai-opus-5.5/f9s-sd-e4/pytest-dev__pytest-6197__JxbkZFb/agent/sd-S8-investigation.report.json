@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 84929,
+ "finalText": "I re-checked the finding against the request. The behaviour comes from pytest, but pytest is working as designed, so nothing needs fixing. I made no file changes.\n\n**What the user saw:** they wrote a hook in their conftest to turn the first value of each test case (`\"add\"`) into the test's name, and added `firstresult=True` to its parameters. Their tests were named `'add'-2-2-4` instead of `add`.\n\n**Why:**\n- **`firstresult` does nothing in the user's function.** It is an option on pytest's own definition of the hook (`@hookspec(firstresult=True)` in `src/_pytest/hookspec.py:275`). pluggy, the library pytest uses to call hooks, never passes an argument that has a default value, so the user's extra parameter is simply ignored.\n- **The hook names one value at a time.** `_idval` in `src/_pytest/python.py:1167\u20131172` calls the hook once per parameter value. `_idvalset` then joins the results with `-` (`return \"-\".join(this_id)`, line 1195). The hook's docstring and two existing tests in `testing/python/metafunc.py` describe this behaviour.\n\n**What I ran:** the user's exact conftest against a two-case parametrized test on this code (Python 3.11, pluggy 0.13.1, `--assert=plain` because this pytest's assertion rewriting fails on 3.11). Both tests passed with no error, named `test_x['add'-2-2-4]` and `test_x['sub'-2-2-0]`.\n\n**What the user can do:** name a whole test case with `ids=[...]` or `pytest.param(..., id=\"add\")`, which pytest already supports. Optionally, the docs could add one sentence saying `firstresult` goes on pytest's hook definition, not in a plugin's function, and that this hook names a single value.\n\n```json\n{\n  \"verdict\": \"notActionable\",\n  \"title\": \"Parametrize id hook names one value, not the test\",\n  \"cause\": \"The user put firstresult=True in their own pytest_make_parametrize_id signature. firstresult is an option on pytest's hook definition, and pluggy never passes arguments that have defaults, so that parameter is ignored. The hook works as designed: pytest calls it once per parameter value and joins the per-value ids with '-', so returning repr(val) for '_' gives ids like 'add'-2-2-4 rather than add.\",\n  \"files\": [\n    {\"path\": \"src/_pytest/hookspec.py\", \"why\": \"Hook definition: firstresult=True on the hookspec; docstring says it returns a representation of the given val\"},\n    {\"path\": \"src/_pytest/python.py\", \"why\": \"_idval calls the hook once per value; _idvalset joins per-value ids with '-'\"},\n    {\"path\": \"testing/python/metafunc.py\", \"why\": \"Existing tests check the per-value hook behaviour\"}\n  ],\n  \"plan\": [],\n  \"verification\": [\n    \"Ran the reporter's conftest with a parametrized test in a probe copy on pytest at this commit (Python 3.11, pluggy 0.13.1, --assert=plain): test ids were test_x['add'-2-2-4] and test_x['sub'-2-2-0], both passed, with no error. The hook ran per value and firstresult was ignored.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"none\",\n  \"risk\": \"none\",\n  \"confidence\": 0.8,\n  \"fixType\": \"frustration\",\n  \"claims\": [\n    {\n      \"id\": \"c1\",\n      \"text\": \"The hook is declared firstresult on pytest's hookspec, which is where that option lives, not in a hook implementation's signature.\",\n      \"role\": \"other\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"src/_pytest/hookspec.py:275\", \"quote\": \"@hookspec(firstresult=True)\"},\n        {\"type\": \"code\", \"ref\": \"src/_pytest/hookspec.py:276\", \"quote\": \"def pytest_make_parametrize_id(config, val, argname):\"}\n      ]\n    },\n    {\n      \"id\": \"c2\",\n      \"text\": \"pytest calls the hook once per parameter value and joins the per-value ids with '-', so one hook result only replaces that value's part of the id.\",\n      \"role\": \"other\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"src/_pytest/python.py:1168\", \"quote\": \"hook_id = config.hook.pytest_make_parametrize_id(\"},\n        {\"type\": \"code\", \"ref\": \"src/_pytest/python.py:1195\", \"quote\": \"return \\\"-\\\".join(this_id)\"}\n      ]\n    },\n    {\n      \"id\": \"c3\",\n      \"text\": \"The reporter's conftest works on this code: the hook runs, the extra parameter is ignored, and the id becomes 'add'-2-2-4.\",\n      \"role\": \"trigger\",\n      \"citations\": [\n        {\"type\": \"evidence\", \"ref\": \"ev_s8\", \"quote\": \"def pytest_make_parametrize_id(argname, val, firstresult=True):\"},\n        {\"type\": \"query\", \"ref\": \"probe\", \"quote\": \"test_a.py::test_x['add'-2-2-4] PASSED\"}\n      ]\n    }\n  ],\n  \"ruledOut\": [\n    {\n      \"hypothesis\": \"Putting firstresult=True in the hook signature makes the hook fail or not be called.\",\n      \"why\": \"In the probe the hook ran with no error and its return value appeared in the id.\",\n      \"citations\": [{\"type\": \"query\", \"ref\": \"probe\", \"quote\": \"test_a.py::test_x['sub'-2-2-0] PASSED\"}]\n    }\n  ],\n  \"intendedBehavior\": \"pytest_make_parametrize_id returns an id for one parameter value, and pytest joins the per-value ids with '-' to form the test id.\",\n  \"intent\": {\n    \"deliberate\": true,\n    \"evidence\": \"The hookspec docstring says it returns 'a user-friendly string representation of the given ``val``', _idvalset joins per-value ids with '-', and tests test_pytest_make_parametrize_id and test_pytest_make_parametrize_id_with_argname in testing/python/metafunc.py check this per-value behaviour. Naming a whole test is done with ids= or pytest.param(id=...).\"\n  },\n  \"plain\": {\n    \"headline\": \"A user's custom test-naming function didn't give the names they expected, because it names each value separately, as designed.\",\n    \"happened\": \"The user wrote a function to turn the first value of each test case into the test's name. They also added a setting to that function that only belongs in pytest's own definition, so pytest ignored it. The function ran, but pytest still added the other values, so names looked like 'add'-2-2-4 instead of add.\",\n    \"matters\": \"Only people who expect this naming function to name the whole test get confused, and pytest already has two other ways to name a whole test case.\",\n    \"fix\": \"No code change is needed. Point the user to the existing ways of naming a whole test case, and if wanted, add a sentence to the docs saying the function names one value at a time.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 10,
+  "inputTokens": {
+   "avg": 16547.6,
+   "max": 23740
+  },
+  "mainUsage": {
+   "inputTokens": 165476,
+   "cachedInputTokens": 148738,
+   "outputTokens": 8903
+  },
+  "cacheHitPercent": 89.88493799705093,
+  "wallSeconds": 84.82799983024597,
+  "tools": {
+   "read": 8,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 2
+  },
+  "reads": 8,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.2914736,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.2914736
+}

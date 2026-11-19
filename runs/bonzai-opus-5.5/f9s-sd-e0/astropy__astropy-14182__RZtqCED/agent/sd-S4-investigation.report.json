@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 89296,
+ "finalText": "I checked my answer against the request again and found nothing to change. The verdict is fixable: `from astropy.io import ascii` crashes when Python runs with `-OO`, because of a one-line pattern in `astropy/io/ascii/core.py`.\n\n**Caveat:** The issue text in the evidence is cut off after its template comments, so I never saw the reporter's traceback. I'm assuming their import failure is the `-OO` one, because that's the only way I could make `io.ascii` fail to import here.\n\n**What a person sees:** Python's `-OO` option strips docstrings. With it, importing `astropy.io.ascii` fails with `AttributeError: 'NoneType' object has no attribute 'expandtabs'`. That also breaks every ASCII-format `Table.read` and `Table.write`. Without `-OO`, the import works.\n\n**Cause:** Each ASCII reader class registers itself when it is defined. While doing so, `MetaBaseReader.__init__` adds the class docstring to the help text of its read function (line 1234) and write function (line 1247) with `inspect.cleandoc(cls.__doc__)`. Under `-OO` the docstring is `None` and `cleandoc` raises. This happens while `basic.py` defines `class Basic`, so the whole package fails to import. The project means to support `-OO`: its changelog records an earlier fix that made astropy run in a `python -OO` session.\n\n**Checks I ran** (testbed Python, numpy 1.25.2, astropy 5.3.dev; nothing in the repository was changed):\n- `python -OO -c \"from astropy.io import ascii\"` fails with the traceback ending at `core.py` line 1234. Without `-OO` it prints `ok`.\n- In the throwaway copy only, I changed both lines to `cls.__doc__ or \"\"`. After that, under `-OO`, the import works, `ascii.read` reads a small table and `Table.read(..., format='ascii.csv')` works.\n- `astropy/io/ascii/tests/test_connect.py` passed on that patched copy: 22 passed, 2 skipped.\n\n**Fix:** Use `cls.__doc__ or \"\"` on lines 1234 and 1247. Add a test that runs `python -OO -c \"import astropy.io.ascii\"` in a separate process and checks that it succeeds. Effort and risk are both small.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"io.ascii fails to import under python -OO\",\n  \"cause\": \"When each ASCII reader class is defined, MetaBaseReader.__init__ adds the class docstring to the read/write function help text with inspect.cleandoc(cls.__doc__). Under python -OO docstrings are stripped, so cls.__doc__ is None and cleandoc raises AttributeError while basic.py defines class Basic. That breaks `from astropy.io import ascii` and every ASCII Table.read/write.\",\n  \"files\": [\n    {\"path\": \"astropy/io/ascii/core.py\", \"why\": \"Lines 1234 and 1247 call inspect.cleandoc(cls.__doc__) without handling a None docstring.\"}\n  ],\n  \"plan\": [\n    \"In MetaBaseReader.__init__ replace inspect.cleandoc(cls.__doc__) with inspect.cleandoc(cls.__doc__ or \\\"\\\") for both the reader (line 1234) and writer (line 1247) docs.\",\n    \"Add a regression test that runs `python -OO -c 'import astropy.io.ascii'` in a subprocess and asserts exit code 0.\",\n    \"Add a bug-fix changelog fragment for io.ascii.\"\n  ],\n  \"verification\": [\n    \"python -OO -c \\\"from astropy.io import ascii\\\" exits 0 (it currently raises AttributeError at core.py:1234).\",\n    \"python -OO -c \\\"from astropy.table import Table; Table.read(['a,b','1,2'], format='ascii.csv')\\\" succeeds.\",\n    \"pytest astropy/io/ascii/tests passes.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.85,\n  \"fixType\": \"error\",\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"The reader metaclass passes the class docstring straight to inspect.cleandoc, which fails when the docstring is None as it is under -OO.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"astropy/io/ascii/core.py:1234\", \"quote\": \"func.__doc__ += inspect.cleandoc(cls.__doc__).strip()\"},\n      {\"type\": \"query\", \"ref\": \"probe:python -OO -c 'from astropy.io import ascii'\", \"quote\": \"AttributeError: 'NoneType' object has no attribute 'expandtabs'\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"trigger\", \"text\": \"The crash happens while basic.py defines its first reader class, so the whole io.ascii package import fails.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:python -OO -c 'from astropy.io import ascii'\", \"quote\": \"func.__doc__ += inspect.cleandoc(cls.__doc__).strip()\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"other\", \"text\": \"The writer branch has the same unguarded call.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"astropy/io/ascii/core.py:1247\", \"quote\": \"func.__doc__ += inspect.cleandoc(cls.__doc__).strip()\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"impact\", \"text\": \"The issue's reporter cannot import astropy.io.ascii.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s4\", \"quote\": \"Error importing io.ascii\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"io.ascii fails to import in a normal (non-optimized) Python session\", \"why\": \"Import succeeds without -OO in the testbed environment (prints 'ok'), so the failure is specific to stripped docstrings.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:python -c 'from astropy.io import ascii'\", \"quote\": \"5.3.dev133+ga5917978b.d20260815\"}\n    ]}\n  ],\n  \"intendedBehavior\": \"Running `python -OO -c \\\"import astropy.io.ascii\\\"` exits successfully and ASCII tables can be read and written.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"The docstring concatenation is only meant to build help text. CHANGES.rst records an earlier fix so that astropy runs in a `python -OO` session without raising an error, so crashing under -OO was never chosen.\", \"citations\": [\n    {\"type\": \"doc\", \"ref\": \"CHANGES.rst\"}\n  ]},\n  \"plain\": {\n    \"headline\": \"Reading text tables with astropy crashes as soon as it loads when Python is run in its strip-documentation mode.\",\n    \"happened\": \"Some people run Python in an optimized mode that throws away built-in help text. When astropy's text-table reader loads, it tries to copy each table format's help text into its read and write help. With the help text gone there is nothing to copy, and the loading step crashes.\",\n    \"matters\": \"Anyone who runs Python in that optimized mode cannot read or write any text table with astropy at all.\",\n    \"fix\": \"When a table format has no help text, treat it as empty instead of crashing.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 10,
+  "inputTokens": {
+   "avg": 16734,
+   "max": 22514
+  },
+  "mainUsage": {
+   "inputTokens": 167340,
+   "cachedInputTokens": 151828,
+   "outputTokens": 7997
+  },
+  "cacheHitPercent": 90.73024979084498,
+  "wallSeconds": 88.18400001525879,
+  "tools": {
+   "read": 5,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 5
+  },
+  "reads": 5,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.2678416,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.2678416
+}

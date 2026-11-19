@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 187214,
+ "finalText": "The legend bug comes from this repository's code, and the fix is a one-character change. When seaborn builds the short color legend for numeric data, it drops the label at the top of the data range. So data running 0\u2013100 get a legend that stops at 80, even though the dots at 100 are drawn.\n\n**Cause.** In `seaborn/utils.py:688`, the code that picks legend labels is meant to drop only labels outside the data range. It checks the top end with \"strictly less than\":\n```python\nraw_levels = [l for l in raw_levels if l >= limits[0] and l < limits[1]]\n```\nSo a label exactly at the largest value (100 here) is removed too. The same function builds the dot-size legend, so that legend has the same problem.\n\n**What I ran.** All runs were in a throwaway copy of the repository; nothing was changed.\n- **Existing test fails today:** `tests/test_utils.py::test_locator_to_legend_entries` expects `['2','4','6']` for the range 1 to 6 and gets `['2','4']`.\n- **Reported symptom reproduced:** a scatter plot colored by values from 0 to 100 gives the legend `['0','20','40','60','80']`.\n- **With `<=` instead of `<`:** that plot's legend becomes `['0','20','40','60','80','100']`.\n- **Other tests:** with the change in place, `tests/test_utils.py` and `tests/test_relational.py` gave 97 passed and 22 failed. I ran one of the failures (`test_ci_deprecation`) on the unchanged code and it fails there too, because this environment's pandas no longer has the option `mode.use_inf_as_null`. I didn't re-run the other 21 on unchanged code. I only saw two of their names, and both also failed on a pandas error.\n\n**Is it on purpose?** No. The code comment only talks about removing labels *outside* the data range, and the existing test expects the top value to appear. The only commit in this checkout is the v0.10.0 snapshot, and there are no open pull requests that touch this.\n\n**Fix.** Change `l < limits[1]` to `l <= limits[1]` and use the existing test as the regression check. Effort and risk are both small.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Color legend drops the top value on scatter plots\",\n  \"cause\": \"locator_to_legend_entries in seaborn/utils.py removes tick values outside the data range using `l >= limits[0] and l < limits[1]`. The strict `<` also removes a tick equal to the data maximum, so when the max lands on a tick (e.g. 100), the brief hue/size legend ends one step early (at 80).\",\n  \"files\": [\n    {\"path\": \"seaborn/utils.py\", \"why\": \"Line 688 checks the upper limit with a strict less-than, which drops the tick equal to the data maximum.\"},\n    {\"path\": \"seaborn/relational.py\", \"why\": \"Brief hue (line 246) and size (line 278) legends call locator_to_legend_entries with limits = (min, max) of the data levels.\"},\n    {\"path\": \"tests/test_utils.py\", \"why\": \"The existing test_locator_to_legend_entries already expects the max tick ('6' for limits 1..6) and fails today.\"}\n  ],\n  \"plan\": [\n    \"In seaborn/utils.py locator_to_legend_entries, change `l < limits[1]` to `l <= limits[1]`.\",\n    \"Keep the existing assertion in tests/test_utils.py (limits (1, 6) -> ['2','4','6']) as the regression test; optionally add a scatterplot test with hue 0..100 that expects '100' in the legend.\"\n  ],\n  \"verification\": [\n    \"pytest tests/test_utils.py::test_locator_to_legend_entries passes (fails before the fix with ['2','4'] != ['2','4','6']).\",\n    \"sns.scatterplot(data=df, x='x', y='y', hue='c') with c = 0,10,...,100 gives legend texts ['0','20','40','60','80','100'] (before the fix: ['0','20','40','60','80']).\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small (one-character change, test already exists)\",\n  \"risk\": \"low\",\n  \"confidence\": 0.95,\n  \"fixType\": \"error\",\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"The legend-level filter excludes values equal to the upper data limit because it uses a strict less-than.\", \"role\": \"rootCause\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"seaborn/utils.py:688\", \"quote\": \"raw_levels = [l for l in raw_levels if l >= limits[0] and l < limits[1]]\"}\n    ]},\n    {\"id\": \"c2\", \"text\": \"Brief hue legends pass the data min and max as limits, so a tick at the data maximum is exactly the value removed.\", \"role\": \"trigger\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"seaborn/relational.py:245\", \"quote\": \"limits = min(self._hue_map.levels), max(self._hue_map.levels)\"}\n    ]},\n    {\"id\": \"c3\", \"text\": \"The existing unit test expects the maximum tick to appear in the legend and fails on the current code.\", \"role\": \"rootCause\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"tests/test_utils.py:323\", \"quote\": \"assert str_levels == [\\\"2\\\", \\\"4\\\", \\\"6\\\"]\"},\n      {\"type\": \"query\", \"ref\": \"probe:pytest tests/test_utils.py -k locator_to_legend\", \"quote\": \"AssertionError: assert ['2', '4'] == ['2', '4', '6']\"}\n    ]},\n    {\"id\": \"c4\", \"text\": \"A scatter plot with hue data going up to 100 shows a legend that stops at 80, matching the support report.\", \"role\": \"impact\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s6\", \"quote\": \"the dot-color legend stops at 80 even though the data go up to 100\"},\n      {\"type\": \"query\", \"ref\": \"probe:sns.scatterplot hue 0..100\", \"quote\": \"['0', '20', '40', '60', '80']\"}\n    ]},\n    {\"id\": \"c5\", \"text\": \"The size legend uses the same function and has the same defect.\", \"role\": \"impact\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"seaborn/relational.py:277\", \"quote\": \"limits = min(self._size_map.levels), max(self._size_map.levels)\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"The 22 failures in tests/test_relational.py are caused by the fix.\", \"why\": \"test_ci_deprecation, checked on the unchanged code, also fails, from a pandas option this environment no longer has (OptionError: 'mode.use_inf_as_null'); the other 21 were not re-run on unchanged code.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:pytest test_ci_deprecation\", \"quote\": \"pandas._config.config.OptionError: \\\"No such keys(s): 'mode.use_inf_as_null'\\\"\"}\n    ]}\n  ],\n  \"intendedBehavior\": \"A scatterplot whose numeric hue values range from 0 to 100 shows a brief legend that includes the 100 entry.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"The comment says only that ticks *outside* the limits are clipped ('The locator can return ticks outside the limits, clip them here'), and the existing test expects the maximum value ('6' for limits 1..6) to be kept.\"},\n  \"plain\": {\n    \"headline\": \"Scatter chart color keys stop one step short (at 80 instead of 100) because the chart drops the label that sits exactly at the highest value.\",\n    \"happened\": \"When a chart colors dots by a number, it builds a short key with evenly spaced labels. It throws away labels that fall outside the data's range, but it also wrongly throws away the one equal to the highest value. So data reaching 100 get a key ending at 80, even though the 100 dots are drawn.\",\n    \"matters\": \"Any chart whose highest value lands on a round key step shows a key missing its top value, and keys for dot sizes have the same problem.\",\n    \"fix\": \"Keep labels that are equal to the highest value instead of only those below it.\"\n  },\n  \"sourceId\": \"S6\"\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 13,
+  "inputTokens": {
+   "avg": 15852.538461538461,
+   "max": 20525
+  },
+  "mainUsage": {
+   "inputTokens": 206083,
+   "cachedInputTokens": 192554,
+   "outputTokens": 7766
+  },
+  "cacheHitPercent": 93.4351693249807,
+  "wallSeconds": 186.50799989700317,
+  "tools": {
+   "read": 3,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 4,
+   "subagent": 0,
+   "other": 5
+  },
+  "reads": 3,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.2614458,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.2614458
+}

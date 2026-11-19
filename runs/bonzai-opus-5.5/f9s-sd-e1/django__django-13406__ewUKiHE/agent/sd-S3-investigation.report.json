@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 91089,
+ "finalText": "I reproduced the bug and confirmed a one-line fix. The cause is in this repository's code.\n\n**What a person sees:** They save a query like `values('name').annotate(c=Count('id'))` by pickling `qs.query`, as Django's documentation on pickling querysets suggests. They then attach it to a new queryset and run it. Instead of `[{'name': 'a', 'c': 2}]` they get `Happening` model objects that have no primary key. Reading `.pk`, or printing one, fails with `AttributeError: 'NoneType' object has no attribute 'attname'`.\n\n**Cause:** Whether a queryset returns dicts or model objects is stored on the queryset (`_iterable_class`), not on the `Query` that gets pickled. `values()` sets it to `ValuesIterable`, but that is lost when only the `Query` is saved. A new queryset defaults to `ModelIterable`, and the `query` setter in `django/db/models/query.py` (lines 211\u2013213) just stores the value without checking it.\n\n**Proof (in the probe's throwaway copy):**\n- **Before the fix:** after reassigning the unpickled query, the queryset used `ModelIterable`, returned `Happening` objects, and reading one raised the `AttributeError`.\n- **After the fix:** I added `if value.values_select: self._iterable_class = ValuesIterable` to the setter. The same steps returned `{'name': 'a', 'c': 2}`, and all 34 `queryset_pickle` tests passed, including my temporary one.\n\n**Fix:** Add that one line to the setter, plus regression tests for `values()`, `values().annotate()` and `values_list()`. A reloaded `values_list()` query will come back as dicts rather than tuples, because the pickled query doesn't record that tuples were asked for. I haven't run the wider `queries` and `aggregation` suites.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Reloaded pickled values() query returns broken objects\",\n  \"cause\": \"QuerySet.values()/values_list() record the result shape only on the QuerySet (_iterable_class = ValuesIterable), not on the Query that people pickle. When a pickled Query is assigned to a fresh queryset through the query setter, _iterable_class stays ModelIterable. The selected columns and aggregate rows are then turned into model instances with no primary key, and reading .pk/.id or printing one raises AttributeError.\",\n  \"files\": [\n    {\"path\": \"django/db/models/query.py\", \"why\": \"The QuerySet.query setter (lines 211-213) only stores the Query and does not restore ValuesIterable when the query has values_select; __init__ defaults to ModelIterable (line 198).\"},\n    {\"path\": \"tests/queryset_pickle/tests.py\", \"why\": \"Add regression tests that pickle values(), values().annotate() and values_list() queries and reassign them.\"}\n  ],\n  \"plan\": [\n    \"In the QuerySet.query setter, before self._query = value, add: if value.values_select: self._iterable_class = ValuesIterable.\",\n    \"Add tests in queryset_pickle that pickle qs.query for values(), values().annotate(Count('id')) and values_list(), assign it to Model.objects.all().query, and assert the results are the expected dicts.\",\n    \"Run the queryset_pickle, queries and aggregation test suites.\"\n  ],\n  \"verification\": [\n    \"Probe with the fix applied: the reloaded values().annotate() query returned {'name': 'a', 'c': 2} using ValuesIterable, and all 34 queryset_pickle tests passed.\",\n    \"Still to run: the queries and aggregation suites, and the new regression tests in tests/queryset_pickle/tests.py.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.95,\n  \"fixType\": \"error\",\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"The query setter only stores the Query and does not restore the values result shape, so a fresh queryset keeps its default ModelIterable.\", \"role\": \"rootCause\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"django/db/models/query.py:213\", \"quote\": \"        self._query = value\"},\n      {\"type\": \"code\", \"ref\": \"django/db/models/query.py:198\", \"quote\": \"        self._iterable_class = ModelIterable\"}\n    ]},\n    {\"id\": \"c2\", \"text\": \"values() sets the dict-producing iterable only on the QuerySet clone, so it is lost when only queryset.query is pickled.\", \"role\": \"rootCause\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"django/db/models/query.py:831\", \"quote\": \"        clone._iterable_class = ValuesIterable\"}\n    ]},\n    {\"id\": \"c3\", \"text\": \"Probe reproduction: the original query returned dicts; after the unpickled query was reassigned, the rows were Happening instances built by ModelIterable, and reading one raised AttributeError.\", \"role\": \"impact\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:runtests queryset_pickle.test_probe\", \"quote\": \"reloaded <class 'queryset_pickle.models.Happening'> <class 'django.db.models.query.ModelIterable'>\"},\n      {\"type\": \"query\", \"ref\": \"probe:runtests queryset_pickle.test_probe\", \"quote\": \"AttributeError: 'NoneType' object has no attribute 'attname'\"}\n    ]},\n    {\"id\": \"c4\", \"text\": \"With the setter setting ValuesIterable when values_select is present, the reloaded query returns the original dicts and the existing pickle tests still pass.\", \"role\": \"other\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:runtests queryset_pickle (with fix)\", \"quote\": \"reloaded <class 'dict'> <class 'django.db.models.query.ValuesIterable'>\"}\n    ]},\n    {\"id\": \"c5\", \"text\": \"The user follows Django's documented pattern of pickling queryset.query for later re-evaluation, with values plus annotate for GROUP BY.\", \"role\": \"trigger\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s3\", \"quote\": \"when I tried to rerun a query that combines values and annotate for a GROUP BY functionality, the result is broken\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"Pickling the Query drops its selected columns or aggregates.\", \"why\": \"With only the setter changed, the reloaded query returned the exact original row {'name': 'a', 'c': 2}, so the column and aggregate data survive pickling; only the queryset's iterable choice is lost.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:runtests queryset_pickle (with fix)\", \"quote\": \"reloaded <class 'dict'> <class 'django.db.models.query.ValuesIterable'>\"}\n    ]}\n  ],\n  \"intendedBehavior\": \"Assigning an unpickled Query built with values().annotate() to Model.objects.all().query yields the same list of dicts as the original queryset, without AttributeError.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"Django's pickling-querysets documentation presents pickling queryset.query and reassigning it as supported. Nothing in the setter or the tests chooses to drop the values() result shape; this case was simply not handled.\"},\n  \"plain\": {\n    \"headline\": \"Saved database queries that group and count come back as broken records instead of the counts, and using them crashes.\",\n    \"happened\": \"A developer saved a 'count rows per group' query to run later, as Django's documentation suggests. When the query was loaded again, Django forgot it should return plain rows of values and built full records instead. Those records have no identity, so reading or printing them fails.\",\n    \"matters\": \"Anyone who saves and later reruns a query that returns plain values instead of full records gets wrong results or a crash.\",\n    \"fix\": \"When a saved query is loaded back, notice that it asked for plain values and return those again.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 7,
+  "inputTokens": {
+   "avg": 15384,
+   "max": 19391
+  },
+  "mainUsage": {
+   "inputTokens": 107688,
+   "cachedInputTokens": 95303,
+   "outputTokens": 7021
+  },
+  "cacheHitPercent": 88.49918282445583,
+  "wallSeconds": 90.20099997520447,
+  "tools": {
+   "read": 1,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 4
+  },
+  "reads": 1,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.2213876,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.2213876
+}

@@ -1,0 +1,30 @@
+{
+ "task": "scikit-learn__scikit-learn-13142",
+ "kept": [
+  {
+   "path": "sklearn/linear_model/bayes.py",
+   "category": "silent wrong result (a value or output that is subtly wrong, no exception)",
+   "defect_patch": "diff --git a/sklearn/linear_model/bayes.py b/sklearn/linear_model/bayes.py\nindex e0f59d624..fd01b4441 100755\n--- a/sklearn/linear_model/bayes.py\n+++ b/sklearn/linear_model/bayes.py\n@@ -295,7 +295,7 @@ class BayesianRidge(LinearModel, RegressorMixin):\n             return y_mean\n         else:\n             if self.normalize:\n-                X = (X - self.X_offset_) / self.X_scale_\n+                X = X / self.X_scale_\n             sigmas_squared_data = (np.dot(X, self.sigma_) * X).sum(axis=1)\n             y_std = np.sqrt(sigmas_squared_data + (1. / self.alpha_))\n             return y_mean, y_std\n",
+   "test_code": "import numpy as np\nfrom numpy.testing import assert_allclose\nfrom sklearn.linear_model import BayesianRidge\n\n\ndef test_normalized_predictive_uncertainty_is_translation_invariant():\n    rng = np.random.RandomState(20)\n    X = rng.normal(size=(48, 3))\n    y = X.dot(np.array([1.8, -0.7, 0.4])) + 0.3 * rng.normal(size=48)\n    queries = rng.normal(size=(7, 3))\n    shift = np.array([9.0, -5.0, 4.0])\n\n    original = BayesianRidge(normalize=True).fit(X, y)\n    translated = BayesianRidge(normalize=True).fit(X + shift, y)\n\n    mean, std = original.predict(queries, return_std=True)\n    translated_mean, translated_std = translated.predict(\n        queries + shift, return_std=True\n    )\n\n    assert_allclose(translated_mean, mean, rtol=1e-9, atol=1e-11)\n    assert_allclose(translated_std, std, rtol=1e-9, atol=1e-11)\n",
+   "signal": {
+    "kind": "metric",
+    "source": "Demand forecast calibration dashboard",
+    "text": "Prediction interval widths rose sharply for several regional models after the latest rollout, while point forecasts and holdout RMSE remained essentially unchanged."
+   },
+   "summary": "BayesianRidge stops subtracting training feature offsets when computing normalized predictive uncertainty, producing incorrect standard deviations for non-centered inputs."
+  },
+  {
+   "path": "sklearn/decomposition/truncated_svd.py",
+   "category": "silent wrong result (a value or output that is subtly wrong, no exception)",
+   "defect_patch": "diff --git a/sklearn/decomposition/truncated_svd.py b/sklearn/decomposition/truncated_svd.py\nindex cbaa5e190..d808ed4df 100755\n--- a/sklearn/decomposition/truncated_svd.py\n+++ b/sklearn/decomposition/truncated_svd.py\n@@ -184,7 +184,7 @@ class TruncatedSVD(BaseEstimator, TransformerMixin):\n         X_transformed = U * Sigma\n         self.explained_variance_ = exp_var = np.var(X_transformed, axis=0)\n         if sp.issparse(X):\n-            _, full_var = mean_variance_axis(X, axis=0)\n+            _, full_var = mean_variance_axis(X, axis=1)\n             full_var = full_var.sum()\n         else:\n             full_var = np.var(X, axis=0).sum()\n",
+   "test_code": "import numpy as np\nimport pytest\nfrom scipy import sparse\n\nfrom sklearn.decomposition import TruncatedSVD\n\n\n@pytest.mark.parametrize('matrix_type', [sparse.csr_matrix, sparse.csc_matrix])\ndef test_sparse_variance_ratio_matches_total_feature_variance(matrix_type):\n    X = np.array([\n        [4, 0, 0, 1, 0],\n        [4, 2, 0, 0, 0],\n        [4, 0, 3, 0, 0],\n        [4, 0, 0, 0, 2],\n        [4, 1, 0, 2, 0],\n        [4, 0, 1, 0, 0],\n        [4, 0, 0, 3, 1],\n        [4, 2, 0, 0, 1],\n    ], dtype=float)\n    model = TruncatedSVD(n_components=2, algorithm='arpack', random_state=0)\n    scores = model.fit_transform(matrix_type(X))\n\n    total_feature_variance = np.var(X, axis=0).sum()\n    expected_ratio = np.var(scores, axis=0) / total_feature_variance\n    np.testing.assert_allclose(\n        model.explained_variance_ratio_, expected_ratio,\n        rtol=1e-10, atol=1e-12,\n    )\n",
+   "signal": {
+    "kind": "user",
+    "source": "search-platform-support",
+    "text": "The explained-variance percentage dropped after the update for our sparse document batches, but the embedding coordinates look unchanged."
+   },
+   "summary": "The sparse-input variance denominator is computed across rows instead of columns, silently producing incorrect explained-variance ratios without changing the embedding."
+  }
+ ],
+ "rejected": []
+}

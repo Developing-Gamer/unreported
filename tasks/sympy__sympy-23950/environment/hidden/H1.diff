@@ -1,0 +1,13 @@
+diff --git a/sympy/stats/compound_rv.py b/sympy/stats/compound_rv.py
+index bf5d77972f..3a834ccb10 100644
+--- a/sympy/stats/compound_rv.py
++++ b/sympy/stats/compound_rv.py
+@@ -202,7 +202,7 @@ def _marginalise(self, expr, rv, evaluate):
+         rv_dom = rv.pspace.domain.set
+         if rv.pspace.is_Discrete or rv.pspace.is_Finite:
+             expr = Sum(expr*rv_dens, (rv, rv_dom._inf,
+-                    rv_dom._sup))
++                    rv_dom._sup - 1))
+         else:
+             expr = Integral(expr*rv_dens, (rv, rv_dom._inf,
+                     rv_dom._sup))

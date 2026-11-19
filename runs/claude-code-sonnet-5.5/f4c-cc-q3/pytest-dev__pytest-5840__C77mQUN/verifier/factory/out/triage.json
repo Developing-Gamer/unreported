@@ -1,0 +1,8 @@
+[
+{"source":"S1","decision":"skip","reason":"EncodedFile.mode already strips 'b' in this checkout (capture.py), so the reported defect is already fixed."},
+{"source":"S2","decision":"fix","reason":"unique_path lowercased conftest paths via normcase on Windows, breaking imports; replaced with Path.resolve()/realpath."},
+{"source":"S3","decision":"skip","reason":"Upstream API timeout in an unrelated service (webhook-relay); not a defect in this repository."},
+{"source":"S4","decision":"fix","reason":"_idval ignored an empty-string id from pytest_make_parametrize_id because of a truthiness check; now checks 'is not None'."},
+{"source":"S5","decision":"skip","reason":"Too vague to act on: the completer has no notion of a filename pattern and no reproducible defect is described."},
+{"source":"S6","decision":"fix","reason":"pastebin label used reprentries[0] (outer call) instead of the last entry where the assertion failed."}
+]

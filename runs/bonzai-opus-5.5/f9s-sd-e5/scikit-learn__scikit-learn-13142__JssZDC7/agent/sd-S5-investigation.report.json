@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 96504,
+ "finalText": "I couldn't reproduce the issue: the current code already fixes it, so the verdict is **covered** and no code change is needed. I couldn't run anything to confirm it, because the throwaway copy isn't compiled and has no numpy or pytest. The verdict rests on reading the code, its test and the changelog.\n\n- **The fix is in the code:** `get_feature_names` (`sklearn/feature_extraction/text.py:1118-1126`) now builds the vectorizer's vocabulary from the list it was given, then checks it. `transform` already did this (lines 1077-1080). Before, `get_feature_names` only did the check, which raised `NotFittedError` when the vectorizer hadn't been fitted.\n- **A test covers it:** `test_feature_names` (`sklearn/feature_extraction/tests/test_text.py:573-577`) makes an unfitted `CountVectorizer(vocabulary=vocab)` and expects the right feature names back.\n- **The changelog records it:** `doc/whats_new/v0.20.rst` lists \"Enable the call to get_feature_names in unfitted CountVectorizer initialized with a vocabulary\" (issue #10908). So the report came from a version before 0.20.\n- **No fixing commit to cite:** the repository history is a single \"Snapshot\" commit, so I can name the release (0.20) but not the commit or pull request.\n\n```json\n{\n  \"verdict\": \"covered\",\n  \"title\": \"Feature names on unfitted vectorizer with vocabulary\",\n  \"cause\": \"Before 0.20, CountVectorizer.get_feature_names called _check_vocabulary without first calling _validate_vocabulary, so a vectorizer constructed with a vocabulary but never fitted had no vocabulary_ attribute and raised NotFittedError, while transform worked. The current code builds vocabulary_ from the supplied vocabulary in get_feature_names (same as transform), and the 0.20 changelog records this change.\",\n  \"files\": [\n    {\"path\": \"sklearn/feature_extraction/text.py\", \"why\": \"get_feature_names now calls _validate_vocabulary when vocabulary_ is missing, mirroring transform\"},\n    {\"path\": \"sklearn/feature_extraction/tests/test_text.py\", \"why\": \"test_feature_names asserts get_feature_names works on an unfitted vectorizer constructed with a vocabulary\"},\n    {\"path\": \"doc/whats_new/v0.20.rst\", \"why\": \"Changelog entry recording the fix (issue #10908)\"}\n  ],\n  \"plan\": [\"No code change needed; users should upgrade to scikit-learn 0.20 or later.\"],\n  \"verification\": [\n    \"CountVectorizer(vocabulary=['beer','burger']).get_feature_names() returns ['beer','burger'] without fitting (covered by test_feature_names).\",\n    \"Could not execute in probe: the throwaway copy is not compiled and lacks numpy/pytest; conclusion is from code, test and changelog.\"\n  ],\n  \"fixedIn\": {\"release\": \"0.20\"},\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"none\",\n  \"risk\": \"none\",\n  \"confidence\": 0.9,\n  \"fixType\": \"error\",\n  \"intendedBehavior\": \"Calling get_feature_names on an unfitted CountVectorizer constructed with a vocabulary returns that vocabulary's terms in index order instead of raising NotFittedError.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"The original NotFittedError was an unhandled case; the 0.20 changelog explicitly enables this call: 'Enable the call to :term:`get_feature_names` in unfitted'.\"},\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"The reported error came from get_feature_names checking vocabulary_ without first building it from the constructor vocabulary; current code now builds it first.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"sklearn/feature_extraction/text.py:1120\", \"quote\": \"if not hasattr(self, 'vocabulary_'):\"},\n      {\"type\": \"code\", \"ref\": \"sklearn/feature_extraction/text.py:364\", \"quote\": \"check_is_fitted(self, 'vocabulary_', msg=msg),\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"other\", \"text\": \"transform already used the same validate-then-check pattern, which is why transform worked while get_feature_names did not in the reporter's version.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"sklearn/feature_extraction/text.py:1077\", \"quote\": \"if not hasattr(self, 'vocabulary_'):\"},\n      {\"type\": \"code\", \"ref\": \"sklearn/feature_extraction/text.py:1078\", \"quote\": \"self._validate_vocabulary()\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"other\", \"text\": \"An existing test asserts the fixed behaviour on an unfitted vectorizer with a vocabulary.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"sklearn/feature_extraction/tests/test_text.py:573\", \"quote\": \"cv = CountVectorizer(vocabulary=vocab)\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"other\", \"text\": \"The project's changelog records the fix in release 0.20.\", \"citations\": [\n      {\"type\": \"doc\", \"ref\": \"doc/whats_new/v0.20.rst\", \"quote\": \"Enable the call to :term:`get_feature_names` in unfitted\"}\n    ]},\n    {\"id\": \"c5\", \"role\": \"impact\", \"text\": \"The reporter hit NotFittedError when asking for feature names of a vectorizer they had given a vocabulary.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s5\", \"quote\": \"CountVectorizer's get_feature_names raise not NotFittedError when the vocabulary parameter is provided\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"inverse_transform still has the same gap and is what the user hit\", \"why\": \"The report is about get_feature_names; inverse_transform takes an already transformed matrix, which can only come from a call to transform that has already built vocabulary_.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"sklearn/feature_extraction/text.py:1100\", \"quote\": \"self._check_vocabulary()\"}\n    ]}\n  ],\n  \"plain\": {\n    \"headline\": \"Asking a text counter for its word list failed before it had seen any text, even when the person had already given it the words; newer versions fix this.\",\n    \"happened\": \"A person set up the text counter with their own list of words and asked for that list back before giving it any text. Older versions checked for a word list the counter builds itself, found none, and said the counter wasn't ready. Version 0.20 changed the counter to build that list from the words it was given, as it already did when counting text.\",\n    \"matters\": \"Only people on versions older than 0.20 still get this error.\",\n    \"fix\": \"No change is needed; people who hit this should upgrade to version 0.20 or later.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 8,
+  "inputTokens": {
+   "avg": 16406.125,
+   "max": 22098
+  },
+  "mainUsage": {
+   "inputTokens": 131249,
+   "cachedInputTokens": 116157,
+   "outputTokens": 6716
+  },
+  "cacheHitPercent": 88.50124572377695,
+  "wallSeconds": 69.30299997329712,
+  "tools": {
+   "read": 3,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 3
+  },
+  "reads": 3,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.21791939999999999,
+   "partial": false,
+   "estimated": true
+  }
+ },
+ "costUsd": 0.21791939999999999
+}

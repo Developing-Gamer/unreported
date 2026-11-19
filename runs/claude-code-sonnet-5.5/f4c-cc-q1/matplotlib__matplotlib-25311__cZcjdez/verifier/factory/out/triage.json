@@ -1,0 +1,10 @@
+[
+{"source":"S1","decision":"skip","reason":"Already fixed in this checkout: Colormap.__call__ computes the under/over masks before the int cast and no DeprecationWarning is emitted for the reproducer."},
+{"source":"S2","decision":"skip","reason":"Not reproducible: hist with histtype='step' autoscales to the data maximum (ylim 0.351 vs peak 0.335) regardless of data scale."},
+{"source":"S3","decision":"skip","reason":"OOMKilled in an unrelated service's export worker (export/csv_writer.py); not code in this repository."},
+{"source":"S4","decision":"skip","reason":"supxlabel's y is a figure fraction working as documented; the gap comes from subplot layout with many rows, a layout/usage question rather than a defect."},
+{"source":"S5","decision":"skip","reason":"Too vague to act on; font rcParams validators (size, family, weight, stretch) still reject invalid values as designed."},
+{"source":"S6","decision":"skip","reason":"Report about a downstream image-review pipeline's smoothing preset with no matplotlib stack trace or reproducer; not actionable here."},
+{"source":"S7","decision":"skip","reason":"The warning on loading a pickle saved by a different matplotlib version is intentional behavior in Figure.__setstate__, not a bug."},
+{"source":"S8","decision":"fix","reason":"DraggableBase stored the (unpicklable GUI) canvas as an attribute, breaking pickling of figures with draggable legends/annotations; canvas is now a property and excluded from pickled state."}
+]

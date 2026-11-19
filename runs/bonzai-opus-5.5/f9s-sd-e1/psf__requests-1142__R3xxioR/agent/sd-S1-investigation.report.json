@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 86923,
+ "finalText": "I checked the report against the request. All the required fields are there, the title is under 60 characters, and every quote is copied exactly from code or probe output I read. No files were changed; I only ran commands with the probe tool, in a throwaway copy.\n\n**Verdict: fixable.** When a reply is labelled as gzip- or deflate-compressed but its body isn't actually compressed, requests silently drops the start of the body. The status is still 200 and nothing is raised. A small JSON reply comes back empty, and a larger one comes back as only its tail. This matches the support report, and a retry works when the next reply is labelled correctly.\n\n**Cause:** the decompressor in [utils.py](file:///testbed/requests/utils.py), lines 365\u2013367, catches the zlib error and then only passes through the chunks it hasn't read yet. The chunk that failed, and any chunks before it, are lost. The full body is read in 10 KB chunks ([models.py](file:///testbed/requests/models.py), lines 31 and 563), so the loss is the first 10 KB. The lower-level HTTP library (urllib3) is told not to decompress ([adapters.py](file:///testbed/requests/adapters.py), lines 169 and 199), so this is the only place it happens.\n\n**Probe results** (with a small shim, because the bundled urllib3 doesn't import on modern Python):\n- A 73,791-byte uncompressed JSON body labelled gzip came back as 63,551 bytes, starting mid-object.\n- A `{\"ok\": true}` body labelled gzip came back as 0 bytes.\n- A body that really was gzip-compressed came back complete.\n- Passing `[b'abc', b'def']` straight into the decompressor returns only `[b'def']`.\n\nI couldn't run the existing test, `test_decompress_gzip`, because it needs network access to httpbin. It only covers a body that really is compressed, so it would pass anyway.\n\n**Fix:** keep the raw bytes already read until decompression succeeds. On a zlib error, return all of them (including the chunk that failed), then the rest of the stream. Add offline tests for wrongly labelled bodies under and over 10 KB.\n\n**Still to do:** the fix and its tests aren't written yet, since this run was read-only.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Mislabelled gzip responses lose the start of the body\",\n  \"cause\": \"When a response is labelled gzip/deflate but the body is not actually compressed, stream_decompress catches zlib.error and only yields the remaining chunks of the raw iterator, discarding the chunk that failed and any read before it. Response.content reads in 10 KB chunks, so bodies under 10 KB become empty and larger bodies lose their first 10 KB, still with HTTP 200 and no error.\",\n  \"files\": [\n    {\"path\": \"requests/utils.py\", \"why\": \"stream_decompress's zlib.error fallback drops the chunk that failed (and earlier raw chunks) instead of passing them through\"},\n    {\"path\": \"requests/models.py\", \"why\": \"Response.content/iter_content stream the body through stream_untransfer in 10 KB chunks, so the lost chunk is the first 10 KB of the body\"},\n    {\"path\": \"test_requests.py\", \"why\": \"Only gzip test is a network test against httpbin with a real gzip body; needs offline tests for mislabelled bodies\"}\n  ],\n  \"plan\": [\n    \"In stream_decompress, keep the raw chunks read so far until decompression has produced output without error\",\n    \"On zlib.error, yield all of those raw chunks (the failing chunk included), then the rest of the iterator\",\n    \"Add offline tests: Response with content-encoding gzip and a plain body of <10 KB and >10 KB; assert r.content equals the original body; keep the real-gzip round trip test\"\n  ],\n  \"verification\": [\n    \"Response with headers {'content-encoding': 'gzip'}, raw=BytesIO(b'{\\\"ok\\\": true}') -> r.content == b'{\\\"ok\\\": true}' (today b'')\",\n    \"Same with a 73,791-byte JSON body -> full 73,791 bytes starting with '{\\\"items\\\"' (today 63,551 bytes starting mid-object)\",\n    \"Real gzip-compressed body still decodes to the original bytes\",\n    \"list(stream_decompress(iter([b'abc', b'def']))) == [b'abc', b'def'] (today [b'def'])\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.85,\n  \"fixType\": \"silentFailure\",\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"The zlib.error fallback in stream_decompress yields only the chunks remaining in the iterator, so the chunk being decompressed when it failed is never returned.\", \"role\": \"rootCause\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/utils.py:365\", \"quote\": \"    except zlib.error:\\n        for chunk in iterator:\\n            yield chunk\"},\n      {\"type\": \"code\", \"ref\": \"requests/utils.py:361\", \"quote\": \"        for chunk in iterator:\\n            rv = dec.decompress(chunk)\"}\n    ]},\n    {\"id\": \"c2\", \"text\": \"Response.content reads the body in 10 KB chunks through this decompressor whenever content-encoding contains gzip or deflate, so the lost chunk is the first 10 KB of the body.\", \"role\": \"rootCause\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/models.py:563\", \"quote\": \"self._content = bytes().join(self.iter_content(CONTENT_CHUNK_SIZE)) or bytes()\"},\n      {\"type\": \"code\", \"ref\": \"requests/models.py:31\", \"quote\": \"CONTENT_CHUNK_SIZE = 10 * 1024\"},\n      {\"type\": \"code\", \"ref\": \"requests/utils.py:378\", \"quote\": \"    if 'gzip' in ce:\\n        gen = stream_decompress(gen, mode='gzip')\"}\n    ]},\n    {\"id\": \"c3\", \"text\": \"Running it shows the symptom: a 73,791-byte plain JSON body labelled gzip comes back as 63,551 bytes starting mid-object, and a small body comes back empty, while real gzip decodes fully.\", \"role\": \"impact\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:python\", \"quote\": \"plain body labelled gzip -> got 63551 bytes; starts with b'0, \\\"name\\\": \\\"product 290\\\"}, {\\\"i'\"},\n      {\"type\": \"query\", \"ref\": \"probe:python\", \"quote\": \"small plain body labelled gzip -> got 0 bytes; starts with b''\"}\n    ]},\n    {\"id\": \"c4\", \"text\": \"The support report describes exactly this: HTTP 200 with an empty body or only the end of the JSON, and a retry usually works.\", \"role\": \"trigger\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s1\", \"quote\": \"Occasionally the catalog call returns HTTP 200 but the client sees an empty body or only the end of the JSON.\"}\n    ]},\n    {\"id\": \"c5\", \"text\": \"urllib3 is asked not to decode content, so requests' own stream_decompress is the only decompression path.\", \"role\": \"other\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/adapters.py:169\", \"quote\": \"decode_content=False,\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"Real gzip responses are decoded incorrectly\", \"why\": \"A correctly gzip-compressed 73,791-byte body decodes in full; only mislabelled or corrupt compressed bodies take the lossy fallback\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:python\", \"quote\": \"real gzip -> got 73791 bytes; starts with b'{\\\"items\\\": [{\\\"id\\\": 0, \\\"name\\\": \\\"'\"}\n    ]},\n    {\"hypothesis\": \"urllib3 decodes the body a second time\", \"why\": \"requests passes decode_content=False to urlopen, so urllib3 hands back raw bytes\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/adapters.py:169\", \"quote\": \"decode_content=False,\"}\n    ]}\n  ],\n  \"intendedBehavior\": \"A response labelled content-encoding gzip whose body is not actually gzip returns its full raw body from Response.content, with no bytes dropped.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"The except zlib.error branch is clearly meant to fall back to passing the raw data through, but it drops the chunk that failed. HISTORY.rst only records 'Automatic Decompression of GZip Encoded Content', with nothing about discarding data, and test_decompress_gzip only checks a real gzip body.\"},\n  \"plain\": {\n    \"headline\": \"The catalog sometimes shows up empty or cut off because the client throws away the start of replies that are wrongly marked as compressed.\",\n    \"happened\": \"Sometimes the catalog reply is labelled as compressed even though it isn't. The client tries to decompress it, fails, and then falls back to the raw data, but it drops the first piece it already read (about 10 KB). Small replies come back empty and large ones lose their beginning, while the request still counts as a success.\",\n    \"matters\": \"Anyone who gets a wrongly labelled catalog reply sees missing or broken catalog data with no error, and has to retry to get it right.\",\n    \"fix\": \"When decompression fails, keep and return everything already read, not just what comes after it, and add tests for wrongly labelled replies.\"\n  },\n  \"sourceId\": \"S1\"\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 8,
+  "inputTokens": {
+   "avg": 17639.375,
+   "max": 23839
+  },
+  "mainUsage": {
+   "inputTokens": 141115,
+   "cachedInputTokens": 124282,
+   "outputTokens": 9591
+  },
+  "cacheHitPercent": 88.07143110229245,
+  "wallSeconds": 86.50799989700317,
+  "tools": {
+   "read": 7,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 2
+  },
+  "reads": 7,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.3008214,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.3008214
+}

@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 141657,
+ "finalText": "`roc_curve` now returns `np.inf` as its first threshold instead of `max(y_score) + 1`, so no threshold is above 1 for probability scores. The changes are uncommitted in the working tree, as the benchmark note required. The PR title and description are in `/testbed/.factory/pr-S5.md`.\n\n**Checks**\n- **Before the fix:** the new test `test_roc_curve_with_probablity_estimates` failed with `assert 1.9699098521619942 == inf`.\n- **After the fix:** the new test and the updated `test_roc_curve_drop_intermediate` pass.\n- **Wider runs:** `pytest sklearn/metrics` gave 2904 passed. The `-k \"roc or scor\"` run over `sklearn/model_selection` and the docstring-parameters test gave 60 passed, 3 skipped.\n- **Doctests:** the doctests in `_ranking.py` and `model_evaluation.rst` pass.\n- **Not run:** the example scripts and the full test suite.\n\n**What changed**\n- **Fix:** the first threshold is now `np.inf` in `sklearn/metrics/_ranking.py`.\n- **Docs:** the docstring and example output are updated, and the doctest in `doc/modules/model_evaluation.rst` now starts with `inf`.\n- **Changelog:** a new entry in `doc/whats_new/v1.3.rst`. It has no PR number or author yet because I don't know them, so those need filling in.\n- **Tests:** the two `2.0` expectations in `test_roc_curve_drop_intermediate` now expect `np.inf`.\n- **Callers:** I found no code in the repository that uses `thresholds[0]` as a finite number.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"visual\": false,\n  \"checks\": [\n    {\"command\": \"python -m pytest sklearn/metrics -q\", \"passed\": true},\n    {\"command\": \"python -m pytest --doctest-modules sklearn/metrics/_ranking.py doc/modules/model_evaluation.rst -q\", \"passed\": true},\n    {\"command\": \"python -m pytest sklearn/model_selection sklearn/tests/test_docstring_parameters.py -q -k \\\"roc or scor\\\"\", \"passed\": true}\n  ],\n  \"missingEnv\": [],\n  \"reproductionSteps\": \"Call roc_curve(y_true, y_score) with y_score = rng.rand(10) and inspect thresholds[0]: it is max(y_score)+1 (~1.97), above 1.\",\n  \"reproductionTest\": {\n    \"path\": \"sklearn/metrics/tests/test_ranking.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest sklearn/metrics/tests/test_ranking.py -k probablity_estimates -q\",\n    \"signature\": \"assert 1.9699098521619942 == inf\"\n  },\n  \"notes\": \"Benchmark run: nothing committed, pushed or opened as a PR. PR text is in .factory/pr-S5.md.\"\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 18,
+  "inputTokens": {
+   "avg": 31529.944444444445,
+   "max": 43925
+  },
+  "mainUsage": {
+   "inputTokens": 567539,
+   "cachedInputTokens": 537490,
+   "outputTokens": 7779
+  },
+  "cacheHitPercent": 94.70538588537528,
+  "wallSeconds": 140.7170000076294,
+  "tools": {
+   "read": 12,
+   "edit": 6,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 2,
+   "subagent": 0,
+   "other": 4
+  },
+  "reads": 12,
+  "edits": 6,
+  "runs": 4,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 6,
+  "editOperations": 12,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.26039049999999997,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.26039049999999997
+}

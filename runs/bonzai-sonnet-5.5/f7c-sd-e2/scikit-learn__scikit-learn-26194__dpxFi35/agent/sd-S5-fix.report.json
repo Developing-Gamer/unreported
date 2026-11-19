@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 136052,
+ "finalText": "`roc_curve` now returns `np.inf` as its first threshold instead of `max(y_score) + 1`, so probability scores no longer produce a threshold above 1. The change is uncommitted in the working tree, and nothing was pushed or opened.\n\n- **Before the fix:** the `-k roc_curve` run gave 2 failed, 16 passed. One failure was the new test, which saw a first threshold of 1.9699. The other was `test_roc_curve_drop_intermediate` with its expectation changed to `np.inf`.\n- **After the fix:** that run passes (18 tests). `pytest sklearn/metrics sklearn/tests/test_public_functions.py` gives 3061 passed, 57 skipped, 10 xfailed. The doctests in `_ranking.py` and `doc/modules/model_evaluation.rst` also pass.\n- **Not re-run on the base commit:** I didn't re-run the full metrics suite there.\n- **What changed:** `sklearn/metrics/_ranking.py` has the one-line fix and updated docstring and doctest. `doc/modules/model_evaluation.rst` has the matching example output. `test_ranking.py` has the new `test_roc_curve_with_probablity_estimates` and the updated `drop_intermediate` expectations. `doc/whats_new/v1.3.rst` has a changelog entry.\n- **Behaviour change:** code that treated `thresholds[0]` as a finite number will now see `inf`. `RocCurveDisplay` doesn't use the thresholds, so it is unaffected.\n- **Placeholder in the changelog:** the PR number (26194) and author in the entry are my guess. Replace them when the real PR exists.\n- **Not mine:** `git status` also shows changes in `sklearn/svm/_bounds.py` and `sklearn/svm/tests/test_bounds.py`. I left them alone.\n\nI wrote the PR text to `.factory/pr-S5.md`.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"command\": \"python -m pytest sklearn/metrics/tests/test_ranking.py -q -k roc_curve\", \"passed\": true},\n    {\"command\": \"python -m pytest sklearn/metrics sklearn/tests/test_public_functions.py -q\", \"passed\": true},\n    {\"command\": \"python -m pytest --doctest-modules sklearn/metrics/_ranking.py doc/modules/model_evaluation.rst -q\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"missingEnv\": [],\n  \"reproductionSteps\": \"Call roc_curve with random probability scores in [0, 1] (e.g. RandomState(seed).rand(10) with random binary y_true) and inspect thresholds[0]: it was max(y_score)+1 (about 1.97), above 1. After the fix it is inf and all other thresholds are within [0, 1].\",\n  \"reproductionTest\": {\n    \"path\": \"sklearn/metrics/tests/test_ranking.py\",\n    \"command\": \"python -m pytest sklearn/metrics/tests/test_ranking.py -q -k roc_curve\",\n    \"signature\": \"AssertionError: assert False where False = <ufunc 'isinf'>(1.9699098521619942)\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 19,
+  "inputTokens": {
+   "avg": 31233.473684210527,
+   "max": 41902
+  },
+  "mainUsage": {
+   "inputTokens": 593436,
+   "cachedInputTokens": 565408,
+   "outputTokens": 8631
+  },
+  "cacheHitPercent": 95.27699701399982,
+  "wallSeconds": 135.41600012779236,
+  "tools": {
+   "read": 12,
+   "edit": 11,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 2,
+   "subagent": 0,
+   "other": 5
+  },
+  "reads": 12,
+  "edits": 11,
+  "runs": 5,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 6,
+  "editOperations": 11,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.2694406,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.2694406
+}

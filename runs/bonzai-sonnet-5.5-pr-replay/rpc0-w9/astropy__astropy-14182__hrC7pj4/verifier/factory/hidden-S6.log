@@ -1,0 +1,46 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+__________________ test_squeeze_rejects_non_singleton_axis[1] __________________
+
+axis = 1
+
+    @pytest.mark.parametrize("axis", [1, -1])
+    def test_squeeze_rejects_non_singleton_axis(axis):
+        times = Time([[59000.0, 59001.0, 59002.0]], format="mjd", scale="tai")
+        assert times.squeeze(axis=0).shape == (3,)
+    
+        error = None
+        try:
+            times.squeeze(axis=axis)
+        except ValueError as exc:
+            error = exc
+    
+>       assert error is not None, "Squeezing a non-singleton axis must raise ValueError"
+E       AssertionError: Squeezing a non-singleton axis must raise ValueError
+E       assert None is not None
+
+/tmp/test_hidden_S6.py:17: AssertionError
+_________________ test_squeeze_rejects_non_singleton_axis[-1] __________________
+
+axis = -1
+
+    @pytest.mark.parametrize("axis", [1, -1])
+    def test_squeeze_rejects_non_singleton_axis(axis):
+        times = Time([[59000.0, 59001.0, 59002.0]], format="mjd", scale="tai")
+        assert times.squeeze(axis=0).shape == (3,)
+    
+        error = None
+        try:
+            times.squeeze(axis=axis)
+        except ValueError as exc:
+            error = exc
+    
+>       assert error is not None, "Squeezing a non-singleton axis must raise ValueError"
+E       AssertionError: Squeezing a non-singleton axis must raise ValueError
+E       assert None is not None
+
+/tmp/test_hidden_S6.py:17: AssertionError
+=========================== short test summary info ============================
+FAILED ../tmp/test_hidden_S6.py::test_squeeze_rejects_non_singleton_axis[1]
+FAILED ../tmp/test_hidden_S6.py::test_squeeze_rejects_non_singleton_axis[-1]
+2 failed in 0.16s

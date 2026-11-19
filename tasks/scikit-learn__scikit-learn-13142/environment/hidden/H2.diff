@@ -1,0 +1,13 @@
+diff --git a/sklearn/decomposition/truncated_svd.py b/sklearn/decomposition/truncated_svd.py
+index cbaa5e190..d808ed4df 100755
+--- a/sklearn/decomposition/truncated_svd.py
++++ b/sklearn/decomposition/truncated_svd.py
+@@ -184,7 +184,7 @@ class TruncatedSVD(BaseEstimator, TransformerMixin):
+         X_transformed = U * Sigma
+         self.explained_variance_ = exp_var = np.var(X_transformed, axis=0)
+         if sp.issparse(X):
+-            _, full_var = mean_variance_axis(X, axis=0)
++            _, full_var = mean_variance_axis(X, axis=1)
+             full_var = full_var.sum()
+         else:
+             full_var = np.var(X, axis=0).sum()

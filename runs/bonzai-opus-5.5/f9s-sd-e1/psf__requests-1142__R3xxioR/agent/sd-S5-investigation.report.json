@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 130228,
+ "finalText": "I re-read the request against my report and found two citations that would fail its rule that a quote needs at least 20 non-space characters: `if not stream:` and the commit quote \"Snapshot\". I replaced both with longer quotes from the same code. Nothing else changed.\n\n**Verdict: fixable.** The issue's symptom is real in this code (tag v1.1.0) and can be reproduced.\n\n**Cause.** In [api.py](file:///testbed/requests/api.py), every simple call (`requests.get`, `post`, `head` and the rest) creates its own throwaway session and never closes it. Lines 43\u201344 are `session = sessions.Session()` followed by `return session.request(...)`. After the response is read, the keep-alive connection goes back into that session's pool. Nobody will use it again, and nothing closes it until Python's garbage collector removes the session. The cleanup already exists in `Session.close()` and `__exit__`, which clear each connection adapter's pool, but the simple API never calls it.\n\n**Checked by running the code** (probe only, in a throwaway copy; nothing in the repository changed):\n- **One-at-a-time test server:** the second `requests.get` hung, because the server was still holding the first call's connection, which the client never closed.\n- **Threaded test server, garbage collection off:** 5 `requests.get` calls left 10 extra open sockets, all returning 200.\n- **The same 5 calls inside `with requests.Session()`:** 0 extra sockets.\n- To run this 2013 code on Python 3.9, the probe script patched two old-Python details itself (`collections.MutableMapping` and the `strict` argument).\n- I did not run the existing test suite: it needs live access to httpbin.org and pytest, which this setup doesn't have.\n\n**Fix.** In `api.request`, use `with sessions.Session() as session:` so the session closes after each call. Add a test that checks simple-API calls leave no open sockets, and another that `stream=True` responses can still be read after the call returns.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Simple requests.get/post never close their connection\",\n  \"cause\": \"requests.api.request builds a new Session for every call and returns without closing it. With the default stream=False the body is read and the keep-alive socket goes back into that session's private pool, where it stays open until the garbage collector removes the session. Session already has close() and __exit__, which clear the adapters' PoolManager, but the simple API never calls them.\",\n  \"files\": [\n    {\"path\": \"requests/api.py\", \"why\": \"request() creates sessions.Session() and returns session.request(...) without closing the session\"},\n    {\"path\": \"requests/sessions.py\", \"why\": \"Session.__exit__/close() already close all adapters; this is the cleanup the API skips\"},\n    {\"path\": \"requests/adapters.py\", \"why\": \"HTTPAdapter.close() clears the PoolManager, which closes the pooled sockets\"},\n    {\"path\": \"test_requests.py\", \"why\": \"place for a regression test that simple-API calls leave no open sockets\"}\n  ],\n  \"plan\": [\n    \"In requests/api.py request(), replace the bare Session with `with sessions.Session() as session: return session.request(method=method, url=url, **kwargs)`\",\n    \"Add a test: start a local HTTP server, make several requests.get calls with gc disabled, and assert the number of open sockets does not grow\",\n    \"Add a test that requests.get(url, stream=True) can still read the body after the call returns\"\n  ],\n  \"verification\": [\n    \"With gc disabled, 5 requests.get calls against a local threaded server should leave 0 extra sockets (today: 10)\",\n    \"Repeated requests.get calls against a single-threaded HTTPServer should complete instead of hanging on the first call's open keep-alive connection\",\n    \"stream=True responses still give their full content and iter_content after the change\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.9,\n  \"fixType\": \"performance\",\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"The simple API creates a fresh Session per call and returns without closing it, so its pooled connection lives until garbage collection.\", \"role\": \"rootCause\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/api.py:43\", \"quote\": \"session = sessions.Session()\"},\n      {\"type\": \"code\", \"ref\": \"requests/api.py:44\", \"quote\": \"return session.request(method=method, url=url, **kwargs)\"}\n    ]},\n    {\"id\": \"c2\", \"text\": \"The cleanup exists but goes unused: Session.close closes every adapter, and HTTPAdapter.close clears the PoolManager holding the sockets.\", \"role\": \"rootCause\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/sessions.py:390\", \"quote\": \"for _, v in self.adapters.items():\"},\n      {\"type\": \"code\", \"ref\": \"requests/adapters.py:132\", \"quote\": \"self.poolmanager.clear()\"}\n    ]},\n    {\"id\": \"c3\", \"text\": \"Reproduced on v1.1.0: five requests.get calls leave ten extra open sockets, while the same calls in a with-Session block leave none.\", \"role\": \"impact\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:python\", \"quote\": \"requests 1.1.0 extra sockets after 5 requests.get (gc off): 10 [200, 200, 200, 200, 200]\"},\n      {\"type\": \"query\", \"ref\": \"probe:python\", \"quote\": \"extra sockets after 5 with-Session gets: 0\"}\n    ]},\n    {\"id\": \"c4\", \"text\": \"The reporter saw a connection left open per simple-API request until garbage collection, holding resources on the server.\", \"role\": \"trigger\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s5\", \"quote\": \"the requests module leaves a connection open until it is garbage collected. This eats up resources on the server site\"}\n    ]},\n    {\"id\": \"c5\", \"text\": \"The connection comes from the throwaway session's own PoolManager, so it is kept in a pool nothing will reuse.\", \"role\": \"other\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/adapters.py:122\", \"quote\": \"conn = self.poolmanager.connection_from_url(url)\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"Session has no way to release connections\", \"why\": \"Session.__exit__ calls close(), and close() clears every adapter's pool; with-Session use leaves 0 extra sockets in the probe\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/sessions.py:204\", \"quote\": \"def __exit__(self, *args):\"},\n      {\"type\": \"query\", \"ref\": \"probe:python\", \"quote\": \"extra sockets after 5 with-Session gets: 0\"}\n    ]},\n    {\"hypothesis\": \"Already fixed in this checkout (issue came from an older 0.x version)\", \"why\": \"HEAD is tag v1.1.0, and api.request here still creates a Session it never closes; the probe reproduces the leak on this code\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/api.py:43\", \"quote\": \"session = sessions.Session()\"},\n      {\"type\": \"commit\", \"ref\": \"6da81e4\"}\n    ]}\n  ],\n  \"intendedBehavior\": \"After requests.get(url) returns with the default stream=False, the process holds no open socket to the server for that call.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"No comment, test or HISTORY.rst entry says simple-API calls should keep their connection open; Session provides close()/__exit__ to release connections, and api.request just never calls it.\"},\n  \"plain\": {\n    \"headline\": \"Every quick one-off web request made with the library leaves its network connection open until Python's garbage collector removes it, which ties up the server and the caller.\",\n    \"happened\": \"Each simple one-off request sets up its own private connection pool. After the reply is read, the connection is kept open for reuse, but nothing will ever reuse it and nothing closes it. It stays open until Python's garbage collector removes it.\",\n    \"matters\": \"Programs that make many quick requests pile up idle connections, which can exhaust their own limits and tie up or even block the servers they talk to.\",\n    \"fix\": \"Close the private connection pool as soon as each one-off request finishes.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 11,
+  "inputTokens": {
+   "avg": 20851.909090909092,
+   "max": 28189
+  },
+  "mainUsage": {
+   "inputTokens": 229371,
+   "cachedInputTokens": 208182,
+   "outputTokens": 10135
+  },
+  "cacheHitPercent": 90.76212773192775,
+  "wallSeconds": 129.2960000038147,
+  "tools": {
+   "read": 6,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 2,
+   "subagent": 0,
+   "other": 5
+  },
+  "reads": 6,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.3502554,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.3502554
+}

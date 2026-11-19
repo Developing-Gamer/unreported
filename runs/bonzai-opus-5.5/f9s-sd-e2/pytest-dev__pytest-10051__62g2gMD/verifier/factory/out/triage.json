@@ -1,0 +1,37 @@
+[
+  {
+    "source": "S1",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: pytest already turns color off when TERM is 'dumb': should_do_markup only enables markup when the stream is a TTY and TERM != 'dumb', and an existing test checks this. Running pytest in a real pty wit"
+  },
+  {
+    "source": "S2",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: Older pytest sent --pastebin session logs to bpaste.net with lexer=python3, and the service rejected some contents that did not parse as Python with HTTP 400. The current create_new_paste sends lexer="
+  },
+  {
+    "source": "S3",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The error comes from a production service named webhook-relay (relay/deliver.py post_webhook, which uses aiohttp) that timed out waiting 30 s for api.github.com. The repository at /testbed is pytest, "
+  },
+  {
+    "source": "S4",
+    "decision": "fix",
+    "reason": "The table of characters to escape in src/_pytest/compat.py is built from range(128) minus range(32, 128), so it only escapes codes 0-31 and leaves DEL (0x7F) out. For bytes values, ascii_escaped decod"
+  },
+  {
+    "source": "S5",
+    "decision": "fix",
+    "reason": "get_timeout_config_value in src/_pytest/faulthandler.py wraps the configured value in int(), so faulthandler_timeout = 0.5 becomes 0. pytest_runtest_protocol only arms faulthandler.dump_traceback_late"
+  },
+  {
+    "source": "S6",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: Older pytest dropped the chain of exceptions when it sent a test report from an xdist worker back to the main process, so only the last exception showed up. The current report code saves the full chai"
+  },
+  {
+    "source": "S7",
+    "decision": "fix",
+    "reason": "During each test phase, get_records(when) is stored as the same list object as the capture handler's records (logging.py:699). caplog.clear() calls handler.reset(), and reset() rebinds self.records to"
+  }
+]

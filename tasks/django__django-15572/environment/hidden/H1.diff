@@ -1,0 +1,11 @@
+diff --git a/django/db/backends/oracle/creation.py b/django/db/backends/oracle/creation.py
+index df773bff8c..50b36463f3 100644
+--- a/django/db/backends/oracle/creation.py
++++ b/django/db/backends/oracle/creation.py
+@@ -460,5 +460,5 @@ class DatabaseCreation(BaseDatabaseCreation):
+             settings_dict["PORT"],
+             settings_dict["ENGINE"],
+             settings_dict["NAME"],
+-            self._test_database_user(),
++            settings_dict["USER"],
+         )

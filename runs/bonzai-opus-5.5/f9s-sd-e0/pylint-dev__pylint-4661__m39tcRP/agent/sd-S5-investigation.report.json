@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 110637,
+ "finalText": "I checked the report against the request and it meets it. I made no edits, ran commands only in the probe's throwaway copy, and every quote in the report matches what I read or what the probe printed.\n\n**Verdict: fixable.** Pylint's `missing-raises-doc` check (W9006) wrongly says an exception is undocumented when the docstring names it by a full path with two or more dots. The cause is in this repository.\n\n**Cause:** Before comparing, the check is supposed to keep only the class name of each exception listed in the docstring. At line 307 of `pylint/extensions/docparams.py` it uses `exc.split(\".\", 1)[-1]`, which removes only the part before the first dot. So `mypkg.errors.ValueError` becomes `errors.ValueError`, which never matches the raised `ValueError`. A name with one dot, like `re.error`, still works, which is why only some methods get the warning.\n\n**What I ran:**\n- **Existing tests:** all 46 in `tests/extensions/test_check_raise_docs.py` pass. They only use names with one dot, so they can't catch this.\n- **End-to-end pylint run:**\n  - A Sphinx docstring listing `mypkg.errors.ValueError` gave `W9006: \"ValueError\" not documented as being raised`.\n  - A NumPy docstring listing `concurrent.futures.TimeoutError` gave the same warning for `TimeoutError`.\n  - A Google docstring listing `builtins.ValueError` gave no warning.\n- **Ruled out the docstring parser:** it returns the full name intact. Cutting at the first dot gives `api.errors.MyError`; cutting at the last dot gives `MyError`.\n\n**Not deliberate:** The comment above the line says the aim is \"just the class name\". No changelog entry or test asks for the current result on names with several dots.\n\n**Who it affects:** Anyone who lists exceptions by their full module path gets false warnings on correctly documented code. That can fail CI or push them to turn the check off.\n\n**Fix (not applied, since this was a read-only investigation):**\n1. Change line 307 to `exc.split(\".\")[-1]`.\n2. Add tests with names that have two or more dots in Sphinx, Google and NumPy docstrings.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Raises check misreads fully qualified exception names\",\n  \"cause\": \"docparams.visit_raise reduces each documented exception name to its class name with `exc.split(\\\".\\\", 1)[-1]`, which only strips the first dotted component. A docstring entry like `mypkg.errors.ValueError` becomes `errors.ValueError`, which never matches the raised `ValueError`, so W9006 missing-raises-doc fires although the exception is documented. Names with a single dot (re.error) still work, which is why only some methods are affected.\",\n  \"files\": [\n    {\"path\": \"pylint/extensions/docparams.py\", \"why\": \"Line 307 strips only the first module component when matching documented exceptions to raised ones.\"},\n    {\"path\": \"tests/extensions/test_check_raise_docs.py\", \"why\": \"Only single-dot qualified names are tested; needs multi-dot cases for Sphinx, Google and Numpy styles.\"}\n  ],\n  \"plan\": [\n    \"In visit_raise, change `exc.split(\\\".\\\", 1)[-1]` to `exc.split(\\\".\\\")[-1]` so the last component (the class name) is compared.\",\n    \"Add tests where the Raises section names an exception with two or more dots (e.g. `mypkg.errors.ValueError`, `concurrent.futures.TimeoutError`, `~a.b.MyError`) in Sphinx, Google and Numpy docstrings, asserting no message.\"\n  ],\n  \"verification\": [\n    \"Run tests/extensions/test_check_raise_docs.py: the new multi-dot tests fail before the change and pass after; the existing 46 still pass.\",\n    \"Run `pylint --load-plugins=pylint.extensions.docparams --enable=missing-raises-doc` on a function documenting `:raises mypkg.errors.ValueError:` that raises ValueError; no W9006 is emitted.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small (one-line change plus tests)\",\n  \"risk\": \"low\",\n  \"confidence\": 0.93,\n  \"fixType\": \"error\",\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"The documented exception names are reduced by splitting only at the first dot, so names with more than one dotted component keep their module path and never match the raised class name.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"pylint/extensions/docparams.py:307\", \"quote\": \"found_excs_class_names = {exc.split(\\\".\\\", 1)[-1] for exc in found_excs_full_names}\"},\n      {\"type\": \"code\", \"ref\": \"pylint/extensions/docparams.py:308\", \"quote\": \"missing_excs = expected_excs - found_excs_class_names\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"rootCause\", \"text\": \"The stated intent of the line is to keep only the class name, which the first-dot split does not do for multi-dot names.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"pylint/extensions/docparams.py:306\", \"quote\": \"# Extract just the class name, e.g. \\\"error\\\" from \\\"re.error\\\"\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"trigger\", \"text\": \"Running pylint with docparams on a function documenting `:raises mypkg.errors.ValueError:` and a Numpy docstring listing `concurrent.futures.TimeoutError` emitted false W9006 warnings, while a single-dot `builtins.ValueError` did not.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:pylint run on /tmp/t.py\", \"quote\": \"/tmp/t.py:4:0: W9006: \\\"ValueError\\\" not documented as being raised (missing-raises-doc)\"},\n      {\"type\": \"query\", \"ref\": \"probe:pylint run on /tmp/t.py\", \"quote\": \"/tmp/t.py:14:0: W9006: \\\"TimeoutError\\\" not documented as being raised (missing-raises-doc)\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"other\", \"text\": \"The docstring parser returns the full dotted name intact, so the parser is not at fault; only the split in docparams is.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:python docstringify exceptions()\", \"quote\": \"{'~myproject.api.errors.MyError'} {'api.errors.MyError'} {'MyError'}\"}\n    ]},\n    {\"id\": \"c5\", \"role\": \"impact\", \"text\": \"Users who document exceptions with full module paths get a warning on correctly documented methods, as reported in developer support.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s5\", \"quote\": \"A few API methods now get a '\\\"ValueError\\\" not documented as being raised' warning even though the exception is still listed in their docstrings.\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"The existing raise-doc tests catch this regression.\", \"why\": \"All 46 tests pass; they only use single-dot names like re.error, bogusmodule.error and .LocalException, which the first-dot split handles.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:pytest tests/extensions/test_check_raise_docs.py\", \"quote\": \"46 passed, 1 warning in 0.85s\"},\n      {\"type\": \"code\", \"ref\": \"tests/extensions/test_check_raise_docs.py:165\", \"quote\": \"bogusmodule.error: Sometimes\"}\n    ]},\n    {\"hypothesis\": \"The docstring regex fails to parse the qualified exception name.\", \"why\": \"SphinxDocstring.exceptions() returned the full name '~myproject.api.errors.MyError'; the type regex accepts dotted names.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"pylint/extensions/_check_docs_utils.py:246\", \"quote\": \"\\\\w(?:\\\\w|\\\\.[^\\\\.])*    # Valid python name\"}\n    ]},\n    {\"hypothesis\": \"The behaviour was changed deliberately and recorded in the changelog.\", \"why\": \"The ChangeLog has no entry about matching qualified exception names differently; the code comment says the goal is the bare class name.\", \"citations\": [\n      {\"type\": \"doc\", \"ref\": \"ChangeLog\", \"quote\": \"* Fix missing-raises-doc false positive (W9006)\"}\n    ]}\n  ],\n  \"intendedBehavior\": \"A function that raises ValueError and documents `:raises mypkg.errors.ValueError:` (or the Google/Numpy equivalent) produces no missing-raises-doc warning.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"The comment above the comparison says it should extract just the class name (\\\"error\\\" from \\\"re.error\\\"); stripping only the first component for multi-dot names contradicts that, and no changelog entry or test asserts the multi-dot behaviour.\"},\n  \"plain\": {\n    \"headline\": \"Pylint warns that an error is not documented when the docstring lists it by its full module path.\",\n    \"happened\": \"A developer lists an error by its full path in a function's docs, such as a package, then a submodule, then the error's name. When pylint checks the docs against the errors the code raises, it removes only the first part of that path. The rest still includes a module name, so pylint doesn't see a match and warns that the error is undocumented.\",\n    \"matters\": \"Anyone who documents errors with full paths gets false warnings on correct code, which can fail their builds or push them to turn the check off.\",\n    \"fix\": \"Compare only the last part of the documented name (the error's own name), and add tests for names with several parts.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 12,
+  "inputTokens": {
+   "avg": 26567.166666666668,
+   "max": 37175
+  },
+  "mainUsage": {
+   "inputTokens": 318806,
+   "cachedInputTokens": 288629,
+   "outputTokens": 11061
+  },
+  "cacheHitPercent": 90.53436886382315,
+  "wallSeconds": 109.81100010871887,
+  "tools": {
+   "read": 9,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 4
+  },
+  "reads": 9,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 5,
+   "readFileIgnoringRange": 5
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.4298028,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.4298028
+}

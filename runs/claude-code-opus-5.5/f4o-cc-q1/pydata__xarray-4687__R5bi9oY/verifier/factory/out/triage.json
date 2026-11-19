@@ -1,0 +1,37 @@
+[
+  {
+    "source": "S1",
+    "decision": "skip",
+    "reason": "Already fixed in this checkout: the single-dim to_stacked_array/to_unstacked_dataset roundtrip from the issue runs without MergeError and returns a Dataset identical to the input."
+  },
+  {
+    "source": "S2",
+    "decision": "skip",
+    "reason": "Not enough to act on: no inputs, versions, or reader-selection call are given, and nothing shows a defect in xarray's engine selection rather than a change in the environment or caller configuration."
+  },
+  {
+    "source": "S3",
+    "decision": "fix",
+    "reason": "Still reproducible: xr.where has no keep_attrs argument and always drops attributes, so this change adds keep_attrs (defaulting to the global option) that keeps the attrs of x."
+  },
+  {
+    "source": "S4",
+    "decision": "skip",
+    "reason": "Already fixed in this checkout: DataArray.quantile(..., keep_attrs=True) returns {'units': 'K'}."
+  },
+  {
+    "source": "S5",
+    "decision": "skip",
+    "reason": "Not enough to act on: the report gives no code, data, or versions, and decoding integer lead times as timedeltas depends on file metadata (units attributes / decode_timedelta) that is not provided."
+  },
+  {
+    "source": "S6",
+    "decision": "skip",
+    "reason": "Intended behaviour rather than a defect: expand_dims returns a broadcast view (its docstring says the result is a view into the underlying array, not a copy) that is marked read-only on purpose, and a write changes several elements only because the user forced the view writeable; use .copy() to get a writable array."
+  },
+  {
+    "source": "S7",
+    "decision": "skip",
+    "reason": "Outside this repository: a connection-refused error from a billing service calling api.stripe.com has nothing to do with xarray."
+  }
+]

@@ -1,0 +1,13 @@
+diff --git a/sphinx/builders/gettext.py b/sphinx/builders/gettext.py
+index 75c95c0bc..60c5036f9 100755
+--- a/sphinx/builders/gettext.py
++++ b/sphinx/builders/gettext.py
+@@ -86,7 +86,7 @@ class Catalog:
+         if msg not in self.metadata:  # faster lookup in hash
+             self.messages.append(msg)
+             self.metadata[msg] = []
+-        self.metadata[msg].append((origin.source, origin.line, origin.uid))  # type: ignore
++            self.metadata[msg].append((origin.source, origin.line, origin.uid))  # type: ignore
+ 
+     def __iter__(self) -> Generator[Message, None, None]:
+         for message in self.messages:

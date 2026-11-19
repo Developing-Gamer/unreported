@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 64455,
+ "finalText": "Django's choice types now work in templates, so this issue is already fixed in the current code. The fix shipped in Django 3.0.3, and the report came from an earlier 3.0 release.\n\n**Why it failed before:** in Django 3.0.0\u20133.0.2, a choices class like `YearInSchool` could be called like a function. Templates call those with no arguments, so the call failed because it had no value. Now every choices class is marked so templates don't call it ([enums.py](file:///testbed/django/db/models/enums.py), line 34: `cls.do_not_call_in_templates = True`). The template engine checks that mark (`django/template/base.py:852`). The 3.0.3 release notes record the change as added template support (ticket 31154).\n\n**Checks (in the throwaway copy only):**\n- I rendered the exact comparison from the report, `{% if s.year_in_school == Y.FRESHMAN %}`, with a `TextChoices` class. It printed `'yes|Freshman'`, which is correct.\n- The existing `test_templates` test passes. Two other tests in that suite fail because the sandbox's Python 3.11 is newer than this checkout supports. That has nothing to do with templates.\n\nThe repository's history is one squashed commit, so I can't name the commit or pull request that added the fix. The 3.0.3 release comes from the release notes. Anyone still affected should upgrade to Django 3.0.3 or later; no code change is needed.\n\n```json\n{\n  \"verdict\": \"covered\",\n  \"title\": \"Choices enums now usable in templates (fixed in 3.0.3)\",\n  \"cause\": \"In Django 3.0.0\u20133.0.2, Choices classes were callable and lacked do_not_call_in_templates, so the template engine called them with no arguments and the lookup failed. ChoicesMeta.__new__ now sets cls.do_not_call_in_templates = True, which the template engine checks before calling, so the comparison in the report works.\",\n  \"files\": [\n    {\"path\": \"django/db/models/enums.py\", \"why\": \"ChoicesMeta.__new__ sets do_not_call_in_templates = True on every Choices class (line 34)\"},\n    {\"path\": \"django/template/base.py\", \"why\": \"The template engine skips calling objects that have do_not_call_in_templates (line 852)\"},\n    {\"path\": \"docs/releases/3.0.3.txt\", \"why\": \"Release note recording the fix (ticket 31154)\"},\n    {\"path\": \"tests/model_enums/tests.py\", \"why\": \"test_templates covers rendering Choices in templates\"}\n  ],\n  \"plan\": [],\n  \"verification\": [\n    \"Rendered '{% if s.year_in_school == Y.FRESHMAN %}yes{% else %}no{% endif %}|{{ Y.FRESHMAN.label }}' with a TextChoices class: output 'yes|Freshman'.\",\n    \"Ran tests/runtests.py model_enums: test_templates passes. Two functional-API tests error only because this sandbox runs Python 3.11, which this checkout does not support ('boundary' keyword); unrelated.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"none\",\n  \"risk\": \"none\",\n  \"confidence\": 0.95,\n  \"fixedIn\": {\"release\": \"3.0.3\"},\n  \"fixType\": \"error\",\n  \"intendedBehavior\": \"A template comparing a model field to YearInSchool.FRESHMAN, where YearInSchool is a TextChoices class, renders the true branch when they match.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"Callability was never chosen; the fix was recorded in docs/releases/3.0.3.txt as added template support (ticket 31154).\"},\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"trigger\", \"text\": \"The reporter's template comparison failed because the template engine called the Choices class with no arguments.\", \"citations\": [{\"type\": \"evidence\", \"ref\": \"ev_s4\", \"quote\": \"This is because YearInSchool, being a class, is callable, and Django Templates always call callables with no arguments.\"}]},\n    {\"id\": \"c2\", \"role\": \"rootCause\", \"text\": \"The current code marks every Choices class as not to be called by templates, which removes the cause.\", \"citations\": [{\"type\": \"code\", \"ref\": \"django/db/models/enums.py:34\", \"quote\": \"cls.do_not_call_in_templates = True\"}, {\"type\": \"code\", \"ref\": \"django/template/base.py:852\", \"quote\": \"if getattr(current, 'do_not_call_in_templates', False):\"}]},\n    {\"id\": \"c3\", \"role\": \"other\", \"text\": \"The fix shipped in Django 3.0.3 under ticket 31154.\", \"citations\": [{\"type\": \"doc\", \"ref\": \"docs/releases/3.0.3.txt\", \"quote\": \"Added support for using enumeration types ``TextChoices``,\"}]},\n    {\"id\": \"c4\", \"role\": \"other\", \"text\": \"An existing test renders a Choices class in a template.\", \"citations\": [{\"type\": \"code\", \"ref\": \"tests/model_enums/tests.py:154\", \"quote\": \"template = Template('{{ Suit.DIAMOND.label }}|{{ Suit.DIAMOND.value }}')\"}]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"The current code still fails on the reported comparison\", \"why\": \"In a probe, the reported template comparison rendered 'yes|Freshman'.\", \"citations\": [{\"type\": \"code\", \"ref\": \"django/db/models/enums.py:34\", \"quote\": \"cls.do_not_call_in_templates = True\"}]}\n  ],\n  \"plain\": {\n    \"headline\": \"Developers couldn't use Django's new choice lists in page templates, but this was fixed in Django 3.0.3.\",\n    \"happened\": \"In early Django 3.0 releases, the page template system tried to run a choice list like a function and failed. Django 3.0.3 marked choice lists so templates leave them alone. A test with the example from the report now gives the right result.\",\n    \"matters\": \"Only people still on Django 3.0.0 to 3.0.2 hit this.\",\n    \"fix\": \"No code change is needed. Anyone affected should upgrade to Django 3.0.3 or later.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 7,
+  "inputTokens": {
+   "avg": 14940.142857142857,
+   "max": 18454
+  },
+  "mainUsage": {
+   "inputTokens": 104581,
+   "cachedInputTokens": 93135,
+   "outputTokens": 6007
+  },
+  "cacheHitPercent": 89.05537334697507,
+  "wallSeconds": 63.20099997520447,
+  "tools": {
+   "read": 2,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 4
+  },
+  "reads": 2,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.195979,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.195979
+}

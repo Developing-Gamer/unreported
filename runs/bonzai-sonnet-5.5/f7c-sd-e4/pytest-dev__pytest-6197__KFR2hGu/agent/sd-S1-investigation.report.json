@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 57101,
+ "finalText": "I traced the cause in the code but could not reproduce it. The sandbox has no `atomicwrites` or `attr` modules, so pytest would not start, and I made no edits. The report below corrects one citation line number from my earlier draft.\n\nThe cause is in `Package.collect` in `src/_pytest/python.py`. It calls `self._mount_obj_if_needed()` first, which imports the package's `__init__.py`. The `python_files` check comes only after that import. So any package directory under the run gets imported, including a non-test one like the reporter's `foobar/__init__.py` containing `assert False`. The 5.2.3 changelog lists only the #5830 skip-mark fix, which is the likely source of the regression.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"pytest 5.2.3 imports every package's __init__.py\",\n  \"cause\": \"In 5.2.3 (the #5830 fix), Package.collect() begins with self._mount_obj_if_needed(). That call imports the package's __init__.py (via Module._getobj -> _importtestmodule) every time a package directory is collected. It happens before the code checks whether __init__.py matches python_files. A non-test package such as foobar/__init__.py containing 'assert False', or a Windows-only package, therefore gets imported on Linux and fails collection, even though it was never meant to be collected.\",\n  \"files\": [\n    {\"path\": \"src/_pytest/python.py\", \"why\": \"Package.collect() (line 642) mounts/imports __init__.py unconditionally. Package.setup() and the Package's marker handling need to import it only when required.\"},\n    {\"path\": \"src/_pytest/python.py\", \"why\": \"pytest_collect_file (line 181) always lets __init__.py through to build a Package node. That is fine on its own, but the node must not import the module.\"}\n  ],\n  \"plan\": [\n    \"Remove the unconditional self._mount_obj_if_needed() from Package.collect().\",\n    \"Keep importing __init__.py only when it matches python_files, which the existing Module(init_module, self) branch already does, or when Package.setup() actually needs setup_module.\",\n    \"Re-handle the #5830 case (a skip mark on the first test in an __init__.py) through that Module path instead of the Package import.\",\n    \"Add a regression test: a package with __init__.py containing 'assert False' and a normal test file elsewhere should pass with no collection error. Keep the existing #5830 test passing.\",\n    \"Add a changelog entry.\"\n  ],\n  \"verification\": [\n    \"New test: testdir with foobar/__init__.py containing 'assert False' plus a passing test; assert 1 passed and no errors.\",\n    \"Run testing/test_collection.py and testing/python/collect.py, including the #5830 skip test.\",\n    \"Repro from the issue with 5.2.2 and 5.2.3 under tox.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"likely\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.8,\n  \"intendedBehavior\": \"pytest does not import a package's __init__.py during collection unless it matches python_files or is passed explicitly, so a non-importable non-test package no longer breaks the run.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"CHANGELOG 5.2.3 lists only #5830 (skip on the first test in a package). Nothing says importing arbitrary __init__.py files was intended, and the reporter calls it a regression from 5.2.2.\"},\n  \"fixType\": \"error\",\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"Package.collect mounts (imports) the package object before checking python_files, so every package __init__.py is imported.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"src/_pytest/python.py:642\", \"quote\": \"self._mount_obj_if_needed()\"}, {\"type\": \"code\", \"ref\": \"src/_pytest/python.py:264\", \"quote\": \"self._obj = obj = self._getobj()\"}]},\n    {\"id\": \"c2\", \"text\": \"The pattern check for __init__.py appears only after the import has already happened.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"src/_pytest/python.py:645\", \"quote\": \"if init_module.check(file=1) and path_matches_patterns(\"}]},\n    {\"id\": \"c3\", \"text\": \"The regression arrived in 5.2.3 together with the #5830 fix.\", \"role\": \"trigger\", \"citations\": [{\"type\": \"doc\", \"ref\": \"CHANGELOG.rst\", \"quote\": \"The first test in a package (``__init__.py``) marked with ``@pytest.mark.skip`` is now correctly skipped.\"}]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"The always-added '__init__.py' pattern in pytest_collect_file causes the import.\", \"why\": \"It only builds the Package node, and the Package constructor does not import. The import comes from Package.collect.\", \"citations\": [{\"type\": \"code\", \"ref\": \"src/_pytest/python.py:181\", \"quote\": \"parent.config.getini(\\\"python_files\\\") + [\\\"__init__.py\\\"]\"}]}\n  ],\n  \"plain\": {\n    \"headline\": \"After upgrading to 5.2.3, test runs broke on projects that contain folders with code that can't be loaded on that machine.\",\n    \"happened\": \"The newer version started loading the start-up file of every code folder it walked through while looking for tests, not just the ones that hold tests. One user has a folder that only works on Windows. Loading it on Linux failed, so their whole build failed.\",\n    \"matters\": \"Anyone with a project holding non-test folders whose start-up code can fail, such as platform-specific code, gets broken test runs after upgrading.\",\n    \"fix\": \"Stop loading a folder's start-up file during the search unless that file is actually a test file or is needed, and add a test for it.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 12,
+  "inputTokens": {
+   "avg": 19491.583333333332,
+   "max": 25170
+  },
+  "mainUsage": {
+   "inputTokens": 233899,
+   "cachedInputTokens": 215727,
+   "outputTokens": 7291
+  },
+  "cacheHitPercent": 92.23083467650567,
+  "wallSeconds": 56.509000062942505,
+  "tools": {
+   "read": 10,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 3
+  },
+  "reads": 10,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 4,
+   "readFileIgnoringRange": 4
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1614714,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1614714
+}

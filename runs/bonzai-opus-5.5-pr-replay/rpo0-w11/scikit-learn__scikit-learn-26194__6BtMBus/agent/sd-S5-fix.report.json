@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 166449,
+ "finalText": "The change is in place and uncommitted. The PR text is in `.factory/pr-S5.md`. I added no commit, push or pull request, as the benchmark note says.\n\n`roc_curve` now sets its first threshold to `np.inf` instead of `max(y_score) + 1`, so with probability scores all other thresholds stay in [0, 1]. The new test failed on the starting commit (first threshold 1.9699, not inf). The ranking tests, the `RocCurveDisplay` tests and the `_ranking.py` doctests pass (268 passed). A wider run of the metrics tests also passes (402 passed).\n\n- **Code:** one line in `sklearn/metrics/_ranking.py`, plus the docstring and doctest output.\n- **Tests:** I added `test_roc_curve_with_probablity_estimates` and changed `test_roc_curve_drop_intermediate` to expect `np.inf` first.\n- **Changelog:** I added a Fix entry to `doc/whats_new/v1.3.rst`. It has no `:pr:` number or author yet, since I didn't want to invent them.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"command\": \"pytest sklearn/metrics/_ranking.py sklearn/metrics/_plot/tests/test_roc_curve_display.py sklearn/metrics/tests/test_ranking.py --doctest-modules\", \"passed\": true},\n    {\"command\": \"pytest sklearn/metrics -k \\\"roc or ranking or det or public\\\" --doctest-modules\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"missingEnv\": [],\n  \"reproductionSteps\": \"With rng=RandomState(42), y_true=rng.randint(0,2,10), y_score=rng.rand(10): roc_curve(y_true, y_score)[2][0] was 1.9699 (> 1) for probability scores; it is now inf.\",\n  \"reproductionTest\": {\n    \"path\": \"sklearn/metrics/tests/test_ranking.py\",\n    \"command\": \"pytest sklearn/metrics/tests/test_ranking.py -k test_roc_curve_with_probablity_estimates\",\n    \"signature\": \"AssertionError: assert False where False = <ufunc 'isinf'>(1.9699098521619942)\"\n  },\n  \"notes\": \"No PR opened (benchmark run: no commit or push). PR text is in .factory/pr-S5.md. Tests were run with /opt/miniconda3/envs/testbed/bin/python.\"\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 16,
+  "inputTokens": {
+   "avg": 31014.3125,
+   "max": 42016
+  },
+  "mainUsage": {
+   "inputTokens": 496229,
+   "cachedInputTokens": 468093,
+   "outputTokens": 7495
+  },
+  "cacheHitPercent": 94.33003714011072,
+  "wallSeconds": 164.92000007629395,
+  "tools": {
+   "read": 12,
+   "edit": 7,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 1,
+   "subagent": 0,
+   "other": 4
+  },
+  "reads": 12,
+  "edits": 7,
+  "runs": 4,
+  "reReads": {
+   "total": 2,
+   "readFile": 2,
+   "shell": 0,
+   "sameFile": 5,
+   "readFileIgnoringRange": 5
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 5,
+  "editOperations": 10,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.2248406,
+   "partial": false,
+   "estimated": true
+  }
+ },
+ "costUsd": 0.2248406
+}

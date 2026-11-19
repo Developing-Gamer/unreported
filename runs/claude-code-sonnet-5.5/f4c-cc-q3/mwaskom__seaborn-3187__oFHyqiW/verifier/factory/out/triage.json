@@ -1,0 +1,7 @@
+[
+ {"source":"S1","decision":"fix","reason":"Legend labels from ScalarFormatter dropped the offset/scientific multiplier (both in objects Continuous scale and in locator_to_legend_entries), giving wrong values; now offset and scientific notation are disabled for legends."},
+ {"source":"S2","decision":"fix","reason":"Dodge applied gap to widths before computing offsets, so shrunken bars still touched; offsets are now computed first (existing test_gap failed before the fix)."},
+ {"source":"S3","decision":"skip","reason":"Not a defect: errorbar='sd' and ci='sd' give identical results and match mean±pandas std; 'ci' is a bootstrap interval so it legitimately differs from 'sd'."},
+ {"source":"S4","decision":"skip","reason":"Not reproducible: with layered objects Dot/Dots marks the plotted points and legend swatches have identical alpha, and no concrete repro was given."},
+ {"source":"S5","decision":"skip","reason":"Upstream api.github.com timeout in a separate webhook-relay service; not related to this repository's code."}
+]

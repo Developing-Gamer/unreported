@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 54436,
+ "finalText": "The fix is in, and `test_*.py` no longer completes `test_a.py.bak`. Nothing is committed, pushed or opened as a PR, as the benchmark note says.\n\n`FastFilesCompleter` in `src/_pytest/_argcomplete.py` checked `\"*\" not in prefix or \"?\" not in prefix`. That is true for any pattern missing one of the two wildcards, so `test_*.py` became `test_*.py*` before globbing. I changed `or` to `and`, so `*` is only appended when the prefix has neither wildcard. Plain prefixes such as `test_` still get it.\n\nI added `test_wildcard_prefix_not_extended` to `testing/test_argcomplete.py`. It creates `test_a.py` and `test_a.py.bak` and checks that `test_*.py` and `test_a.p?` return only `test_a.py`, and that `test_` still returns both files.\n\nI ran `/opt/miniconda3/envs/testbed/bin/python -m pytest testing/test_argcomplete.py -q -p no:cacheprovider`. Before the fix it failed with `assert ['test_a.py', 'test_a.py.bak'] == ['test_a.py']`. After the fix all 3 tests in the file pass. I ran only that file, not the wider suite.\n\nI added `changelog/5813.bugfix.rst`; 5813 is a placeholder number, so rename it to the real issue or PR number. The PR text is in `.factory/pr-S5.md`.\n\nThe working tree also shows changes to `src/_pytest/config/__init__.py`, `pathlib.py`, `python.py`, `testing/python/metafunc.py` and `testing/test_conftest.py`, plus changelog entries 5792 and 5811. Those match open PRs #1000 and #1001. I didn't make them. I did not touch or revert them, and they are not part of this fix.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest testing/test_argcomplete.py -q -p no:cacheprovider\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"reproduction\": \"In a dir with test_a.py and test_a.py.bak, call FastFilesCompleter()('test_*.py'); before the fix it returned both files.\",\n  \"reproductionTest\": {\n    \"path\": \"testing/test_argcomplete.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest testing/test_argcomplete.py -q -p no:cacheprovider\",\n    \"signature\": \"AssertionError: assert ['test_a.py', 'test_a.py.bak'] == ['test_a.py']\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 13,
+  "inputTokens": {
+   "avg": 23182.23076923077,
+   "max": 27146
+  },
+  "mainUsage": {
+   "inputTokens": 301369,
+   "cachedInputTokens": 288109,
+   "outputTokens": 5320
+  },
+  "cacheHitPercent": 95.60007830931517,
+  "wallSeconds": 52.65400004386902,
+  "tools": {
+   "read": 7,
+   "edit": 6,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 5
+  },
+  "reads": 7,
+  "edits": 6,
+  "runs": 5,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 6,
+  "editOperations": 6,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.14395680000000002,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.14395680000000002
+}

@@ -1,0 +1,57 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+____________ test_uncompressed_body_survives_gzip_fallback[chunks0] ____________
+
+chunks = [b'{"status":"ok","count":3}']
+
+    @pytest.mark.parametrize('chunks', [
+        [b'{"status":"ok","count":3}'],
+        [b'{"status":', b'"ok","count":3}'],
+    ])
+    def test_uncompressed_body_survives_gzip_fallback(chunks):
+        expected = b''.join(chunks)
+    
+        actual = b''.join(stream_decompress(iter(chunks), mode='gzip'))
+    
+>       assert actual == expected
+E       assert b'' == b'{"status":"ok","count":3}'
+E         Use -v to get more diff
+
+/tmp/test_hidden_S1.py:15: AssertionError
+____________ test_uncompressed_body_survives_gzip_fallback[chunks1] ____________
+
+chunks = [b'{"status":', b'"ok","count":3}']
+
+    @pytest.mark.parametrize('chunks', [
+        [b'{"status":"ok","count":3}'],
+        [b'{"status":', b'"ok","count":3}'],
+    ])
+    def test_uncompressed_body_survives_gzip_fallback(chunks):
+        expected = b''.join(chunks)
+    
+        actual = b''.join(stream_decompress(iter(chunks), mode='gzip'))
+    
+>       assert actual == expected
+E       assert b'"ok","count":3}' == b'{"status":"ok","count":3}'
+E         At index 0 diff: b'"' != b'{'
+E         Use -v to get more diff
+
+/tmp/test_hidden_S1.py:15: AssertionError
+=============================== warnings summary ===============================
+requests/packages/urllib3/connectionpool.py:337
+  /testbed/requests/packages/urllib3/connectionpool.py:337: DeprecationWarning: invalid escape sequence \*
+    """
+
+requests/packages/urllib3/connectionpool.py:565
+  /testbed/requests/packages/urllib3/connectionpool.py:565: DeprecationWarning: invalid escape sequence \*
+    """
+
+requests/cookies.py:136
+  /testbed/requests/cookies.py:136: DeprecationWarning: Using or importing the ABCs from 'collections' instead of from 'collections.abc' is deprecated since Python 3.3, and in 3.10 it will stop working
+    class RequestsCookieJar(cookielib.CookieJar, collections.MutableMapping):
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED ../tmp/test_hidden_S1.py::test_uncompressed_body_survives_gzip_fallback[chunks0]
+FAILED ../tmp/test_hidden_S1.py::test_uncompressed_body_survives_gzip_fallback[chunks1]
+2 failed, 3 warnings in 0.11s

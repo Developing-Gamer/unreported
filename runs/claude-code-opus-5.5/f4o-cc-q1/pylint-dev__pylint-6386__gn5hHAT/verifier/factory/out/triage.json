@@ -1,0 +1,42 @@
+[
+  {
+    "source": "S1",
+    "decision": "skip",
+    "reason": "The report doesn't name the disable entry, the messages, or the pylint versions involved, so there is nothing concrete to reproduce or act on."
+  },
+  {
+    "source": "S2",
+    "decision": "skip",
+    "reason": "Already fixed: pyreverse in this checkout reads annotations and renders the example as 'a : Optional[str]'."
+  },
+  {
+    "source": "S3",
+    "decision": "skip",
+    "reason": "Still reproduces, but the cause is outside this repository: astroid 2.11.6 infers 'asyncio.subprocess' as the top-level 'subprocess' module, and pylint just reports what astroid infers."
+  },
+  {
+    "source": "S4",
+    "decision": "fix",
+    "reason": "The SystemExit(2) is argparse's 'expected one argument' error from _parse_command_line_configuration, the same root cause as S7 ('-v' isn't preprocessed and argparse expects a value for it); fixed in pr-S7.md."
+  },
+  {
+    "source": "S5",
+    "decision": "skip",
+    "reason": "Already fixed: the example produces no unused-import in this checkout."
+  },
+  {
+    "source": "S6",
+    "decision": "skip",
+    "reason": "A network timeout in an unrelated webhook-relay service talking to api.github.com, not pylint code."
+  },
+  {
+    "source": "S7",
+    "decision": "fix",
+    "reason": "Reproduced: 'pylint mod.py -v' fails with 'argument --verbose/-v: expected one argument' and --help shows '--verbose VERBOSE'; fixed by preprocessing '-v' and setting nargs=0 for the flag-style options."
+  },
+  {
+    "source": "S8",
+    "decision": "skip",
+    "reason": "The message doesn't identify which report, command, or option is involved, and 'empty selection means all' may be intended behavior, so there is nothing actionable."
+  }
+]

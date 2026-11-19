@@ -1,0 +1,9 @@
+[
+  {"source": "S1", "decision": "skip", "reason": "Already implemented: :private-members: accepts an explicit list of member names (members_option, filtering in Documenter.filter_members, documented as changed in 3.2, covered by tests/test_ext_autodoc_private_members.py)."},
+  {"source": "S2", "decision": "fix", "reason": "Catalog.add in sphinx/builders/gettext.py only appended an origin when a msgid was first seen, so a phrase repeated across pages kept a single location (#: reference) in the generated .pot."},
+  {"source": "S3", "decision": "skip", "reason": "A network timeout to api.github.com in an external webhook-relay service, which has nothing to do with this repository's code."},
+  {"source": "S4", "decision": "skip", "reason": "Already fixed: _parse_annotation in sphinx/domains/python.py handles an empty ast.Tuple, and 'Tuple[()]' parses to Tuple[()] without error."},
+  {"source": "S5", "decision": "skip", "reason": "The failure comes from xindy crashing under WSL, outside Sphinx; latexmk not overwriting the PDF after a fatal error is a feature request about the external LaTeX toolchain, not a defect in this code."},
+  {"source": "S6", "decision": "fix", "reason": "viewcode's collect_pages lacked the epub/viewcode_enable_epub (and singlehtml) guard, so on 'make html epub' the epub build reused the html-populated environment and emitted module pages."},
+  {"source": "S7", "decision": "fix", "reason": "SearchDutch.stem stemmed before lowercasing, and the Snowball Dutch stemmer does not stem uppercase input, so all-caps words were indexed unstemmed and did not match lowercased, stemmed queries."}
+]

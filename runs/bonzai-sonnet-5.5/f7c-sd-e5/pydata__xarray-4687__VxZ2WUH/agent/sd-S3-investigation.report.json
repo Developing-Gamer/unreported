@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 41302,
+ "finalText": "I re-checked the report against the code I read. The cited lines are right, but three citation quotes spanned several lines and might not match exactly, so I replaced them with single-line quotes. Apart from those quotes, nothing changed in the findings. The one thing I could not do is run the reproduction, because the probe environment has no numpy. The verdict therefore rests on reading the code.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"xr.where drops attributes of the input array\",\n  \"cause\": \"xr.where is a thin wrapper around apply_ufunc and passes no keep_attrs argument. apply_ufunc then falls back to the global keep_attrs option, whose default is False, and that turns into 'drop'. So the result of xr.where(cond, x, y) has empty attrs, even when x carries units or other metadata. The function also has no keep_attrs parameter of its own, so a caller cannot ask for attributes to be kept. Turning on the global option is no real fix either. The 'override' strategy copies the attrs of the first argument, which is cond, not x.\",\n  \"files\": [\n    {\"path\": \"xarray/core/computation.py\", \"why\": \"where() calls apply_ufunc(duck_array_ops.where, cond, x, y, join='exact', dataset_join='exact', dask='allowed') with no keep_attrs, and apply_ufunc turns the default into 'drop' (lines ~1116-1120).\"},\n    {\"path\": \"xarray/tests/test_computation.py\", \"why\": \"Add tests that xr.where keeps x's attrs with keep_attrs=True and with set_options(keep_attrs=True), and that the default still drops them.\"},\n    {\"path\": \"doc/whats-new.rst\", \"why\": \"Add a changelog entry for the new keyword.\"}\n  ],\n  \"plan\": [\n    \"Add a keep_attrs=None parameter to xr.where and pass it through to apply_ufunc.\",\n    \"Resolve keep_attrs against the global option, and when it is True make the result take its attrs from x, not from cond. A callable such as lambda attrs, context: getattr(x, 'attrs', {}) does this; also handle x being a scalar.\",\n    \"Document the parameter in the docstring and whats-new.rst.\",\n    \"Add tests covering a DataArray, a Dataset, and a scalar x, with keep_attrs set to True, False and left at the default.\"\n  ],\n  \"verification\": [\n    \"a = xr.DataArray([1,2,3], dims='x', attrs={'units':'m'}); xr.where(a>1, a, 0, keep_attrs=True).attrs == {'units':'m'}\",\n    \"The same call inside xr.set_options(keep_attrs=True) returns x's attrs, not cond's.\",\n    \"The default call keeps its current behaviour, so the existing tests still pass.\",\n    \"Run pytest xarray/tests/test_computation.py.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"likely\",\n  \"effort\": \"small\",\n  \"risk\": \"low. Default behaviour stays the same and the new option is opt-in. Making attrs-preserving the default would be a behaviour change and a product decision.\",\n  \"confidence\": 0.8,\n  \"intendedBehavior\": \"xr.where(cond, x, y, keep_attrs=True) returns a result whose attrs equal x's attrs.\",\n  \"intent\": {\n    \"deliberate\": false,\n    \"note\": \"I found nothing in the code or the changelog that says dropping attrs in xr.where was chosen. xr.where simply never exposed apply_ufunc's keep_attrs option. apply_ufunc dropping attrs by default is the general design, but not offering any way to keep them in xr.where is the gap.\"\n  },\n  \"fixType\": \"frustration\",\n  \"plain\": {\n    \"headline\": \"Users lose the metadata on their data (units, descriptions) whenever they use the conditional-selection function, because the function has no way to keep it.\",\n    \"happened\": \"A user calls the where function on data that carries labels such as units. The result comes back with all of those labels gone. The function offers no setting to keep them, and the global setting that keeps labels would copy them from the condition, not from the data.\",\n    \"matters\": \"It hits anyone who masks or replaces values and then relies on units or descriptions for plotting, saving or later calculations.\",\n    \"fix\": \"Add an option to the where function to keep the metadata, taken from the data being selected, and test it.\"\n  },\n  \"ruledOut\": [\n    {\n      \"hypothesis\": \"A bug in the DataArray.where method rather than the xr.where function\",\n      \"why\": \"The report is about the top-level xr.where, which is the function that calls apply_ufunc without keep_attrs.\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"xarray/core/computation.py:1812\", \"quote\": \"return apply_ufunc(\"}\n      ]\n    }\n  ],\n  \"claims\": [\n    {\n      \"id\": \"c1\",\n      \"text\": \"xr.where calls apply_ufunc with only join, dataset_join and dask options and no keep_attrs argument.\",\n      \"role\": \"rootCause\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"xarray/core/computation.py:1819\", \"quote\": \"dask=\\\"allowed\\\",\"},\n        {\"type\": \"code\", \"ref\": \"xarray/core/computation.py:1813\", \"quote\": \"duck_array_ops.where,\"}\n      ]\n    },\n    {\n      \"id\": \"c2\",\n      \"text\": \"apply_ufunc turns the default keep_attrs into 'drop', so the result has no attrs.\",\n      \"role\": \"rootCause\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"xarray/core/computation.py:1117\", \"quote\": \"keep_attrs = _get_keep_attrs(default=False)\"},\n        {\"type\": \"code\", \"ref\": \"xarray/core/computation.py:1120\", \"quote\": \"keep_attrs = \\\"override\\\" if keep_attrs else \\\"drop\\\"\"}\n      ]\n    }\n  ]\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 6,
+  "inputTokens": {
+   "avg": 15328.666666666666,
+   "max": 19402
+  },
+  "mainUsage": {
+   "inputTokens": 91972,
+   "cachedInputTokens": 79580,
+   "outputTokens": 5543
+  },
+  "cacheHitPercent": 86.52633410168312,
+  "wallSeconds": 39.99600005149841,
+  "tools": {
+   "read": 6,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 1
+  },
+  "reads": 6,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.102318,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.102318
+}

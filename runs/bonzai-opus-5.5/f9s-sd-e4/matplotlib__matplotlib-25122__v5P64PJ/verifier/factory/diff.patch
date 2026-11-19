@@ -1,0 +1,153 @@
+diff --git a/lib/matplotlib/_api/deprecation.py b/lib/matplotlib/_api/deprecation.py
+index 52848ce86d..7c304173b2 100644
+--- a/lib/matplotlib/_api/deprecation.py
++++ b/lib/matplotlib/_api/deprecation.py
+@@ -293,7 +293,7 @@ def rename_parameter(since, old, new, func=None):
+                 since, message=f"The {old!r} parameter of {func.__name__}() "
+                 f"has been renamed {new!r} since Matplotlib {since}; support "
+                 f"for the old name will be dropped %(removal)s.")
+-            kwargs.setdefault(new, kwargs.pop(old))
++            kwargs[new] = kwargs.pop(old)
+         return func(*args, **kwargs)
+ 
+     # wrapper() must keep the same documented signature as func(): if we
+diff --git a/lib/matplotlib/backends/qt_compat.py b/lib/matplotlib/backends/qt_compat.py
+index a1a239ae9c..b1b96f93d6 100644
+--- a/lib/matplotlib/backends/qt_compat.py
++++ b/lib/matplotlib/backends/qt_compat.py
+@@ -38,10 +38,10 @@ _ETS = {  # Mapping of QT_API_ENV to requested binding.
+ # First, check if anything is already imported.
+ if sys.modules.get("PyQt6.QtCore"):
+     QT_API = QT_API_PYQT6
+-elif sys.modules.get("PyQt5.QtCore"):
+-    QT_API = QT_API_PYQT5
+ elif sys.modules.get("PySide6.QtCore"):
+     QT_API = QT_API_PYSIDE6
++elif sys.modules.get("PyQt5.QtCore"):
++    QT_API = QT_API_PYQT5
+ elif sys.modules.get("PySide2.QtCore"):
+     QT_API = QT_API_PYSIDE2
+ # Otherwise, check the QT_API environment variable (from Enthought).  This can
+diff --git a/lib/matplotlib/mlab.py b/lib/matplotlib/mlab.py
+index 3552904c3d..efa2f84cae 100644
+--- a/lib/matplotlib/mlab.py
++++ b/lib/matplotlib/mlab.py
+@@ -395,12 +395,12 @@ def _spectral_helper(x, y=None, NFFT=None, Fs=None, detrend_func=None,
+     elif mode == 'psd':
+         result = np.conj(result) * result
+     elif mode == 'magnitude':
+-        result = np.abs(result) / np.abs(window).sum()
++        result = np.abs(result) / window.sum()
+     elif mode == 'angle' or mode == 'phase':
+         # we unwrap the phase later to handle the onesided vs. twosided case
+         result = np.angle(result)
+     elif mode == 'complex':
+-        result /= np.abs(window).sum()
++        result /= window.sum()
+ 
+     if mode == 'psd':
+ 
+@@ -424,10 +424,10 @@ def _spectral_helper(x, y=None, NFFT=None, Fs=None, detrend_func=None,
+             result /= Fs
+             # Scale the spectrum by the norm of the window to compensate for
+             # windowing loss; see Bendat & Piersol Sec 11.5.2.
+-            result /= (np.abs(window)**2).sum()
++            result /= (window**2).sum()
+         else:
+             # In this case, preserve power in the segment, not amplitude
+-            result /= np.abs(window).sum()**2
++            result /= window.sum()**2
+ 
+     t = np.arange(NFFT/2, len(x) - NFFT/2 + 1, NFFT - noverlap)/Fs
+ 
+diff --git a/lib/matplotlib/tests/test_api.py b/lib/matplotlib/tests/test_api.py
+index 28933ff63f..455741e0c7 100644
+--- a/lib/matplotlib/tests/test_api.py
++++ b/lib/matplotlib/tests/test_api.py
+@@ -98,3 +98,17 @@ def test_deprecation_alternative():
+ def test_empty_check_in_list():
+     with pytest.raises(TypeError, match="No argument to check!"):
+         _api.check_in_list(["a"])
++
++
++def test_rename_parameter_old_and_new_passed():
++    @_api.rename_parameter("3.0", "old", "new")
++    def f(new=1):
++        return new
++
++    # The old name takes effect even if the new name is also passed
++    # explicitly (as pyplot wrappers do).
++    with pytest.warns(_api.MatplotlibDeprecationWarning):
++        assert f(new=1, old=5) == 5
++    with pytest.warns(_api.MatplotlibDeprecationWarning):
++        assert f(old=5) == 5
++    assert f(new=5) == 5  # No warning.
+diff --git a/lib/matplotlib/tests/test_backend_qt.py b/lib/matplotlib/tests/test_backend_qt.py
+index 64d59b853f..e18b9206a0 100644
+--- a/lib/matplotlib/tests/test_backend_qt.py
++++ b/lib/matplotlib/tests/test_backend_qt.py
+@@ -642,3 +642,31 @@ def test_enums_available(env):
+         env={**os.environ, "SOURCE_DATE_EPOCH": "0", **env},
+         timeout=_test_timeout, check=True,
+         stdout=subprocess.PIPE, text=True)
++
++
++def test_already_imported_binding_order():
++    # If several bindings are already imported, they are checked in the
++    # documented order PyQt6, PySide6, PyQt5, PySide2: with PySide6 and PyQt5
++    # both loaded, PySide6 must win.
++    code = """
++import sys
++from unittest import mock
++
++for name in ["PySide6", "PyQt5", "shiboken6", "sip"]:
++    sys.modules[name] = mock.MagicMock(__version__="6.5.0")
++for name in ["PySide6", "PyQt5"]:
++    core = mock.MagicMock()
++    core.QLibraryInfo.version.return_value.segments.return_value = [6, 5, 0]
++    sys.modules[name + ".QtCore"] = core
++    for sub in ["QtGui", "QtWidgets"]:
++        sys.modules[f"{name}.{sub}"] = mock.MagicMock()
++    setattr(sys.modules[name], "QtCore", core)
++
++from matplotlib.backends import qt_compat
++print(qt_compat.QT_API)
++"""
++    proc = subprocess.run(
++        [sys.executable, "-c", code],
++        env={**os.environ, "SOURCE_DATE_EPOCH": "0", "MPLBACKEND": "agg"},
++        timeout=_test_timeout, check=True, stdout=subprocess.PIPE, text=True)
++    assert proc.stdout.strip() == "PySide6"
+diff --git a/lib/matplotlib/tests/test_mlab.py b/lib/matplotlib/tests/test_mlab.py
+index 86beb5c8c8..1193691dd2 100644
+--- a/lib/matplotlib/tests/test_mlab.py
++++ b/lib/matplotlib/tests/test_mlab.py
+@@ -1072,3 +1072,28 @@ def test_psd_oversampling():
+                     sides='onesided')
+     Su_1side = np.append([Su[0]], Su[1:4] + Su[4:][::-1])
+     assert_almost_equal(np.sum(P), np.sum(Su_1side))  # same energy
++
++
++def _flattop(n):
++    # Flat top window (SciPy's definition); it has negative samples.
++    a = [0.21557895, 0.41663158, 0.277263158, 0.083578947, 0.006947368]
++    fac = np.linspace(-np.pi, np.pi, n)
++    return sum(c * np.cos(k * fac) for k, c in enumerate(a))
++
++
++def test_spectral_window_with_negative_values():
++    # The window must be normalized by its sum, not the sum of its absolute
++    # values, so that a unit-amplitude sine on a bin centre has the right peak.
++    n = 512
++    win = _flattop(n)
++    assert win.min() < 0
++    x = np.sin(2 * np.pi * 64 * np.arange(n) / n)
++
++    mag, _ = mlab.magnitude_spectrum(x, Fs=n, window=win)
++    assert_allclose(mag.max(), 0.5, rtol=1e-2)
++
++    psd, _ = mlab.psd(x, NFFT=n, Fs=n, window=win, scale_by_freq=False)
++    assert_allclose(psd.max(), 0.5, rtol=1e-2)
++
++    csp, _ = mlab.csd(x, x, NFFT=n, Fs=n, window=win, scale_by_freq=False)
++    assert_allclose(csp.real.max(), 0.5, rtol=1e-2)

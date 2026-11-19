@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 44252,
+ "finalText": "The fix is in the working tree and verified, with nothing committed, pushed or opened as a PR. `git status` shows the changes to `astropy/io/fits/diff.py` and `astropy/io/fits/tests/test_diff.py`. It also shows the new changelog file and the PR text in `.factory/pr-S2.md`.\n\n`FITSDiff` no longer raises on `Q`-format variable-length array columns. Comparing a file with itself reports it as identical. `TableDataDiff._diff` only did the per-row comparison for `P` columns, so a `Q` column such as `QD` fell through to an elementwise `!=` on an array of per-row arrays. That raised `ValueError: The truth value of an array with more than one element is ambiguous`. It now treats `P` and `Q` columns the same way.\n\nI added tests for a `PD` and `QD` file compared with itself, and for a `QD` pair that differs in one element. The two `QD` tests failed with that `ValueError` before the fix. All 51 tests in `test_diff.py` pass now, and the snippet from the issue prints `True` for `identical`.\n\nThe changelog file is `docs/changes/io.fits/14539.bugfix.rst`. The number 14539 is my guess at the PR number, so rename it once the real one exists.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"command\": \"python -m pytest astropy/io/fits/tests/test_diff.py -q\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"missingEnv\": [],\n  \"reproductionSteps\": \"Write fits.BinTableHDU.from_columns([fits.Column('a', format='QD', array=[[0],[0,0]])]) to a file and run fits.FITSDiff(file, file); before the fix it raises ValueError (truth value of an array is ambiguous) from diff.py np.where(arra != arrb).\",\n  \"reproductionTest\": {\n    \"path\": \"astropy/io/fits/tests/test_diff.py\",\n    \"command\": \"python -m pytest astropy/io/fits/tests/test_diff.py -k vla -q -p no:cacheprovider\",\n    \"signature\": \"ValueError: The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 12,
+  "inputTokens": {
+   "avg": 23506.916666666668,
+   "max": 27740
+  },
+  "mainUsage": {
+   "inputTokens": 282083,
+   "cachedInputTokens": 268231,
+   "outputTokens": 4979
+  },
+  "cacheHitPercent": 95.08938858421104,
+  "wallSeconds": 42.23100018501282,
+  "tools": {
+   "read": 7,
+   "edit": 5,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 2
+  },
+  "reads": 7,
+  "edits": 5,
+  "runs": 2,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 4,
+  "editOperations": 4,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.13805219999999999,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.13805219999999999
+}

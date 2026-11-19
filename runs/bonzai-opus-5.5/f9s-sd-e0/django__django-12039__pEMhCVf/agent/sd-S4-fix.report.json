@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 48265,
+ "finalText": "I re-checked the work: the fix, the tests and `.factory/pr-S4.md` are all in place, and nothing is committed.\n\nThe working tree also holds changes I did not make: `django/core/management/commands/showmigrations.py`, `django/template/backends/base.py`, `tests/template_backends/test_dummy.py` and `tests/template_backends/dirs/`. They match open PRs #1000 and #1001, and they were already there when I started. I left them alone, and they are not part of this fix.\n\nColumn lists in `CREATE INDEX` now render `\"name\" DESC`, and `\"name\" text_pattern_ops` with no trailing space. The fix is in `django/db/backends/ddl_references.py`, with new tests in `tests/backends/test_ddl_references.py`. Before the fix the new tests failed with a stray space before the comma. After it, `backends.test_ddl_references indexes schema model_indexes` passes: 205 tests OK on SQLite, 33 skipped. The PostgreSQL-only opclass tests were skipped, so they have not run.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"command\": \"cd tests && PYTHONPATH=/testbed python runtests.py backends.test_ddl_references indexes schema model_indexes\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"reproductionSteps\": \"Build Columns('t', ['name'], quote, col_suffixes=['DESC']) and IndexColumns with col_suffixes=[''] and opclasses=['text_pattern_ops']; str() gave '\\\"name\\\"DESC' and '\\\"name\\\" text_pattern_ops ' respectively.\",\n  \"reproductionTest\": {\n    \"path\": \"tests/backends/test_ddl_references.py\",\n    \"command\": \"cd tests && PYTHONPATH=/testbed python runtests.py backends.test_ddl_references\",\n    \"signature\": \"AssertionError: '\\\"a\\\" text_pattern_ops , \\\"b\\\" text_pattern_ops DESC, \\\"c\\\" varchar_pattern_ops ' != '\\\"a\\\" text_pattern_ops, \\\"b\\\" text_pattern_ops DESC, \\\"c\\\" varchar_pattern_ops'\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 13,
+  "inputTokens": {
+   "avg": 26077.076923076922,
+   "max": 31226
+  },
+  "mainUsage": {
+   "inputTokens": 339002,
+   "cachedInputTokens": 321662,
+   "outputTokens": 5837
+  },
+  "cacheHitPercent": 94.88498592928656,
+  "wallSeconds": 46.30999994277954,
+  "tools": {
+   "read": 9,
+   "edit": 5,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 3
+  },
+  "reads": 9,
+  "edits": 5,
+  "runs": 3,
+  "reReads": {
+   "total": 1,
+   "readFile": 1,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 4,
+  "editOperations": 7,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.16603740000000003,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.16603740000000003
+}

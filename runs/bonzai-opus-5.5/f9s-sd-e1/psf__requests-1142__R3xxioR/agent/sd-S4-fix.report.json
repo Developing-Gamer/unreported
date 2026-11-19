@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 57414,
+ "finalText": "Bodiless GET and HEAD requests no longer carry a `Content-Length` header. The two new tests pass with the fix. The GET/HEAD test fails on the original code with `AssertionError: False is not true`, which I confirmed just now. Nothing is committed or pushed.\n\n**Cause.** The investigation was right. `prepare_content_length` in `requests/models.py` always set `Content-Length` to `'0'` first. `prepare_body` and `prepare_auth` both call it, so every request got the header, including GETs with auth.\n\n**Fix.** The header is now set from the body when there is one. With no body it is set to `'0'` only when the method is not GET or HEAD. An empty POST still gets `'0'`, and a POST with `data='abc'` gets `'3'`.\n\n**Tests.** I added two tests to `test_requests.py`:\n- GET, HEAD and lowercase `get`, with and without `auth`, have no `Content-Length`.\n- Empty POST, with and without auth, has `'0'`, and POST with `data='abc'` has `'3'`.\n\n**Full file.** Running all of `test_requests.py` gives 3 failures with the fix: `test_links` and the two digest-auth tests. They also fail on the base commit, so they are not caused by this change.\n\n**Environment.** The default `python` (3.11) can't import this old `requests`, and pytest isn't installed there. I ran everything with `/opt/miniconda3/envs/testbed/bin/python -m pytest`. `git status` also shows edits to `requests/utils.py` and two urllib3 files that I did not make.\n\n**Open PRs.** #1000 and #1001 touch gzip handling and the `strict` argument, not this, so neither covers it.\n\nThe pull request text is in `.factory/pr-S4.md`.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"name\": \"pytest test_requests.py -k content_length (testbed env)\", \"passed\": true},\n    {\"name\": \"pytest test_requests.py (full)\", \"passed\": false, \"alsoOnBase\": true, \"note\": \"test_links and digest auth tests fail on base too (network/environment)\"}\n  ],\n  \"visual\": false,\n  \"missingEnv\": [],\n  \"reproductionSteps\": \"Prepare requests.Request('GET','http://example.com').prepare() and inspect .headers: before the fix it contains Content-Length: '0'; after it has no Content-Length. Same for HEAD and GET with auth=('a','b').\",\n  \"reproductionTest\": {\n    \"path\": \"test_requests.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest test_requests.py -k content_length\",\n    \"signature\": \"AssertionError: False is not true\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 13,
+  "inputTokens": {
+   "avg": 25082.23076923077,
+   "max": 29945
+  },
+  "mainUsage": {
+   "inputTokens": 326069,
+   "cachedInputTokens": 310010,
+   "outputTokens": 5849
+  },
+  "cacheHitPercent": 95.0749687949483,
+  "wallSeconds": 56.08400011062622,
+  "tools": {
+   "read": 6,
+   "edit": 4,
+   "test": 0,
+   "verify": 0,
+   "git": 2,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 3
+  },
+  "reads": 6,
+  "edits": 4,
+  "runs": 5,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 4,
+  "editOperations": 4,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1606245,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1606245
+}

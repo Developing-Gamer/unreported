@@ -1,0 +1,10 @@
+[
+  {"source": "S1", "decision": "skip", "reason": "Two-cohort forecast densities and cohort weights are not part of SymPy, and the report has no expression or code to reproduce it in this repository."},
+  {"source": "S2", "decision": "skip", "reason": "Already fixed: PythonCodePrinter already has _print_Indexed, and pycode(p[0]) returns 'p[0]' with no 'Not supported' warning."},
+  {"source": "S3", "decision": "skip", "reason": "Already fixed: with real symbols, expr.subs({1: 1.0}) works for sinh, cosh and tanh after clear_cache, with no PolynomialError."},
+  {"source": "S4", "decision": "skip", "reason": "An optical/refraction calculator UI is not part of this repository, and the report has no SymPy call to reproduce."},
+  {"source": "S5", "decision": "skip", "reason": "An OOMKilled export-job pod running export/worker.py is an infrastructure problem in another codebase, not in SymPy."},
+  {"source": "S6", "decision": "fix", "reason": "Contains.as_set() still raises NotImplementedError instead of returning the set, so code calling as_set()/as_relational on Contains conditions fails."},
+  {"source": "S7", "decision": "fix", "reason": "Same root cause as S6: the NotImplementedError comes from Contains.as_set in sympy/sets/contains.py, fixed in pr-S6."},
+  {"source": "S8", "decision": "skip", "reason": "frac(oo) == AccumBounds(0, 1) is the intended documented behaviour; the issue proposes a design change (an open upper bound), not a defect."}
+]

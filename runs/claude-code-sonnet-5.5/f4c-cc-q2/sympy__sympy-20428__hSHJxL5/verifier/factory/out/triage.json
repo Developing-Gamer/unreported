@@ -1,0 +1,9 @@
+[
+{"source":"S1","decision":"skip","reason":"Report concerns a spectral fitting export feature that does not exist in this repository (SymPy) and gives no reproducible detail."},
+{"source":"S2","decision":"skip","reason":"Already fixed: srepr of dict and set in this checkout prints elements with Symbol('x') form via _print_dict/_print_set."},
+{"source":"S3","decision":"skip","reason":"A Stripe connection-refused error in a billing service is an external network problem, not a defect in this repository."},
+{"source":"S4","decision":"fix","reason":"EX domain element __bool__ used structural `!= 0`, so an unstripped zero coefficient survived in the DMP; now uses is_zero."},
+{"source":"S5","decision":"skip","reason":"Already fixed: posify(Symbol('x', finite=True)) now yields a symbol with is_finite True."},
+{"source":"S6","decision":"skip","reason":"Vague report with no reproducible formula or identifiable code path in this repository."},
+{"source":"S7","decision":"skip","reason":"Boolean & non-Boolean raising TypeError is deliberate (sympify_return with Boolean), and the issue itself concedes the operation is not well-posed."}
+]

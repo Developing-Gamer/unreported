@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 60822,
+ "finalText": "Everything the request names is in place and I found nothing to correct.\n\n- **Fix:** `astropy/io/fits/diff.py` now sends `Q`-format variable-length array columns through the per-row `np.allclose` comparison, like `P` columns. The issue's `QD` snippet failed on the starting code with `ValueError` and now passes.\n- **Test:** `test_vla_identical_and_different` in `astropy/io/fits/tests/test_diff.py` runs for `PD` and `QD`. The `QD` case fails without the fix and both pass with it. The whole of `test_diff.py` passes (50 tests).\n- **Changelog:** `docs/changes/io.fits/14600.bugfix.rst`. The number 14600 is a placeholder to rename to the real PR number.\n- **PR text:** written to `.factory/pr-S2.md`. Nothing is committed, pushed or opened, as the benchmark note says.\n\nThe working tree also still holds unrelated Sesame-database changes in `astropy/coordinates/` and `docs/changes/coordinates/14600.api.rst`. Open PR #1000 covers those. I left them alone.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"name\": \"pytest astropy/io/fits/tests/test_diff.py -k vla_identical\", \"passed\": true},\n    {\"name\": \"pytest astropy/io/fits/tests/test_diff.py\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"reproductionSteps\": \"Create fits.Column('a', format='QD', array=[[0],[0,0]]), write it with BinTableHDU.from_columns(...).writeto('diffbug.fits'), then run fits.FITSDiff('diffbug.fits','diffbug.fits'); before the fix this raises ValueError: The truth value of an array with more than one element is ambiguous.\",\n  \"reproductionTest\": {\n    \"path\": \"astropy/io/fits/tests/test_diff.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest astropy/io/fits/tests/test_diff.py -k vla_identical -p no:cacheprovider -q\",\n    \"signature\": \"ValueError: The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 17,
+  "inputTokens": {
+   "avg": 25334.823529411766,
+   "max": 32482
+  },
+  "mainUsage": {
+   "inputTokens": 430692,
+   "cachedInputTokens": 412090,
+   "outputTokens": 6969
+  },
+  "cacheHitPercent": 95.68090421925645,
+  "wallSeconds": 59.97099995613098,
+  "tools": {
+   "read": 5,
+   "edit": 4,
+   "test": 0,
+   "verify": 0,
+   "git": 1,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 7
+  },
+  "reads": 5,
+  "edits": 4,
+  "runs": 8,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 2,
+  "editOperations": 2,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.198594,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.198594
+}

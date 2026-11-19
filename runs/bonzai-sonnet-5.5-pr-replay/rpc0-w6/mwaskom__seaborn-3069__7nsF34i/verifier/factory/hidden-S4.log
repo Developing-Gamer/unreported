@@ -1,0 +1,41 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_____ test_updated_colormap_uses_current_endpoints_for_out_of_range_values _____
+
+    def test_updated_colormap_uses_current_endpoints_for_out_of_range_values():
+        cmap = widgets._init_mutable_colormap()
+        colors = np.column_stack([color_palette("Reds", 256), np.ones(256)])
+    
+        widgets._update_lut(cmap, colors)
+    
+        expected_endpoints = colors[[0, -1]]
+        np.testing.assert_allclose(cmap([0.0, 1.0]), expected_endpoints)
+>       np.testing.assert_allclose(cmap([-0.1, 1.1]), expected_endpoints)
+
+/tmp/test_hidden_S4.py:15: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+args = (<function assert_allclose.<locals>.compare at 0x7f8194b7f310>, array([[1., 1., 1., 1.],
+       [0., 0., 0., 1.]]), array([[1.        , 0.96078431, 0.94117647, 1.        ],
+       [0.40392157, 0.        , 0.05098039, 1.        ]]))
+kwds = {'equal_nan': True, 'err_msg': '', 'header': 'Not equal to tolerance rtol=1e-07, atol=0', 'verbose': True}
+
+    @wraps(func)
+    def inner(*args, **kwds):
+        with self._recreate_cm():
+>           return func(*args, **kwds)
+E           AssertionError: 
+E           Not equal to tolerance rtol=1e-07, atol=0
+E           
+E           Mismatched elements: 4 / 8 (50%)
+E           Max absolute difference: 0.40392157
+E           Max relative difference: 1.
+E            x: array([[1., 1., 1., 1.],
+E                  [0., 0., 0., 1.]])
+E            y: array([[1.      , 0.960784, 0.941176, 1.      ],
+E                  [0.403922, 0.      , 0.05098 , 1.      ]])
+
+/opt/miniconda3/envs/testbed/lib/python3.9/contextlib.py:79: AssertionError
+=========================== short test summary info ============================
+FAILED ../tmp/test_hidden_S4.py::test_updated_colormap_uses_current_endpoints_for_out_of_range_values
+1 failed in 1.40s

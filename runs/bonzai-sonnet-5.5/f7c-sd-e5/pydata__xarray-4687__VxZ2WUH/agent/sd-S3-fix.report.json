@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 148838,
+ "finalText": "`xr.where` now has a `keep_attrs` argument. When it is true, the result takes the attrs of `x` instead of dropping them. `xarray/tests/test_computation.py` passes (248 passed, 1 skipped), and so does the doctest run on `computation.py`. I did not run the DataArray and Dataset test files: `test_dataarray.py` fails to import in this environment, with an `UndefinedVariableError` import error from pandas.\n\nThe investigation's cause was right: `where` called `apply_ufunc` without `keep_attrs`, so the default dropped all attrs. Its suggested fix, a callable returning `x.attrs`, did not work. It also overwrote coordinate attrs and Dataset variable attrs with `x`'s attrs. Instead, `where` now runs `apply_ufunc` with `\"override\"` and then sets the result's attrs from `x`.\n\n- **Behaviour:** the default is `None`, which follows the global `keep_attrs` option, whose own default is `False`, so existing calls still drop attrs.\n  - `True` keeps `x`'s attrs, including each data variable's attrs when `x` is a Dataset.\n  - `False` drops them.\n  - A scalar `x` gives empty attrs.\n- **Test:** `test_where_attrs` covers DataArray, Dataset, scalar `x`, coordinate attrs staying intact, and the global option. On the original code it fails with `TypeError: where() got an unexpected keyword argument 'keep_attrs'`.\n- **Docs:** the docstring and `doc/whats-new.rst` describe the new argument.\n- **Working tree:** nothing is committed or pushed, as instructed. `xarray/backends/plugins.py` and `xarray/tests/test_plugins.py` were already modified before I started, and I did not touch them. The PR text is in `.factory/pr-S3.md`.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"command\": \"python -m pytest xarray/tests/test_computation.py\", \"passed\": true},\n    {\"command\": \"python -m pytest --doctest-modules xarray/core/computation.py\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"missingEnv\": [],\n  \"reproductionSteps\": [\n    \"a = xr.DataArray([1,2,3], dims='x', attrs={'units':'m'})\",\n    \"xr.where(a>1, a, 0).attrs == {} (attrs dropped), and xr.where has no keep_attrs argument\"\n  ],\n  \"reproductionTest\": {\n    \"path\": \"xarray/tests/test_computation.py\",\n    \"command\": \"python -m pytest xarray/tests/test_computation.py -k test_where_attrs\",\n    \"signature\": \"TypeError: where() got an unexpected keyword argument 'keep_attrs'\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 22,
+  "inputTokens": {
+   "avg": 33869.77272727273,
+   "max": 44487
+  },
+  "mainUsage": {
+   "inputTokens": 745135,
+   "cachedInputTokens": 714516,
+   "outputTokens": 12894
+  },
+  "cacheHitPercent": 95.89081173210224,
+  "wallSeconds": 148.20199990272522,
+  "tools": {
+   "read": 14,
+   "edit": 11,
+   "test": 0,
+   "verify": 0,
+   "git": 1,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 7
+  },
+  "reads": 14,
+  "edits": 11,
+  "runs": 7,
+  "reReads": {
+   "total": 1,
+   "readFile": 1,
+   "shell": 0,
+   "sameFile": 8,
+   "readFileIgnoringRange": 8
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 3,
+  "editOperations": 10,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.34836670000000003,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.34836670000000003
+}

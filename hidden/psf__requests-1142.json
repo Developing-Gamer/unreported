@@ -1,0 +1,44 @@
+{
+ "task": "psf__requests-1142",
+ "kept": [
+  {
+   "path": "requests/packages/urllib3/util.py",
+   "category": "silent wrong result (a value or output that is subtly wrong, no exception)",
+   "defect_patch": "diff --git a/requests/packages/urllib3/util.py b/requests/packages/urllib3/util.py\nindex b827bc4..0c1a8e3 100644\n--- a/requests/packages/urllib3/util.py\n+++ b/requests/packages/urllib3/util.py\n@@ -54,7 +54,7 @@ class Url(namedtuple('Url', ['scheme', 'auth', 'host', 'port', 'path', 'query',\n         \"\"\"Absolute path including the query string.\"\"\"\n         uri = self.path or '/'\n \n-        if self.query is not None:\n+        if self.query:\n             uri += '?' + self.query\n \n         return uri\n",
+   "test_code": "import pytest\n\nfrom requests.packages.urllib3.util import parse_url\n\n\n@pytest.mark.parametrize('url, expected', [\n    ('https://files.example.test/download?', '/download?'),\n    ('https://files.example.test/download?#preview', '/download?'),\n    ('https://files.example.test?', '/?'),\n    ('https://files.example.test/download?token=abc', '/download?token=abc'),\n    ('https://files.example.test/download', '/download'),\n])\ndef test_request_uri_preserves_explicit_empty_query(url, expected):\n    assert parse_url(url).request_uri == expected\n",
+   "signal": {
+    "kind": "user",
+    "source": "download-service support",
+    "text": "A small subset of copied download links now returns 403 SignatureDoesNotMatch; the rest still download normally."
+   },
+   "summary": "A truthiness check in Url.request_uri silently drops explicit empty query delimiters, turning '/download?' into '/download'."
+  },
+  {
+   "path": "requests/utils.py",
+   "category": "swallowed error (an exception caught and ignored, or an error path that returns a default)",
+   "defect_patch": "diff --git a/requests/utils.py b/requests/utils.py\nindex 34d92d2..0abfde2 100644\n--- a/requests/utils.py\n+++ b/requests/utils.py\n@@ -363,9 +363,6 @@ def stream_decompress(iterator, mode='gzip'):\n             if rv:\n                 yield rv\n     except zlib.error:\n-        # If there was an error decompressing, just return the raw chunk\n-        yield chunk\n-        # Continue to return the rest of the raw data\n         for chunk in iterator:\n             yield chunk\n     else:\n",
+   "test_code": "import pytest\n\nfrom requests.utils import stream_decompress\n\n\n@pytest.mark.parametrize('chunks', [\n    [b'{\"status\":\"ok\",\"count\":3}'],\n    [b'{\"status\":', b'\"ok\",\"count\":3}'],\n])\ndef test_uncompressed_body_survives_gzip_fallback(chunks):\n    expected = b''.join(chunks)\n\n    actual = b''.join(stream_decompress(iter(chunks), mode='gzip'))\n\n    assert actual == expected\n",
+   "signal": {
+    "kind": "user",
+    "source": "catalog-client support",
+    "text": "Occasionally the catalog call returns HTTP 200 but the client sees an empty body or only the end of the JSON. Retrying usually returns the complete response."
+   },
+   "summary": "The decompression error fallback silently drops the chunk that triggered zlib.error instead of returning it as raw data."
+  }
+ ],
+ "rejected": [
+  {
+   "path": "requests/packages/charade/escsm.py",
+   "category": "silent wrong result (a value or output that is subtly wrong, no exception)",
+   "defect_patch": "--- a/requests/packages/charade/escsm.py\n+++ b/requests/packages/charade/escsm.py\n@@ -142,7 +142,7 @@\n 3,0,0,0,0,0,0,0,  # 28 - 2f\n 0,0,0,0,0,0,0,0,  # 30 - 37\n 0,0,0,0,0,0,0,0,  # 38 - 3f\n-6,0,4,0,8,0,0,0,  # 40 - 47\n+0,0,4,0,8,0,0,0,  # 40 - 47\n 0,9,5,0,0,0,0,0,  # 48 - 4f\n 0,0,0,0,0,0,0,0,  # 50 - 57\n 0,0,0,0,0,0,0,0,  # 58 - 5f\n",
+   "test_code": "import pytest\n\nfrom requests.packages import charade\n\n\n@pytest.mark.parametrize('designation', [b'\\x1b$B', b'\\x1b$@'])\ndef test_detect_iso2022jp_jis_designations(designation):\n    text = u'\\u65e5\\u672c\\u8a9e\\u306e\\u30c6\\u30b9\\u30c8'\n    payload = text.encode('iso2022_jp')\n    assert b'\\x1b$B' in payload\n    payload = payload.replace(b'\\x1b$B', designation)\n\n    result = charade.detect(payload)\n\n    assert result['encoding'] == 'ISO-2022-JP', result\n",
+   "signal": {
+    "kind": "user",
+    "source": "Archive import support",
+    "text": "Some older Japanese text exports show up as Latin letters and punctuation instead of Japanese; newer exports still look fine."
+   },
+   "summary": "Changing the ISO-2022-JP byte class for '@' to the ordinary ASCII class silently prevents recognition of the legacy ESC $ @ designation.",
+   "reject": "patch does not apply"
+  }
+ ]
+}

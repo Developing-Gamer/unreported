@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 119231,
+ "finalText": "`so.Plot` axes with a `Nominal` scale, explicit or inferred, now follow the categorical-axis conventions from the issue. The axis spans -0.5 to n-0.5 around the ticks, the grid is hidden even when the style turns it on, and a y axis is inverted. An explicit `.limit()` still overrides the padding, which also means a nominal y axis with a limit set is not inverted. The change is left uncommitted in the working tree, and the PR text is at `.factory/pr-S2.md`.\n\nThe three new tests in `tests/_core/test_plot.py` failed on the starting commit and pass now. `pytest tests/_core tests/_marks tests/_stats` gives 629 passed and 6 xfailed, and flake8 is clean. I did not add tests for shared or faceted axes or for paired axes such as `x0`; the existing suite covers them and still passes.\n\nThe fix is a new no-op `_finalize` hook on `Scale`, with a `Nominal` version in `seaborn/_core/scales.py`. `Plotter._finalize_figure` in `seaborn/_core/plot.py` calls it for each subplot axis before applying user limits, which is why `.limit()` wins.\n\nThe default `python` has no pytest or matplotlib, so I ran everything with `/opt/miniconda3/envs/testbed/bin/python`. Open PR #1000 is about the removed pandas option and does not cover this issue.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"visual\": false,\n  \"checks\": [\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest tests/_core tests/_marks tests/_stats -q\", \"passed\": true},\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m flake8 seaborn/_core tests/_core/test_plot.py\", \"passed\": true}\n  ],\n  \"reproductionSteps\": \"Plot(x=['a','b','c'], y=[1,2,3]).plot(): x limits are the default margins rather than (-0.5, 2.5) and gridlines stay visible when axes.grid is True. Plot(x=[1,2,3], y=['a','b','c']).plot(): the y axis is not inverted.\",\n  \"reproductionTest\": {\n    \"path\": \"tests/_core/test_plot.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest tests/_core/test_plot.py -k nominal_ -q\",\n    \"signature\": \"assert not any(t.get_visible() for t in ax.xaxis.get_gridlines()) -> AssertionError (assert not True)\"\n  },\n  \"prNote\": \"Not committed or pushed per benchmark note; PR text written to .factory/pr-S2.md\"\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 19,
+  "inputTokens": {
+   "avg": 31003.21052631579,
+   "max": 39516
+  },
+  "mainUsage": {
+   "inputTokens": 589061,
+   "cachedInputTokens": 563419,
+   "outputTokens": 9166
+  },
+  "cacheHitPercent": 95.6469703477229,
+  "wallSeconds": 118.20600008964539,
+  "tools": {
+   "read": 10,
+   "edit": 6,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 1,
+   "subagent": 0,
+   "other": 5
+  },
+  "reads": 10,
+  "edits": 6,
+  "runs": 5,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 4,
+   "readFileIgnoringRange": 4
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 5,
+  "editOperations": 8,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.2684278,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.2684278
+}

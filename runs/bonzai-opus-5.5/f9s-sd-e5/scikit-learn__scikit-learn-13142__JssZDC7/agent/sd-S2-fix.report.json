@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 42632,
+ "finalText": "The mixture edits in the working tree (`sklearn/mixture/base.py`, its test, and a second whats_new entry) are not mine. They match open PR #1000 and were there when I started. I left them alone, since they belong to that PR.\n\nMy change is only the `TruncatedSVD` one-line fix, its whats_new entry, and `.factory/pr-S2.md`. The tests I ran before the fix and after it are the ones in my report above, so I did not repeat them.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"name\": \"pytest sklearn/decomposition/tests/test_truncated_svd.py\", \"passed\": true, \"alsoOnBase\": false},\n    {\"name\": \"pytest --doctest-modules sklearn/decomposition/truncated_svd.py\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"missingEnv\": [],\n  \"reproduction\": \"Fit TruncatedSVD on a sparse matrix and on its dense copy; explained_variance_ratio_ differs (sparse total variance used axis=1) while the transformed coordinates are identical.\",\n  \"reproductionTest\": {\n    \"path\": \"sklearn/decomposition/tests/test_truncated_svd.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest sklearn/decomposition/tests/test_truncated_svd.py -q\",\n    \"signature\": \"AssertionError: Arrays are not almost equal to 6 decimals ... Max relative difference: 0.08188466\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 15,
+  "inputTokens": {
+   "avg": 24630.533333333333,
+   "max": 29312
+  },
+  "mainUsage": {
+   "inputTokens": 369458,
+   "cachedInputTokens": 354028,
+   "outputTokens": 4384
+  },
+  "cacheHitPercent": 95.82361188551879,
+  "wallSeconds": 41.40700006484985,
+  "tools": {
+   "read": 9,
+   "edit": 4,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 3
+  },
+  "reads": 9,
+  "edits": 4,
+  "runs": 3,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 4,
+  "editOperations": 4,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1532036,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1532036
+}

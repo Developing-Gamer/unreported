@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 57493,
+ "finalText": "The fault is in this repository. When one old message name is shared by several current messages, disabling it only silences the last of them. I did not run the code, because the probe has no `astroid` or `tomlkit`; I traced it by reading. I re-read the quoted lines against the files and they match.\n\n**Cause:** in `pylint/message/message_id_store.py`, registering a legacy name does `self.__old_names[msgid] = [new_msgid]`. That assignment replaces any earlier list. `C0111` (`missing-docstring`) is declared as an old name for `C0114`, `C0115` and `C0116`. After the three registrations it points only at `C0116`. So `disable=missing-docstring` or `disable=C0111` no longer silences the module and class docstring warnings, which is the \"one still shows up\" in the report.\n\n**Intent:** nothing in the code, tests or ChangeLog says an old name should map to a single message, so this is not deliberate.\n\n**Impact:** teams with an old `disable=missing-docstring` in their config now get new docstring warnings in CI with no config change.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Old disable names only silence one of several warnings\",\n  \"cause\": \"When a legacy message name is shared by several current messages (e.g. missing-docstring / C0111, now C0114, C0115 and C0116), MessageIdStore.add_legacy_msgid_and_symbol overwrites the mapping with `[new_msgid]` each time instead of appending. Only the last registered message remains, so `disable=missing-docstring` or `disable=C0111` silences just C0116 and the module/class docstring warnings reappear. I traced this by reading the code; the probe could not run pylint because astroid and tomlkit are missing.\",\n  \"files\": [\n    {\"path\": \"pylint/message/message_id_store.py\", \"why\": \"add_legacy_msgid_and_symbol overwrites __old_names[msgid] with a one-element list, losing earlier new msgids\"}\n  ],\n  \"plan\": [\n    \"In add_legacy_msgid_and_symbol, use self.__old_names.setdefault(msgid, []) and append new_msgid if not already present.\",\n    \"Add a unit test in tests/message/unittest_message_id_store.py registering three messages with the same old name and asserting get_active_msgids('C0111') and ('missing-docstring') return all three ids.\",\n    \"Add a functional test: a file with no docstrings linted with --disable=missing-docstring produces none of C0114/C0115/C0116.\",\n    \"Add a ChangeLog entry.\"\n  ],\n  \"verification\": [\n    \"New unit test fails before the change and passes after.\",\n    \"Run pylint with --disable=C0111 on a module with no docstrings and confirm no docstring warnings remain.\",\n    \"Run tests/message and tests/lint.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"likely\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.85,\n  \"claims\": [\n    {\n      \"id\": \"c1\",\n      \"text\": \"The legacy-id registration replaces the list of new ids rather than appending to it.\",\n      \"role\": \"rootCause\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"pylint/message/message_id_store.py:74\", \"quote\": \"self.__old_names[msgid] = [new_msgid]\"}\n      ]\n    },\n    {\n      \"id\": \"c2\",\n      \"text\": \"C0111 is registered as an old name of three separate docstring messages, so only the last one survives.\",\n      \"role\": \"rootCause\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"pylint/checkers/base/docstring_checker.py:60\", \"quote\": \"{\\\"old_names\\\": [(\\\"C0111\\\", \\\"missing-docstring\\\")]},\"},\n        {\"type\": \"code\", \"ref\": \"pylint/message/message_id_store.py:131\", \"quote\": \"ids = self.__old_names.get(msgid, [msgid])\"}\n      ]\n    }\n  ],\n  \"ruledOut\": [\n    {\n      \"hypothesis\": \"Other split messages (W0234/E0234) are affected the same way\",\n      \"why\": \"They use distinct old ids, so each old id maps to a single message and the overwrite loses nothing.\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"pylint/checkers/classes/special_methods_checker.py:61\", \"quote\": \"(\\\"W0234\\\", \\\"old-non-iterator-returned-1\\\"),\"}\n      ]\n    }\n  ],\n  \"intendedBehavior\": \"Disabling a legacy message id or symbol that several current messages inherited (e.g. C0111 / missing-docstring) silences all of those messages, not just one.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"No comment, test or ChangeLog entry says an old name should resolve to a single message. The overwrite looks like an oversight in the old-names mechanism, whose purpose is to keep old configs working.\"},\n  \"fixType\": \"error\",\n  \"plain\": {\n    \"headline\": \"A team's existing 'ignore this warning' setting stopped silencing one of two warnings after an upgrade, so it started appearing in CI.\",\n    \"happened\": \"The old setting names a warning that was later split into several new ones. When the tool loads those new warnings, each one replaces the previous one under the old name instead of joining it. Only the last one stays silenced, so the other still shows up.\",\n    \"matters\": \"Anyone who kept an old ignore setting for a warning that was split into several now sees unexpected warnings in CI without changing their configuration.\",\n    \"fix\": \"Make the old name keep all the new warnings it covers, so the old ignore setting silences all of them again.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 9,
+  "inputTokens": {
+   "avg": 19897.777777777777,
+   "max": 28049
+  },
+  "mainUsage": {
+   "inputTokens": 179080,
+   "cachedInputTokens": 158035,
+   "outputTokens": 6589
+  },
+  "cacheHitPercent": 88.24826893008711,
+  "wallSeconds": 56.52999997138977,
+  "tools": {
+   "read": 8,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 3
+  },
+  "reads": 8,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1500985,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1500985
+}

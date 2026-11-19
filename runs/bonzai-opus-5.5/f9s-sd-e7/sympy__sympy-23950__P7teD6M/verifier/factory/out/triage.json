@@ -1,0 +1,42 @@
+[
+  {
+    "source": "S1",
+    "decision": "fix",
+    "reason": "CompoundDistribution._marginalise sums a finite or discrete random parameter from rv_dom._inf to rv_dom._sup - 1. The finite domain's _sup is already the largest value, so the last value is left out. "
+  },
+  {
+    "source": "S2",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: Older SymPy versions had no handler for indexed items (p[0]) in the Python code printer, so pycode/lambdify output a 'Not supported in Python' comment. The current code defines _print_Indexed on Pytho"
+  },
+  {
+    "source": "S3",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: Substituting into exp(sinh(Piecewise(...)/z)) with real symbols makes Mod.eval call polys gcd(p, q) on a Piecewise term. The polynomial code raises PolynomialError, which used to escape to the user. T"
+  },
+  {
+    "source": "S4",
+    "decision": "fix",
+    "reason": "When refraction_angle is given a plain incidence angle above the critical angle, it returns S.Zero (utils.py:143-144). Zero is also the correct refraction angle for normal incidence, so callers cannot"
+  },
+  {
+    "source": "S5",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The OOMKilled signal comes from the `export-job` service (export/worker.py run \u2192 export/csv_writer.py flush). This repository is the SymPy library and has no export package, no worker.py or csv_writer"
+  },
+  {
+    "source": "S6",
+    "decision": "fix",
+    "reason": "Contains.as_set() in sympy/sets/contains.py is a stub that raises NotImplementedError, so a 'x is in S' condition never becomes a set even though for a symbol x it is simply S. The reported `return se"
+  },
+  {
+    "source": "S7",
+    "decision": "skip",
+    "reason": "Self-Driving fix found it already covered or could not fix it."
+  },
+  {
+    "source": "S8",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: frac(oo) returns the closed AccumBounds(0, 1), which can't say that frac never reaches 1. AccumBounds only track limit points, and their power rule deliberately returns AccumBounds(0, oo) whenever a b"
+  }
+]

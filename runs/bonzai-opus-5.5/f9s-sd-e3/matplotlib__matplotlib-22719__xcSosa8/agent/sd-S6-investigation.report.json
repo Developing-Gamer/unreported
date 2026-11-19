@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 115382,
+ "finalText": "I re-checked the report against the request. It meets the required format and fields, and its quotes match the files I read. Verdict: **notActionable**, because the uneven grid is a deliberate design.\n\n**Finding:** By default, matplotlib puts automatic date ticks on calendar dates. For a span of a few months, those are the 1st and 15th of each month. The reporter's daily data runs from 1 July 2019 for about three months, so the gaps alternate between about 14 and 16\u201317 days (`lib/matplotlib/dates.py`, lines 1336 and 1434\u20131438). The project chose this on purpose:\n- The 3.0 API change made calendar-aligned ticks the default.\n- The 3.4 behaviour notes picked \"the first and 15th of the month, which is probably what most people want\".\n- 3.4 also added the `date.interval_multiples` setting, which turns on evenly spaced ticks.\n- `test_auto_date_locator_intmult` asserts ticks on the 1st and 15th.\n\nThe reporter can get evenly spaced ticks by setting `plt.rcParams['date.interval_multiples'] = False`.\n\n**What I couldn't confirm:**\n- I couldn't run anything: the probe environment has no numpy, dateutil or built matplotlib. The tick dates above are worked out by hand from the code.\n- I can't see the reporter's image, and their matplotlib version isn't stated.\n- The repository history is a single v3.5.0 snapshot, so I couldn't check whether their older version also put a tick on the 29th. The current code avoids that either way.\n\n```json\n{\n  \"verdict\": \"notActionable\",\n  \"title\": \"Date ticks on 1st/15th look unevenly spaced\",\n  \"cause\": \"With the default interval_multiples=True, AutoDateLocator aligns daily ticks to calendar days: a ~3-month range picks a 14-day interval, which is replaced by ticks on the 1st and 15th of each month (and 7-day by 1/8/15/22). Because months differ in length, the gaps alternate 14 and 16\u201317 days, which is the 'un-even grid' the reporter saw. This alignment is the documented, tested, deliberately chosen default; evenly spaced ticks are available via interval_multiples=False or the date.interval_multiples rcParam.\",\n  \"files\": [\n    {\"path\": \"lib/matplotlib/dates.py\", \"why\": \"AutoDateLocator.get_locator maps 14-day and 7-day intervals to fixed month days (1/15, 1/8/15/22)\"},\n    {\"path\": \"doc/api/prev_api_changes/api_changes_3.4.0/behaviour.rst\", \"why\": \"Records the deliberate choice of 1st and 15th of the month\"},\n    {\"path\": \"doc/users/prev_whats_new/whats_new_3.4.0.rst\", \"why\": \"Documents date.interval_multiples rcParam to opt into evenly spaced ticks\"},\n    {\"path\": \"lib/matplotlib/tests/test_dates.py\", \"why\": \"test_auto_date_locator_intmult asserts 1st/15th ticks\"}\n  ],\n  \"plan\": [],\n  \"verification\": [\n    \"Reading AutoDateLocator for a 91-day range (Jul 1\u2013Sep 30) shows interval 14, which becomes ticks on the 1st and 15th (gaps 14/17/14/17/14/16 days); I could not run this because the probe environment has no numpy or dateutil\",\n    \"Setting rcParams['date.interval_multiples']=False gives evenly spaced ticks (covered by test_change_interval_multiples)\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"none\",\n  \"risk\": \"none\",\n  \"confidence\": 0.8,\n  \"fixType\": \"frustration\",\n  \"intent\": {\n    \"deliberate\": true,\n    \"evidence\": \"3.0 API change made interval_multiples=True the default ('The much nicer ``interval_multiples=True`` is the new default'); 3.4 behaviour change chose 'the first and 15th of the month, which is probably what most people want'; 3.4 added date.interval_multiples rcParam for evenly spaced ticks; test_auto_date_locator_intmult asserts 1st/15th ticks.\"\n  },\n  \"intendedBehavior\": \"With default settings, a ~3-month daily date axis gets ticks on the 1st and 15th of each month; with date.interval_multiples=False the ticks are evenly spaced from the start of the data.\",\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"For DAILY ticking with interval_multiples, a 14-day interval is replaced by fixed month days 1 and 15, and 7-day by 1/8/15/22, so gaps vary with month length.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/dates.py:1434\", \"quote\": \"if interval == 14:\\n                        # just make first and 15th.  Avoids 30th.\\n                        byranges[i] = [1, 15]\"},\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/dates.py:1437\", \"quote\": \"elif interval == 7:\\n                        byranges[i] = [1, 8, 15, 22]\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"trigger\", \"text\": \"The reporter's data starts on 1 July 2019 and is daily, so a ~3-month range uses DAILY ticks with the multiples list [1, 2, 4, 7, 14].\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s6\", \"quote\": \"bug.done and bug.log_modified.date() \u203a= datetime.date(2019, 7, 1)\"},\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/dates.py:1336\", \"quote\": \"self.intervald[DAILY] = [1, 2, 4, 7, 14]\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"other\", \"text\": \"Calendar-aligned ticks became the default on purpose in 3.0.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"doc/api/prev_api_changes/api_changes_3.0.0.rst:224\", \"quote\": \"looking automatic ticks in many instances.  The much nicer\\n``interval_multiples=True`` is the new default.\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"other\", \"text\": \"The project explicitly chose 1st and 15th of the month in 3.4 and offers an rcParam for even spacing.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"doc/api/prev_api_changes/api_changes_3.4.0/behaviour.rst:116\", \"quote\": \"of the month. This has now been changed so that it chooses the first and 15th\\nof the month, which is probably what most people want.\"},\n      {\"type\": \"code\", \"ref\": \"doc/users/prev_whats_new/whats_new_3.4.0.rst:772\", \"quote\": \"The new :rc:`date.interval_multiples` allows toggling between the dates locator\\ntrying to pick ticks at set intervals (i.e., day 1 and 15 of the month), versus\\nevenly spaced ticks that start wherever the timeseries starts:\"}\n    ]},\n    {\"id\": \"c5\", \"role\": \"other\", \"text\": \"A test asserts the 1st/15th tick placement.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/tests/test_dates.py:481\", \"quote\": \"['1997-01-01 00:00:00+00:00', '1997-01-15 00:00:00+00:00',\\n                 '1997-02-01 00:00:00+00:00', '1997-02-15 00:00:00+00:00',\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"A tick on the 29th/30th creates a 1\u20133 day gap at month end (a real defect)\", \"why\": \"Current code replaces 14-day stepping (which would give 1, 15, 29) with [1, 15] specifically to avoid the 30th.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/dates.py:1435\", \"quote\": \"# just make first and 15th.  Avoids 30th.\"}\n    ]},\n    {\"hypothesis\": \"Rendering (gridline pixel snapping) causes uneven spacing\", \"why\": \"The spacing follows the tick dates the locator picks (calendar days), which the code alone explains.\"}\n  ],\n  \"plain\": {\n    \"headline\": \"A user's date chart showed grid lines at uneven gaps because matplotlib deliberately places date ticks on the 1st and 15th of each month.\",\n    \"happened\": \"The user plotted daily counts over about three months. Matplotlib picked tick marks on the 1st and 15th of each month so the labels land on tidy calendar dates. Because months have different lengths, the gaps between grid lines alternate between about two weeks and two and a half weeks.\",\n    \"matters\": \"Anyone plotting a few months of daily data with default settings sees these slightly uneven grid lines, but it is the documented, intended look.\",\n    \"fix\": \"No code change is needed; the user can turn on evenly spaced ticks with the existing 'date.interval_multiples' setting (set it to False) or choose a fixed tick every 7 or 14 days.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 15,
+  "inputTokens": {
+   "avg": 22707.2,
+   "max": 35119
+  },
+  "mainUsage": {
+   "inputTokens": 340608,
+   "cachedInputTokens": 312481,
+   "outputTokens": 12135
+  },
+  "cacheHitPercent": 91.7421199736941,
+  "wallSeconds": 115.01699995994568,
+  "tools": {
+   "read": 13,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 3
+  },
+  "reads": 13,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.4457972,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.4457972
+}

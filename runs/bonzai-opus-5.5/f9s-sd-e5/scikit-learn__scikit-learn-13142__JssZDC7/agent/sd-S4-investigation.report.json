@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 703394,
+ "finalText": "I didn't change anything. The bug in this report is already fixed in the current code: cross-validated logistic regression set to \"multinomial\" now scores each fold with the same probabilities that `predict_proba` returns.\n\n**What the user saw:** they used `LogisticRegressionCV(multi_class='multinomial')` with a probability-based scorer such as `neg_log_loss`. The fold scores came from one-vs-rest probabilities (each class on its own, then normalised), not the softmax probabilities the fitted model returns. So the reported cross-validation scores, and possibly the `C` it picked, didn't match the model they ended up with.\n\n**Why it no longer happens:** the per-fold scoring helper (`_log_reg_scoring_path`) used to build its scoring model with only `fit_intercept`, so that model fell back to one-vs-rest. It now builds it as `LogisticRegression(solver=solver, multi_class=multi_class)` (`sklearn/linear_model/logistic.py:1165`). The value it receives has already been resolved by `_check_multi_class` (line 2018), so `'auto'` never reaches it.\n\n**Project record:** the 0.20 release notes (`doc/whats_new/v0.20.rst`) list this fix under issue #8720. A regression test, `test_logistic_cv_multinomial_score`, checks that each fold's score equals the scorer applied to a fitted multinomial `LogisticRegression`, including `neg_log_loss`. Its comment points to pull request #11578.\n\n**Verification:** I compiled the package in a throwaway copy and ran `test_logistic_cv_multinomial_score` and `test_logistic_cv_mock_scorer`: 6 passed. A separate quick script never ran, because the first attempt used a Python without numpy. The `neg_log_loss` test case covers the same comparison.\n\n**Caveat:** the history here is a single \"Snapshot\" commit, so I couldn't find the commit SHA of the fix. The version comes from the release notes, and the PR number only from the test comment. Anyone on 0.19 or earlier still has the bug and should upgrade to 0.20 or later; no code change is needed here.\n\n```json\n{\n  \"verdict\": \"covered\",\n  \"title\": \"Multinomial CV scores used one-vs-rest probabilities\",\n  \"cause\": \"In older releases, _log_reg_scoring_path built its scoring LogisticRegression with only fit_intercept, so multi_class fell back to 'ovr' and probability scorers such as neg_log_loss were computed from one-vs-rest probabilities rather than softmax. The current code builds it as LogisticRegression(solver=solver, multi_class=multi_class), and a regression test checks that each fold's score matches a fitted multinomial LogisticRegression. The 0.20 release notes list the fix under issue #8720.\",\n  \"files\": [\n    {\"path\": \"sklearn/linear_model/logistic.py\", \"why\": \"_log_reg_scoring_path now passes multi_class to the LogisticRegression it scores with (line 1165)\"},\n    {\"path\": \"sklearn/linear_model/tests/test_logistic.py\", \"why\": \"test_logistic_cv_multinomial_score is the regression test for issue #8720\"},\n    {\"path\": \"doc/whats_new/v0.20.rst\", \"why\": \"The 0.20 changelog lists the fix for issue #8720\"}\n  ],\n  \"plan\": [\"No code change needed. Users on 0.19 or earlier should upgrade to 0.20 or later.\"],\n  \"verification\": [\n    \"Ran pytest sklearn/linear_model/tests/test_logistic.py -k 'multinomial_score or mock_scorer' in a probe copy after building the extensions: 6 passed, including the neg_log_loss case that compares each fold's score with scorer(LogisticRegression(multi_class='multinomial').fit(...))\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"none\",\n  \"risk\": \"none\",\n  \"confidence\": 0.9,\n  \"fixedIn\": {\"release\": \"0.20\", \"commit\": null},\n  \"coveredBy\": \"11578 (from the test comment's link; not confirmed against GitHub)\",\n  \"fixType\": \"silentFailure\",\n  \"intendedBehavior\": \"For LogisticRegressionCV(multi_class='multinomial') with scoring='neg_log_loss', each fold's score equals -log_loss computed from predict_proba of a LogisticRegression(multi_class='multinomial') fitted on that fold with the same C.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"The 0.20 changelog calls the old one-vs-rest scoring a bug: \\\"'ovr' strategy was always used to compute cross-validation scores in the multiclass setting, even if 'multinomial' was set\\\".\"},\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"The reported cause was that the scoring helper's LogisticRegression did not get multi_class; current code passes it, so multinomial folds are scored with softmax probabilities.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"sklearn/linear_model/logistic.py:1165\", \"quote\": \"log_reg = LogisticRegression(solver=solver, multi_class=multi_class)\"},\n      {\"type\": \"evidence\", \"ref\": \"ev_s4\", \"quote\": \"The former uses a single logistic function and normalises (one-v-rest approach), whereas the latter uses the softmax function\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"other\", \"text\": \"The project's changelog records this as a bug fixed in 0.20 under issue #8720.\", \"citations\": [\n      {\"type\": \"doc\", \"ref\": \"doc/whats_new/v0.20.rst\", \"quote\": \"'ovr' strategy was always used to compute cross-validation scores in the\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"other\", \"text\": \"A regression test checks that fold scores, including neg_log_loss, match a fitted multinomial LogisticRegression, and it passes on the current code.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"sklearn/linear_model/tests/test_logistic.py:583\", \"quote\": \"# see https://github.com/scikit-learn/scikit-learn/issues/8720\"},\n      {\"type\": \"query\", \"ref\": \"probe:pytest\", \"quote\": \"6 passed, 165 deselected, 1 warning in 16.60s\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"impact\", \"text\": \"Before the fix, multinomial users got cross-validation scores, and possibly a chosen C, that did not match the probabilities of the model they ended up with.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s4\", \"quote\": \"do not seem to be the same predictions as those generated by the `.predict_proba()` method of `LogisticRegressionCV(multi_class='multinomial')`\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"multi_class='auto' reaches the scoring helper unresolved and is scored or rejected incorrectly\", \"why\": \"LogisticRegressionCV.fit resolves multi_class with _check_multi_class before calling _log_reg_scoring_path, so only 'ovr' or 'multinomial' reach it\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"sklearn/linear_model/logistic.py:2018\", \"quote\": \"multi_class = _check_multi_class(self.multi_class, solver,\"}\n    ]}\n  ],\n  \"plain\": {\n    \"headline\": \"Older versions scored multi-class logistic regression with the wrong probabilities during cross-validation; current versions already fix this.\",\n    \"happened\": \"Someone asked the cross-validated logistic regression to treat all classes together. While scoring each fold, older versions instead scored each class against the rest. That gave scores that didn't match the model's real predictions, which could lead to picking the wrong setting.\",\n    \"matters\": \"It only affects people still on releases before 0.20; current versions score with the right probabilities.\",\n    \"fix\": \"No change is needed; anyone who sees this should upgrade to version 0.20 or later.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 24,
+  "inputTokens": {
+   "avg": 17415.416666666668,
+   "max": 24457
+  },
+  "mainUsage": {
+   "inputTokens": 417970,
+   "cachedInputTokens": 400487,
+   "outputTokens": 9469
+  },
+  "cacheHitPercent": 95.8171639112855,
+  "wallSeconds": 570.2000000476837,
+  "tools": {
+   "read": 4,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 15,
+   "subagent": 0,
+   "other": 6
+  },
+  "reads": 4,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.3568404,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.3568404
+}

@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 75619,
+ "finalText": "The checks hold up. I ran the issue's example against the current code, and it round-trips with no MergeError. I also read the current implementation, the regression test and the changelog entry, and they agree with each other. I did not edit any files.\n\n```json\n{\n  \"verdict\": \"covered\",\n  \"title\": \"Unstacking single-dimension variables already fixed\",\n  \"cause\": \"The report comes from an old version. `to_unstacked_dataset` used to leave the stacked coordinate `y` on each unstacked variable. Variables with only one dimension then hit a MergeError when the dataset was rebuilt. The current code selects each variable with `drop=True` and then calls `.squeeze(drop=True)`, so no leftover coordinate remains and the round-trip works.\",\n  \"files\": [\n    {\"path\": \"xarray/core/dataarray.py\", \"why\": \"`to_unstacked_dataset` now drops the stacked coordinate and squeezes each variable (lines 2268-2274)\"},\n    {\"path\": \"xarray/tests/test_dataset.py\", \"why\": \"`test_to_stacked_array_to_unstacked_dataset` is a regression test for GH4049 using the issue's example\"},\n    {\"path\": \"doc/whats-new.rst\", \"why\": \"Changelog entry under v0.16.0 (11 July 2020): 'Fix DataArray.to_unstacked_dataset for single-dimension variables (issue 4049)'\"}\n  ],\n  \"plan\": [\"No change needed. The reporter should upgrade to xarray 0.16.0 or later.\"],\n  \"verification\": [\n    \"Ran the issue's snippet in the testbed environment. It produced a Dataset with a and b identical to the input and no MergeError.\",\n    \"The existing test `test_to_stacked_array_to_unstacked_dataset` asserts the same round-trip. It could not run here because `test_dataset.py` fails to import under the installed pandas.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"none\",\n  \"risk\": \"none\",\n  \"confidence\": 0.93,\n  \"coveredBy\": null,\n  \"fixedIn\": {\"release\": \"v0.16.0\", \"commit\": null},\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"The current code drops the stacked coordinate and squeezes each variable, which removes the conflicting 'y' coordinate that caused the MergeError.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"xarray/core/dataarray.py:2271\", \"quote\": \"data_dict[k] = self.sel({variable_dim: k}, drop=True).squeeze(drop=True)\"}]},\n    {\"id\": \"c2\", \"text\": \"The project changelog records the fix for single-dimension variables (GH4049) in v0.16.0.\", \"role\": \"other\", \"citations\": [{\"type\": \"doc\", \"ref\": \"doc/whats-new.rst\", \"quote\": \"Fix :py:meth:`DataArray.to_unstacked_dataset` for single-dimension variables. (:issue:`4049`)\"}]},\n    {\"id\": \"c3\", \"text\": \"A regression test with the issue's exact example exists.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"xarray/tests/test_dataset.py:3196\", \"quote\": \"# single dimension: regression test for GH4049\"}]}\n  ],\n  \"intendedBehavior\": \"Stacking a Dataset of single-dimension variables with to_stacked_array and then calling to_unstacked_dataset returns a Dataset identical to the original.\",\n  \"fixType\": \"error\",\n  \"plain\": {\n    \"headline\": \"Turning a combined array back into separate variables used to fail when the variables had only one dimension, but this is already fixed.\",\n    \"happened\": \"A user combined several one-dimensional variables into one array, then tried to split them back apart. The split-back step left a stray leftover label on each piece, and the pieces then conflicted when reassembled. A later release removed the stray label, and the same steps now work.\",\n    \"matters\": \"Only people on versions older than mid-2020 are affected.\",\n    \"fix\": \"Upgrade to a current release. No code change is needed.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 10,
+  "inputTokens": {
+   "avg": 15291.3,
+   "max": 20004
+  },
+  "mainUsage": {
+   "inputTokens": 152913,
+   "cachedInputTokens": 139911,
+   "outputTokens": 4382
+  },
+  "cacheHitPercent": 91.49712581664083,
+  "wallSeconds": 75.14100003242493,
+  "tools": {
+   "read": 5,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 5
+  },
+  "reads": 5,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1042952,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1042952
+}

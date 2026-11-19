@@ -1,0 +1,57 @@
+diff --git a/astropy/io/fits/diff.py b/astropy/io/fits/diff.py
+index 100cdf1b8..d3608ef01 100644
+--- a/astropy/io/fits/diff.py
++++ b/astropy/io/fits/diff.py
+@@ -1449,7 +1449,7 @@ class TableDataDiff(_BaseDiff):
+                 arrb.dtype, np.floating
+             ):
+                 diffs = where_not_allclose(arra, arrb, rtol=self.rtol, atol=self.atol)
+-            elif "P" in col.format:
++            elif "P" in col.format or "Q" in col.format:
+                 diffs = (
+                     [
+                         idx
+diff --git a/astropy/io/fits/tests/test_diff.py b/astropy/io/fits/tests/test_diff.py
+index adfebe6a5..38e8396e2 100644
+--- a/astropy/io/fits/tests/test_diff.py
++++ b/astropy/io/fits/tests/test_diff.py
+@@ -852,6 +852,32 @@ class TestDiff(FitsTestCase):
+         assert "2 different bytes found (2.00% different)." in report
+ 
+ 
++@pytest.mark.parametrize("fmt", ["PD", "QD"])
++def test_fitsdiff_vla_identical(tmp_path, fmt):
++    """Comparing a file with variable-length array columns to itself must
++    report no differences (both P and Q descriptors)."""
++    path = tmp_path / "diffbug.fits"
++    col = Column("a", format=fmt, array=[[0], [0, 0]])
++    BinTableHDU.from_columns([col]).writeto(path)
++
++    assert FITSDiff(path, path).identical
++
++
++def test_fitsdiff_vla_q_different(tmp_path):
++    path1 = tmp_path / "test1.fits"
++    path2 = tmp_path / "test2.fits"
++    BinTableHDU.from_columns(
++        [Column("a", format="QD", array=[[0], [0, 0]])]
++    ).writeto(path1)
++    BinTableHDU.from_columns(
++        [Column("a", format="QD", array=[[0], [0, 1]])]
++    ).writeto(path2)
++
++    diff = FITSDiff(path1, path2)
++    assert not diff.identical
++    assert diff.diff_hdus[0][1].diff_data.diff_total == 1
++
++
+ def test_fitsdiff_hdu_name(tmp_path):
+     """Make sure diff report reports HDU name and ver if same in files"""
+     path1 = tmp_path / "test1.fits"
+diff --git a/docs/changes/io.fits/14539.bugfix.rst b/docs/changes/io.fits/14539.bugfix.rst
+new file mode 100644
+index 000000000..0f03a0ab3
+--- /dev/null
++++ b/docs/changes/io.fits/14539.bugfix.rst
+@@ -0,0 +1 @@
++Fix ``FITSDiff`` reporting differences (or raising an error) for identical files with variable-length array columns using the 64-bit ``Q`` descriptor format.

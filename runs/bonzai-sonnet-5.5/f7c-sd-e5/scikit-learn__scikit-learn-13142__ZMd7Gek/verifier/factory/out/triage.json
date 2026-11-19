@@ -1,0 +1,37 @@
+[
+  {
+    "source": "S1",
+    "decision": "fix",
+    "reason": "In BaseMixture.fit_predict, the final E-step that produces the returned labels runs on the parameters of the last initialization. Only afterwards does the code restore the best initialization's parame"
+  },
+  {
+    "source": "S2",
+    "decision": "fix",
+    "reason": "In TruncatedSVD.fit_transform, the total variance that explained_variance_ratio_ divides by is computed for sparse input with mean_variance_axis(X, axis=1). That gives one variance per row (sample), w"
+  },
+  {
+    "source": "S3",
+    "decision": "fix",
+    "reason": "BayesianRidge and ARDRegression compute prediction std from a posterior covariance fitted on centred features, but predict() never centres the query rows. BayesianRidge only rescales when normalize is"
+  },
+  {
+    "source": "S4",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: The issue (scikit-learn #8720) happened because the cross-validation scoring helper built a LogisticRegression without multi_class. predict_proba therefore used the one-vs-rest formula instead of soft"
+  },
+  {
+    "source": "S5",
+    "decision": "fix",
+    "reason": "Passing a vocabulary to the constructor deliberately lets transform and get_feature_names work without fit, because they call _validate_vocabulary() when vocabulary_ is missing. That is what the repor"
+  },
+  {
+    "source": "S6",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: n_components is stored in fit as _max_components and applied only as a slice at the end of transform. predict, predict_proba and decision_function use coef_ and intercept_ computed from the full class"
+  },
+  {
+    "source": "S7",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The error is raised in relay/deliver.py (post_webhook, using aiohttp) in a separate service called webhook-relay. This repository is scikit-learn and contains no relay package, no post_webhook functio"
+  }
+]

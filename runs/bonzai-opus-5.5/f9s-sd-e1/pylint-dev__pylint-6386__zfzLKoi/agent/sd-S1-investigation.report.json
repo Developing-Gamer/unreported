@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 77501,
+ "finalText": "I checked the report against the request. Two things were missing: the plain-language summary for the team and the source id (S1). Both are now in the JSON below; nothing else changed.\n\n**Finding:** an old disable name that used to cover several warnings now only turns off the last one, so the others show up again in CI. The cause is one line in `pylint/message/message_id_store.py` (line 74). When a newer warning registers the shared old name, it replaces the earlier link instead of adding to it.\n\n**Checks (already run):**\n- The project's own test for this case, `test_multiple_child_of_old_name`, fails on the current code. The other 32 tests in `tests/message` pass.\n- I linked the three docstring warnings to the old name `missing-docstring` (C0111) and looked up that name. It returned only `['C0116']`, the function-docstring warning, instead of all three.\n- A full pylint command-line run could not complete in the throwaway copy because of an unrelated setup error, so I didn't see the warnings come back on a real file.\n\n**Fix:** add each new warning to the old name's list instead of replacing it. It's a one-line, low-risk change, and the failing test already covers it.\n\n```json\n{\n  \"source\": \"S1\",\n  \"verdict\": \"fixable\",\n  \"title\": \"Old disable names only silence one of the split warnings\",\n  \"cause\": \"MessageIdStore.add_legacy_msgid_and_symbol stores the old-name mapping with `self.__old_names[msgid] = [new_msgid]`, overwriting instead of appending. When several new messages share one old name (e.g. C0111/missing-docstring \u2192 C0114, C0115, C0116), only the last registered message stays linked, so get_active_msgids for the old name returns one id and a disable using it silences only that one warning.\",\n  \"files\": [\n    {\"path\": \"pylint/message/message_id_store.py\", \"why\": \"add_legacy_msgid_and_symbol (line 74) overwrites the old-name \u2192 new-msgids list instead of appending.\"},\n    {\"path\": \"tests/message/unittest_message_definition_store.py\", \"why\": \"Existing test_multiple_child_of_old_name covers this and currently fails.\"}\n  ],\n  \"plan\": [\n    \"In add_legacy_msgid_and_symbol, change the assignment so the new msgid is appended to the existing list for the old msgid, skipping duplicates.\",\n    \"Keep the get_active_msgids cache logic unchanged; registration happens before lookups.\",\n    \"Add a functional or unit check that disabling 'missing-docstring' / 'C0111' disables C0114, C0115 and C0116.\"\n  ],\n  \"verification\": [\n    \"pytest tests/message: test_multiple_child_of_old_name passes (len(mother) == 2).\",\n    \"MessageIdStore with three messages sharing old name ('C0111','missing-docstring') returns ['C0114','C0115','C0116'] from get_active_msgids('missing-docstring').\",\n    \"Running pylint with --disable=missing-docstring on a file with an undocumented class and function emits neither C0115 nor C0116.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.93,\n  \"fixType\": \"error\",\n  \"plain\": {\n    \"headline\": \"A setting that used to switch off several related warnings now switches off only one, because the tool forgets all but the last warning linked to an old name.\",\n    \"happened\": \"Some older warnings were split into several newer, more specific ones, and the old name was kept so existing settings would still turn them all off. When the tool starts, each new warning links itself to the shared old name, but each link replaces the one before instead of adding to it. So a setting that uses the old name now turns off only the last warning, and the others appear in CI again.\",\n    \"matters\": \"Every team whose settings use an old shared name, such as the one for missing documentation, gets warnings or failed CI checks that their settings were meant to stop.\",\n    \"fix\": \"Make each new warning add itself to the old name's list instead of replacing it, so the old name turns off all of them again.\"\n  },\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"Registering a legacy name replaces any earlier new-message mapping for that old msgid, so only the last child is kept.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"pylint/message/message_id_store.py:74\", \"quote\": \"self.__old_names[msgid] = [new_msgid]\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"rootCause\", \"text\": \"Enable/disable by an old name resolves through __old_names, so it only reaches the one surviving new msgid.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"pylint/message/message_id_store.py:131\", \"quote\": \"ids = self.__old_names.get(msgid, [msgid])\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"trigger\", \"text\": \"Several shipped messages share one old name, e.g. the docstring messages all list C0111/missing-docstring.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"pylint/checkers/base/docstring_checker.py:60\", \"quote\": \"{\\\"old_names\\\": [(\\\"C0111\\\", \\\"missing-docstring\\\")]},\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"other\", \"text\": \"The project's own test expects an old name to map to all of its children, and it fails on the current code.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"tests/message/unittest_message_definition_store.py:257\", \"quote\": \"\\\"\\\"\\\"We can define multiple name with the same old name.\\\"\\\"\\\"\"},\n      {\"type\": \"query\", \"ref\": \"probe:pytest tests/message\", \"quote\": \"FAILED tests/message/unittest_message_definition_store.py::test_multiple_child_of_old_name\"}\n    ]},\n    {\"id\": \"c5\", \"role\": \"impact\", \"text\": \"A direct call shows the old docstring name resolving to only the function-docstring message, leaving the module and class docstring warnings enabled.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:python MessageIdStore get_active_msgids\", \"quote\": \"['C0116'] ['C0116']\"}\n    ]},\n    {\"id\": \"c6\", \"role\": \"impact\", \"text\": \"The reporter's disable entry used to silence both warnings and now lets one through in CI with unchanged configuration.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s1\", \"quote\": \"Our existing disable entry used to quiet both warnings. Now one still shows up in CI even though the configuration hasn't changed.\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"The overwrite is deliberate: an old name is meant to map to only one new message.\", \"why\": \"The checkers give one old name to several messages, and the project's own test says several messages can share an old name and asserts that the old name resolves to both.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"tests/message/unittest_message_definition_store.py:283\", \"quote\": \"assert len(mother) == 2\"}\n    ]}\n  ],\n  \"intendedBehavior\": \"Disabling an old message name (e.g. missing-docstring / C0111) disables every current message that lists it in old_names (C0114, C0115 and C0116).\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"test_multiple_child_of_old_name says 'We can define multiple name with the same old name' and asserts that the old name maps to both children; the overwrite at message_id_store.py:74 contradicts that, and no changelog entry records it as intended.\"}\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 10,
+  "inputTokens": {
+   "avg": 19588.9,
+   "max": 27972
+  },
+  "mainUsage": {
+   "inputTokens": 195889,
+   "cachedInputTokens": 174919,
+   "outputTokens": 7525
+  },
+  "cacheHitPercent": 89.29495785878737,
+  "wallSeconds": 76.625,
+  "tools": {
+   "read": 6,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 3
+  },
+  "reads": 6,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.2903098,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.2903098
+}

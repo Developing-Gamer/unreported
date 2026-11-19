@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 353340,
+ "finalText": "C `:type:` fields no longer warn: `:type message: char*` and `:type ret: void*` now build cleanly. I left the change uncommitted and wrote the PR text to `.factory/pr-S4.md` (checked: it exists, with a one-line title first). I couldn't lint the changed Python (flake8 isn't installed in the test environment, and the diagnostics tool only checks TypeScript/JavaScript); the test suite is the only check on those edits.\n\n**Cause:** your investigation was partly right. `c:macro` only takes plain identifiers, and that is intended. The real bug was in the `:param:`/`:type:` alternative: C type fields became plain cross-references that only accept names. So `char*` logged `Unparseable C cross-reference: 'char*'`.\n\n**Fix:**\n- **`sphinx/util/docfields.py`:** the field classes take optional `inliner` and `location` arguments. When they are given and the domain has a role of that name, the role runs on the target instead of a bare cross-reference being created.\n- **`sphinx/domains/c.py`:** C `:type:` fields now use the C domain's `expr` role.\n- **`sphinx/domains/python.py`:** the Python field classes accept the new arguments but still always create a cross-reference, so Python output is unchanged.\n- **`doc/usage/restructuredtext/domains.rst`:** the `c:macro` docs now say that arguments are identifiers only and types go in `:param:`/`:type:` fields.\n- **`CHANGES`:** I added an entry for #8945.\n\nI did not change the macro parameter error message. C++ needed no change.\n\n**Risk:** third-party `Field` subclasses that override `make_xref` with the old signature will now receive two extra arguments.\n\n**Verification:**\n- **New test:** `tests/test_domain_c.py::test_build_domain_c_typed_fields` fails on the starting commit and passes with the fix.\n- **Starting-commit failure:** it reports `Unparseable C cross-reference: 'char*'`, plus a missing `c:type` target for `int`.\n- **Full suite:** 1687 passed and 5 failed. The same 5 fail on the starting commit: `test_ext_imgconverter`, `test_ext_viewcode`, two in `test_intl`, and `test_util_i18n::test_format_date`.\n- **Test environment:** the tests ran with `/opt/miniconda3/envs/testbed/bin/python`, since the default `python` has no pytest.\n\n`CHANGES`, `sphinx/util/inspect.py` and `tests/test_util_inspect.py` already carried an unrelated autodoc Enum change; I did not touch it.\n\n```json\n{\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"summary\": \"Typed :type: fields of C directives now run through the C domain's expr role (Field.make_xref runs the domain role when an inliner is available), so char*/void* no longer give 'Unparseable C cross-reference'. Python domain fields keep pending_xref behaviour. Docs and CHANGES updated. Not committed/pushed per benchmark note; PR text in .factory/pr-S4.md.\",\n  \"checks\": [\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest tests/test_domain_c.py -k typed_fields -p no:cacheprovider\", \"passed\": true},\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest tests -q -p no:cacheprovider\", \"passed\": false, \"alsoOnBase\": true, \"note\": \"5 failures (test_ext_imgconverter, test_ext_viewcode, 2x test_intl, test_util_i18n::test_format_date) identical on base commit\"}\n  ],\n  \"visual\": false,\n  \"missingEnv\": [],\n  \"reproductionSteps\": [\n    \"Create a C-domain doc with '.. c:macro:: BOB_CATCH_FUNCTION(message, ret)' and fields ':param message:', ':type message: char*', ':param ret:', ':type ret: void*'\",\n    \"Build with nitpicky=True\",\n    \"Observe 'WARNING: Unparseable C cross-reference: 'char*'' on the base commit\"\n  ],\n  \"reproductionTest\": {\n    \"path\": \"tests/test_domain_c.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest tests/test_domain_c.py -k typed_fields -p no:cacheprovider\",\n    \"signature\": \"WARNING: Unparseable C cross-reference: 'char*'\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 36,
+  "inputTokens": {
+   "avg": 42430.444444444445,
+   "max": 56373
+  },
+  "mainUsage": {
+   "inputTokens": 1527496,
+   "cachedInputTokens": 1484963,
+   "outputTokens": 17964
+  },
+  "cacheHitPercent": 97.2155082566501,
+  "wallSeconds": 352.03399991989136,
+  "tools": {
+   "read": 21,
+   "edit": 7,
+   "test": 1,
+   "verify": 0,
+   "git": 1,
+   "exec-poll": 2,
+   "subagent": 0,
+   "other": 13
+  },
+  "reads": 21,
+  "edits": 7,
+  "runs": 14,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 2,
+   "readFileIgnoringRange": 2
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 3,
+  "editOperations": 3,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.5829271,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.5829271
+}

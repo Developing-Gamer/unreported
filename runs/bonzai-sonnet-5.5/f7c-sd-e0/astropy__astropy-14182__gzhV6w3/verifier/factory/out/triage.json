@@ -1,0 +1,37 @@
+[
+  {
+    "source": "S1",
+    "decision": "fix",
+    "reason": "The RST writer's constructor takes no arguments, so it never passes header_rows on to the fixed-width base class that already supports it. The call in the issue therefore fails with an unexpected-keyw"
+  },
+  {
+    "source": "S2",
+    "decision": "fix",
+    "reason": "`BaseTimeSeries._check_required_columns` tests `set(required_columns).issubset(self.colnames)`. That only checks the columns exist, not that they are the first columns in the stated order. The error t"
+  },
+  {
+    "source": "S3",
+    "decision": "skip",
+    "reason": "Self-Driving fix found it already covered or could not fix it."
+  },
+  {
+    "source": "S4",
+    "decision": "fix",
+    "reason": "When a reader class is defined, the metaclass builds a registry docstring by calling inspect.cleandoc(cls.__doc__) with no None check. Under python -OO, or any run with docstrings stripped, cls.__doc_"
+  },
+  {
+    "source": "S5",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: The report came from the old LooseVersion-based minversion. In that version, comparing a version like '1.14dev' against an installed numpy version raised TypeError, because the parsed parts mixed ints"
+  },
+  {
+    "source": "S6",
+    "decision": "fix",
+    "reason": "ShapedLikeNDArray.squeeze wraps self._apply('squeeze', ...) in try/except ValueError and returns self. For a batch where the requested axis (or the whole shape) can't be squeezed, numpy's ValueError i"
+  },
+  {
+    "source": "S7",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The signal points at export/worker.py and export/csv_writer.py in an `export-job` service. Neither file exists in this repository, which is the astropy library with no export service. The only csv_wri"
+  }
+]

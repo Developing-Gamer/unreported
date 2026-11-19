@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 39284,
+ "finalText": "The report above stands. This is an investigation only, so I made no edits. The code locations it cites match the lines I read, and `test_rst.py` exists. I could not run the failing call because the probe copy has no `erfa` module, so the failure in the issue is inferred from the code.\n\nThe `ascii.rst` writer doesn't accept `header_rows`, so the call in the issue fails. The fix is to let `RST` take the option and pass it to the base class. `RST.write` must then place the `=` borders by the number of header rows instead of assuming line 1. The reader's data start line also has to follow the header rows instead of staying fixed at 3.",
+ "totals": {
+  "turns": 1,
+  "requests": 7,
+  "inputTokens": {
+   "avg": 17005.285714285714,
+   "max": 21253
+  },
+  "mainUsage": {
+   "inputTokens": 119037,
+   "cachedInputTokens": 104790,
+   "outputTokens": 3802
+  },
+  "cacheHitPercent": 88.03145240555457,
+  "wallSeconds": 36.37899994850159,
+  "tools": {
+   "read": 5,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 1
+  },
+  "reads": 5,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 3,
+   "readFile": 3,
+   "shell": 0,
+   "sameFile": 5,
+   "readFileIgnoringRange": 5
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.09458649999999999,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.09458649999999999
+}

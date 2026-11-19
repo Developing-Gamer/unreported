@@ -1,0 +1,37 @@
+[
+  {
+    "source": "S1",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: In versions before v0.16.0, DataArray.to_unstacked_dataset picked each variable out of the stacked array without dropping the leftover one-value 'y' coordinate. Those leftover values differed between "
+  },
+  {
+    "source": "S2",
+    "decision": "fix",
+    "reason": "sort_backends in xarray/backends/plugins.py iterates `sorted(STANDARD_BACKENDS_ORDER)` instead of STANDARD_BACKENDS_ORDER, so the intended priority [netcdf4, h5netcdf, scipy] becomes alphabetical [h5n"
+  },
+  {
+    "source": "S3",
+    "decision": "fix",
+    "reason": "xr.where calls apply_ufunc without a keep_attrs argument and accepts none itself, so apply_ufunc falls back to the global keep_attrs option (default False), which becomes 'drop'. apply_dataarray_vfunc"
+  },
+  {
+    "source": "S4",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: In xarray releases before v0.13.0, DataArray.quantile did not pass keep_attrs through to the code that builds the result, so attributes such as units were dropped even when keep_attrs=True. The curren"
+  },
+  {
+    "source": "S5",
+    "decision": "fix",
+    "reason": "PseudoNetCDFBackendEntrypoint.open_dataset forwards decode_times instead of decode_timedelta to the store entrypoint (pseudonetcdf_.py:152). With engine='pseudonetcdf', decode_timedelta=False is disca"
+  },
+  {
+    "source": "S6",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: Dataset.expand_dims always passes explicit sizes to Variable.set_dims, which uses np.broadcast_to and so returns a read-only, stride-0 view of the original data. The read-only result was chosen and do"
+  },
+  {
+    "source": "S7",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The error comes from a service called billing-worker: its call to Stripe's /v1/charges endpoint was refused when it tried to connect. This repository is the xarray library and has no billing, Stripe o"
+  }
+]

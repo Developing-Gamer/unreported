@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 131811,
+ "finalText": "The cause is in this repository: the shared template-directory lookup checks the installed apps' bundled templates before the project's own template directories. I read the code only and could not run the tests, because the probe environment has no `asgiref`. I found the cause by diffing `django/template` against upstream Django 3.0.14.\n\n- **What goes wrong:** `BaseEngine.template_dirs` builds the search list as app directories first, then `DIRS`. Upstream appends the app directories after `DIRS`.\n- **Who is hit:** the Jinja2 backend builds its loader from that list, so it finds the bundled template before a same-named custom one. The dummy backend resolves files through the same list. The built-in Django template engine is not affected, because it searches `DIRS` before app directories through its own loaders.\n- **Why only some emails:** that matches receipts rendered through an engine that uses the shared list, with a custom template named the same as a bundled one. The custom files are untouched but never reached.\n\nThe fix is one line: append the app directories after `DIRS`, plus a regression test where `DIRS` and an app both provide a same-named template and the `DIRS` copy must win.\n\n```json\n{\n  \"sourceId\": \"S3\",\n  \"verdict\": \"fixable\",\n  \"title\": \"App templates override custom ones in Jinja2 engines\",\n  \"cause\": \"In BaseEngine.template_dirs, the installed-app template directories are put in front of the project's own DIRS. Any backend that uses this shared list therefore picks the bundled app template first when the same name exists in both places. The Jinja2 backend builds its FileSystemLoader from this list, so it hits this. The DjangoTemplates backend uses its own loaders, with filesystem DIRS ahead of app directories, so it is not affected. The cause was confirmed by diffing django/template against upstream Django 3.0.14. I could not run the test suite because the probe environment has no asgiref.\",\n  \"files\": [\n    {\"path\": \"django/template/backends/base.py\", \"why\": \"template_dirs builds the list as get_app_template_dirs(...) + template_dirs, which puts app dirs ahead of DIRS. Upstream appends them: template_dirs += get_app_template_dirs(...).\"},\n    {\"path\": \"django/template/backends/jinja2.py\", \"why\": \"Builds jinja2.FileSystemLoader(self.template_dirs), so it inherits the wrong order.\"},\n    {\"path\": \"django/template/backends/dummy.py\", \"why\": \"Also resolves template files through iter_template_filenames(), which uses the same ordering.\"}\n  ],\n  \"plan\": [\n    \"In BaseEngine.template_dirs, change the line to template_dirs += get_app_template_dirs(self.app_dirname), so DIRS come first and app dirs follow.\",\n    \"Add a regression test: a Jinja2 engine with APP_DIRS=True and a DIRS entry that both contain a template of the same name must render the DIRS version.\",\n    \"Run the template_backends and template_tests suites.\"\n  ],\n  \"verification\": [\n    \"New test: the Jinja2 engine with DIRS and APP_DIRS returns the DIRS copy of a template that also exists in an app's templates/jinja2 directory.\",\n    \"Existing template_backends tests still pass.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"likely\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.8,\n  \"claims\": [\n    {\n      \"id\": \"c1\",\n      \"text\": \"template_dirs puts the installed-app directories before the configured DIRS, so a bundled template shadows a same-named custom one.\",\n      \"role\": \"rootCause\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"django/template/backends/base.py:65\", \"quote\": \"template_dirs = get_app_template_dirs(self.app_dirname) + template_dirs\"}\n      ]\n    },\n    {\n      \"id\": \"c2\",\n      \"text\": \"The Jinja2 backend takes its search path from this list, so it loads the bundled template instead of the custom one.\",\n      \"role\": \"impact\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"django/template/backends/jinja2.py:26\", \"quote\": \"options['loader'] = jinja2.FileSystemLoader(self.template_dirs)\"}\n      ]\n    },\n    {\n      \"id\": \"c3\",\n      \"text\": \"The DjangoTemplates engine searches the filesystem loader (DIRS) before the app_directories loader, so only the shared backend list is reversed.\",\n      \"role\": \"other\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"django/template/engine.py:28\", \"quote\": \"loaders = ['django.template.loaders.filesystem.Loader']\"}\n      ]\n    }\n  ],\n  \"ruledOut\": [\n    {\n      \"hypothesis\": \"The cached loader, extends/include handling or the app-directory lookup mixes up templates.\",\n      \"why\": \"The cached loader's skip and key logic, Origin equality, the extends and include tags, and the get_app_template_dirs result are the same as upstream, apart from a Path vs str type difference.\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"django/template/loaders/cached.py:81\", \"quote\": \"matching = [origin.name for origin in skip if origin.template_name == template_name]\"}\n      ]\n    }\n  ],\n  \"intendedBehavior\": \"When a template name exists in both a configured DIRS directory and an installed app's template directory, every template backend renders the DIRS version.\",\n  \"intent\": {\n    \"deliberate\": false,\n    \"evidence\": \"The docs list DIRS as the engine's search directories, in search order, and DjangoTemplates searches DIRS first. Nothing records a decision to reverse the order for backends that use the shared list.\"\n  },\n  \"fixType\": \"silentFailure\",\n  \"headline\": \"Some receipt emails showed the standard branding because the built-in templates were checked before the company's own.\",\n  \"happened\": \"After the upgrade, the template lookup that some email templates use started searching the built-in app folders before the company's custom folder. When a built-in template had the same name as a custom one, the built-in one won. The custom files were never changed or deleted, so they just stopped being used.\",\n  \"matters\": \"Any email or page rendered through the affected template engine whose custom template has the same name as a built-in one shows default branding.\",\n  \"fix\": \"Search the company's own template folders first and the built-in app folders afterwards.\"\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 20,
+  "inputTokens": {
+   "avg": 29781,
+   "max": 45721
+  },
+  "mainUsage": {
+   "inputTokens": 595620,
+   "cachedInputTokens": 556881,
+   "outputTokens": 10912
+  },
+  "cacheHitPercent": 93.49602095295658,
+  "wallSeconds": 130.5,
+  "tools": {
+   "read": 25,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 5
+  },
+  "reads": 25,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 2,
+   "readFileIgnoringRange": 2
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.31732170000000004,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.31732170000000004
+}

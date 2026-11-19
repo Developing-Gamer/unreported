@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 78639,
+ "finalText": "`Blueprint(\"\", __name__)` now raises `ValueError(\"'name' may not be empty.\")`. The check is in `Blueprint.__init__`, next to the existing dot check. I did not commit, push or open a pull request, as the benchmark note says. I re-checked the working tree and the new test just now.\n\n- **Before the fix:** the new test `test_empty_name_not_allowed` failed with `Failed: DID NOT RAISE <class 'ValueError'>`.\n- **After the fix:** that test passes, and `tests/test_blueprints.py` is 60 passed.\n- **Full suite:** `pytest tests` still has 11 failures, mostly `DeprecationWarning` errors in `tests/test_testing.py`. They are identical on the starting commit, so they are not from this change.\n- **Environment:** the workspace had no pytest, so I used a throwaway virtualenv in my scratch directory. I installed pytest below 8 and werkzeug below 3 there because the newer versions broke the test setup. The repository itself is unchanged by that.\n- **Changelog:** the `CHANGES.rst` entry has no `:issue:` number, because the issue number isn't in the evidence.\n- **PR text:** the title and description are in `.factory/pr-S5.md`.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"command\": \"python -m pytest tests/test_blueprints.py\", \"passed\": true},\n    {\"command\": \"python -m pytest tests\", \"passed\": false, \"alsoOnBase\": true, \"note\": \"11 pre-existing failures (DeprecationWarning in test_testing.py etc.), identical on base\"}\n  ],\n  \"visual\": false,\n  \"missingEnv\": [],\n  \"reproductionSteps\": \"Call flask.Blueprint('', __name__); before the fix no error is raised, after it ValueError is raised.\",\n  \"reproductionTest\": {\n    \"path\": \"tests/test_blueprints.py\",\n    \"command\": \"python -m pytest tests/test_blueprints.py -k empty_name\",\n    \"signature\": \"Failed: DID NOT RAISE <class 'ValueError'>\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 15,
+  "inputTokens": {
+   "avg": 22129.8,
+   "max": 25709
+  },
+  "mainUsage": {
+   "inputTokens": 331947,
+   "cachedInputTokens": 320120,
+   "outputTokens": 4839
+  },
+  "cacheHitPercent": 96.43708182330312,
+  "wallSeconds": 77.21199989318848,
+  "tools": {
+   "read": 7,
+   "edit": 6,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 6
+  },
+  "reads": 7,
+  "edits": 6,
+  "runs": 6,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 5,
+  "editOperations": 6,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1419645,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1419645
+}

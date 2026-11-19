@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 86798,
+ "finalText": "The cause is in this repository's code and the fix is small. Django builds the column list for `CREATE INDEX` with a missing space in one case and an extra one in another.\n\n**What a person sees today:**\n- `Index(fields=['-name'], name='idx')` generates `CREATE INDEX \"idx\" ON \"schema_author\" (\"name\"DESC)`.\n- A PostgreSQL index with `opclasses=['text_pattern_ops']` and no sort order generates `(\"name\" text_pattern_ops )`, with a stray space before the closing bracket.\n- The SQL still runs. It's cosmetic, but a user reported it and the current code still does it.\n\n**Cause.** Index ordering becomes one suffix per column, either `''` or `'DESC'` (`django/db/models/indexes.py:32`). Two methods in `django/db/backends/ddl_references.py` then add those suffixes:\n- `Columns.__str__` (line 87) does `self.quote_name(column) + self.col_suffixes[idx]`. Nothing separates the name from `DESC`.\n- `IndexColumns.__str__` (line 117, used for PostgreSQL operator classes) always does `'{} {}'.format(col, self.col_suffixes[idx])`. When the suffix is `''`, that leaves a trailing space.\n\n**How I checked (probe only, no files edited):**\n- Calling the code directly reproduced both problems: `'\"name\"DESC, \"age\"'` and `'\"name\" text_pattern_ops '`.\n- The existing tests pass: `backends.test_ddl_references indexes` ran 48 tests, all OK, 10 skipped. The skipped ones are most likely the PostgreSQL-only tests, since the probe ran on SQLite.\n- No test checks this spacing. The one opclass test (`tests/indexes/tests.py:132`) only covers a column with no sort order.\n\n**Was it deliberate?** No. Ticket #30903 meant to space operator-class columns correctly and simply didn't handle the empty-suffix case.\n\n**Fix.** In both methods, add the suffix with a leading space only when it isn't empty. Then add tests for: a `DESC` column, a column with no suffix, an opclass column with an empty suffix, and an opclass column with `DESC`.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Index SQL has missing or extra spaces around DESC\",\n  \"cause\": \"Columns.__str__ joins the quoted column name directly to its suffix (self.quote_name(column) + self.col_suffixes[idx]), so a descending index renders as \\\"name\\\"DESC. IndexColumns.__str__ (PostgreSQL opclasses) always formats '{} {}' with the suffix even when it is the empty string Index uses for ascending columns, leaving a trailing space (\\\"name\\\" text_pattern_ops ). Index.fields_orders produces '' or 'DESC' per column, so both paths come up for ordinary valid indexes.\",\n  \"files\": [\n    {\"path\": \"django/db/backends/ddl_references.py\", \"why\": \"Columns.__str__ and IndexColumns.__str__ build the column list for CREATE INDEX and put the spaces in the wrong places\"},\n    {\"path\": \"django/db/models/indexes.py\", \"why\": \"Source of the col_suffixes ('' or 'DESC') passed to the schema editor\"},\n    {\"path\": \"tests/backends/test_ddl_references.py\", \"why\": \"Where regression tests for the spacing should go\"}\n  ],\n  \"plan\": [\n    \"In Columns.__str__, add the suffix as ' ' + suffix only when it is non-empty.\",\n    \"In IndexColumns.__str__, append the suffix only when col_suffixes[idx] is non-empty, so an empty suffix leaves no trailing space.\",\n    \"Add ddl_references tests for a DESC column, an empty suffix, an opclass column with an empty suffix, and an opclass column with DESC; update index and schema test assertions that expect the old spacing.\"\n  ],\n  \"verification\": [\n    \"str(Columns('t', ['name'], quote, col_suffixes=['DESC'])) == '\\\"name\\\" DESC'\",\n    \"str(IndexColumns('t', ['name'], quote, col_suffixes=[''], opclasses=['text_pattern_ops'])) == '\\\"name\\\" text_pattern_ops'\",\n    \"Run tests/runtests.py backends.test_ddl_references indexes schema, plus the PostgreSQL opclass tests on a PostgreSQL backend.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.95,\n  \"fixType\": \"error\",\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"Columns.__str__ joins the quoted column name and its suffix with no space, so DESC indexes render as \\\"name\\\"DESC.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"django/db/backends/ddl_references.py:87\", \"quote\": \"return self.quote_name(column) + self.col_suffixes[idx]\"},\n      {\"type\": \"evidence\", \"ref\": \"ev_s4\", \"quote\": \"CREATE INDEX \\\"idx\\\" ON \\\"schema_author\\\" (\\\"name\\\"DESC)\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"rootCause\", \"text\": \"IndexColumns.__str__ always appends the suffix after a space, even when it is the empty string, leaving a trailing space when opclasses are used without ordering.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"django/db/backends/ddl_references.py:117\", \"quote\": \"col = '{} {}'.format(col, self.col_suffixes[idx])\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"trigger\", \"text\": \"Index gives each column an empty suffix for ascending order and 'DESC' for descending, so ordinary indexes take these paths.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"django/db/models/indexes.py:32\", \"quote\": \"(field_name[1:], 'DESC') if field_name.startswith('-') else (field_name, '')\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"other\", \"text\": \"Calling the code with valid inputs reproduces both spacing errors, while the existing tests still pass.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:python\", \"quote\": \"'\\\"name\\\"DESC, \\\"age\\\"'\"},\n      {\"type\": \"query\", \"ref\": \"probe:python\", \"quote\": \"'\\\"name\\\" text_pattern_ops '\"},\n      {\"type\": \"query\", \"ref\": \"probe:runtests\", \"quote\": \"Ran 48 tests in 0.804s\\nOK (skipped=10)\"}\n    ]},\n    {\"id\": \"c5\", \"role\": \"impact\", \"text\": \"Anyone defining a descending index, or a PostgreSQL index with an operator class and no ordering, gets badly spaced SQL in migrations and sqlmigrate output.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s4\", \"quote\": \"Will generate the valid but not so pretty CREATE INDEX statement\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"The spacing is intended and covered by an existing test\", \"why\": \"The existing ddl_references and indexes tests pass on the current code and none of them asserts the DESC spacing; the opclass test only checks a column with no ordering.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"tests/indexes/tests.py:132\", \"quote\": \"self.assertIn('(\\\"body\\\" text_pattern_ops)', index_sql[3])\"}\n    ]}\n  ],\n  \"intendedBehavior\": \"Index(fields=['-name'], name='idx') generates CREATE INDEX \\\"idx\\\" ON \\\"schema_author\\\" (\\\"name\\\" DESC), and an opclass index without ordering generates (\\\"name\\\" text_pattern_ops) with no trailing space.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"Ticket #30903 meant to space opclass columns correctly and did not handle the empty-suffix case. Nothing in a comment, test or release note asks for \\\"name\\\"DESC or a trailing space.\"},\n  \"plain\": {\n    \"headline\": \"Index setup commands that Django writes come out with a missing or extra space, so they look wrong to the developers who read them.\",\n    \"happened\": \"When a developer asks for an index sorted newest-first, Django puts the word for 'descending' straight after the column name with no space. When a PostgreSQL index uses a special matching rule and no sort order, Django leaves a stray space at the end instead. The database still accepts both commands.\",\n    \"matters\": \"Every developer who reads the database changes Django generates for these indexes sees untidy commands, and one of them reported it.\",\n    \"fix\": \"Put a space before the sort word only when there is one, in both places that build the column list for an index.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 7,
+  "inputTokens": {
+   "avg": 16501.714285714286,
+   "max": 20581
+  },
+  "mainUsage": {
+   "inputTokens": 115512,
+   "cachedInputTokens": 101937,
+   "outputTokens": 7894
+  },
+  "cacheHitPercent": 88.24797423644297,
+  "wallSeconds": 86.19199991226196,
+  "tools": {
+   "read": 2,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 4
+  },
+  "reads": 2,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.2461244,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.2461244
+}

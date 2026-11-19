@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 34990,
+ "finalText": "The check against the request found nothing to correct. The cause is in this repository: `faulthandler_timeout` is truncated to a whole number of seconds, so any value under 1 second turns the thread dumps off.\n\nI only read the code and edited nothing. `probe` could not run the test suite because pytest isn't installed in the sandbox. I did run `int(float('0.5'))` there, and it prints `0`.\n\n**Cause.** `get_timeout_config_value` in `src/_pytest/faulthandler.py` (line 64) returns `int(float(config.getini(\"faulthandler_timeout\") or 0.0))`. A value of `0.5` becomes `0`. The check `timeout > 0` in `pytest_runtest_protocol` (line 71) then fails, and `faulthandler.dump_traceback_later` is never called. The 5-second job still works because `5` survives the truncation. Fractional values above 1, such as `5.5`, are silently cut to `5`.\n\n**Why it was missed.** `faulthandler.dump_traceback_later` accepts a float, and the option's documentation doesn't say it must be an integer. The existing `test_timeout` uses `faulthandler_timeout = 0.01`, but its `enabled=True` variant is skipped (marked \"sometimes crashes on CI (#7022)\"). Nothing in the suite exercises a value below 1.\n\n**Product impact.** Anyone using a sub-second timeout gets no thread dump when a test hangs, which is what the CI support channel reported. That person has to debug the hang without any traceback.\n\n**Intent.** I found nothing showing the truncation was chosen. The changelog and docs don't mention it, so it's a defect and not a design decision.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Sub-second faulthandler timeout silently disabled\",\n  \"cause\": \"get_timeout_config_value wraps the parsed faulthandler_timeout in int(), so 0.5 becomes 0. The `timeout > 0` check in pytest_runtest_protocol then skips faulthandler.dump_traceback_later, so no thread dump is produced. Whole-second values like 5 still work, and fractional values such as 5.5 are cut to 5.\",\n  \"files\": [\n    {\"path\": \"src/_pytest/faulthandler.py\", \"why\": \"get_timeout_config_value (line 64) truncates the timeout to int; the `timeout > 0` check at line 71 then disables the dump.\"},\n    {\"path\": \"testing/test_faulthandler.py\", \"why\": \"test_timeout's enabled=True variant is skipped, so no test covers a sub-second value.\"}\n  ],\n  \"plan\": [\n    \"Change get_timeout_config_value to return float(config.getini('faulthandler_timeout') or 0.0), so the return type is a float, matching its annotation and faulthandler.dump_traceback_later.\",\n    \"Add a regression test that sets faulthandler_timeout = 0.5 (or a monkeypatched dump_traceback_later) and asserts the timeout passed through is 0.5, not 0.\",\n    \"Add a changelog entry under changelog/ for the bugfix.\"\n  ],\n  \"verification\": [\n    \"New unit test: get_timeout_config_value returns 0.5 for faulthandler_timeout=0.5, and dump_traceback_later is called with 0.5.\",\n    \"Run testing/test_faulthandler.py.\",\n    \"Run a hanging test with faulthandler_timeout=0.5 in a subprocess and check stderr contains 'most recent call first'.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"low\",\n  \"risk\": \"low\",\n  \"confidence\": 0.95,\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"The timeout is truncated to an int, so 0.5 becomes 0.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"src/_pytest/faulthandler.py:64\", \"quote\": \"return int(float(config.getini(\\\"faulthandler_timeout\\\") or 0.0))\"}]},\n    {\"id\": \"c2\", \"text\": \"A timeout of 0 skips scheduling the traceback dump.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"src/_pytest/faulthandler.py:71\", \"quote\": \"if timeout > 0 and stderr is not None:\"}]},\n    {\"id\": \"c3\", \"text\": \"The enabled variant of the existing timeout test is skipped, so nothing covers sub-second values.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"testing/test_faulthandler.py:75\", \"quote\": \"True, marks=pytest.mark.skip(reason=\\\"sometimes crashes on CI (#7022)\\\")\"}]}\n  ],\n  \"intendedBehavior\": \"With faulthandler_timeout=0.5, a test running longer than 0.5 seconds causes a traceback of all threads to be dumped to stderr.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"No changelog, documentation or test says the option must be a whole number. The int() call looks like an accidental truncation, since faulthandler.dump_traceback_later accepts floats.\"},\n  \"fixType\": \"error\",\n  \"plain\": {\n    \"headline\": \"Hanging tests stopped producing diagnostic dumps in the job with a half-second timeout because the setting was rounded down to zero.\",\n    \"happened\": \"The test runner reads the timeout setting and rounds it down to a whole number of seconds. A half-second timeout becomes zero, which the runner treats as turned off. The 5-second job survives the rounding, so it still works.\",\n    \"matters\": \"Anyone using a timeout under one second gets no diagnostic information when a test hangs.\",\n    \"fix\": \"Keep the timeout as a decimal number instead of rounding it, and add a test for a sub-second value.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 7,
+  "inputTokens": {
+   "avg": 14154.57142857143,
+   "max": 17394
+  },
+  "mainUsage": {
+   "inputTokens": 99082,
+   "cachedInputTokens": 88696,
+   "outputTokens": 4687
+  },
+  "cacheHitPercent": 89.51777315758665,
+  "wallSeconds": 34.18899989128113,
+  "tools": {
+   "read": 5,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 1
+  },
+  "reads": 5,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.0905652,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.0905652
+}

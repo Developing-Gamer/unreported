@@ -1,0 +1,8 @@
+[
+ {"source":"S1","decision":"skip","reason":"Intermittent empty/truncated 200 bodies in a downstream catalog client give no traceback or reproducible library defect; not enough to act on."},
+ {"source":"S2","decision":"fix","reason":"urllib3 connection pool passes strict= to http.client connections, which raises TypeError on Python 3.4+; reproduced on 3.9."},
+ {"source":"S3","decision":"skip","reason":"Connection refused by api.stripe.com is a network/remote-side condition correctly surfaced as ConnectionError, not a library defect."},
+ {"source":"S4","decision":"fix","reason":"prepare_content_length always set Content-Length: 0 even for body-less GET/HEAD."},
+ {"source":"S5","decision":"fix","reason":"requests.api.request created a Session and never closed it, leaving pooled sockets open until GC."},
+ {"source":"S6","decision":"skip","reason":"403 SignatureDoesNotMatch on some download links is a server/URL-signing matter with no evidence of a defect in this repository."}
+]

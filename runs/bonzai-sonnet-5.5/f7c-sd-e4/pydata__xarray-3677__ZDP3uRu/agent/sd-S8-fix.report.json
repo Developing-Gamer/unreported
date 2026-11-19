@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 40089,
+ "finalText": "The fix is in the working tree and uncommitted. A custom accessor whose `__init__` raises `AttributeError` now gives a `RuntimeError` instead of a silent `None`. I checked the failing run again: on the starting code `test_broken_accessor` fails with `Failed: DID NOT RAISE <class 'RuntimeError'>`. With the fix, `xarray/tests/test_extensions.py` passes (4 tests). I did not run the whole test suite.\n\n- **Fix:** `_CachedAccessor.__get__` in `xarray/core/extensions.py` raises `RuntimeError(\"error initializing '<name>' accessor.\")` chained from the original `AttributeError`. It only writes to the cache after construction succeeds, so a later attempt on the same dataset can work.\n- **Test:** the existing `test_broken_accessor` (GH933) already expected this, so I added no new test.\n- **PR text:** the title and description are in `.factory/pr-S8.md`.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"checks\": [\n    {\"command\": \"python -m pytest xarray/tests/test_extensions.py -q\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"reproductionSteps\": [\n    \"Register a dataset accessor whose __init__ raises AttributeError\",\n    \"Access it on a Dataset: before the fix it returns None silently, and the None is cached so later accesses also return None\"\n  ],\n  \"reproductionTest\": {\n    \"path\": \"xarray/tests/test_extensions.py\",\n    \"command\": \"python -m pytest xarray/tests/test_extensions.py -q\",\n    \"signature\": \"Failed: DID NOT RAISE <class 'RuntimeError'>\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 9,
+  "inputTokens": {
+   "avg": 21822.333333333332,
+   "max": 24523
+  },
+  "mainUsage": {
+   "inputTokens": 196401,
+   "cachedInputTokens": 185772,
+   "outputTokens": 3486
+  },
+  "cacheHitPercent": 94.58811309514718,
+  "wallSeconds": 38.38199996948242,
+  "tools": {
+   "read": 3,
+   "edit": 3,
+   "test": 0,
+   "verify": 0,
+   "git": 1,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 2
+  },
+  "reads": 3,
+  "edits": 3,
+  "runs": 3,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 3,
+  "editOperations": 3,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.0985759,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.0985759
+}

@@ -1,0 +1,44 @@
+{
+ "task": "psf__requests-1724",
+ "kept": [
+  {
+   "path": "requests/packages/charade/euctwfreq.py",
+   "category": "silent wrong result (a value or output that is subtly wrong, no exception)",
+   "defect_patch": "diff --git a/requests/packages/charade/euctwfreq.py b/requests/packages/charade/euctwfreq.py\nindex 576e750..1ba12cf 100644\n--- a/requests/packages/charade/euctwfreq.py\n+++ b/requests/packages/charade/euctwfreq.py\n@@ -52,7 +52,7 @@ EUCTWCharToFreqOrder = (\n 1198,3869,3313,4060, 410,2211, 302, 590, 361,1963,   8, 204,  58,4296,7311,1931, # 2774\n   63,7312,7313, 317,1614,  75, 222, 159,4061,2412,1480,7314,3500,3068, 224,2809, # 2790\n 3616,   3,  10,3870,1471,  29,2774,1135,2852,1939, 873, 130,3242,1123, 312,7315, # 2806\n-4297,2051, 507, 252, 682,7316, 142,1914, 124, 206,2932,  34,3501,3173,  64, 604, # 2822\n+4297,2051, 705, 252, 682,7316, 142,1914, 124, 206,2932,  34,3501,3173,  64, 604, # 2822\n 7317,2494,1976,1977, 155,1990, 645, 641,1606,7318,3405, 337,  72, 406,7319,  80, # 2838\n  630, 238,3174,1509, 263, 939,1092,2644, 756,1440,1094,3406, 449,  69,2969, 591, # 2854\n  179,2095, 471, 115,2034,1843,  60,  50,2970, 134, 806,1868, 734,2035,3407, 180, # 2870\n",
+   "test_code": "import pytest\n\nfrom requests.packages.charade.chardistribution import EUCTWDistributionAnalysis\n\n\ndef test_euctw_confidence_for_mixed_frequency_characters():\n    analyzer = EUCTWDistributionAnalysis()\n    analyzer.reset()\n    # Eight frequent characters and twelve characters outside the frequent set.\n    characters = (\n        [b'\\xc4\\xa1'] * 4\n        + [b'\\xc4\\xf3'] * 4\n        + [b'\\xc4\\xa2'] * 12\n    )\n    for character in characters:\n        analyzer.feed(character, 2)\n\n    assert analyzer.get_confidence() == pytest.approx(8.0 / (12 * 0.75))\n",
+   "signal": {
+    "kind": "user",
+    "source": "document-preview-support",
+    "text": "A few archived Traditional Chinese notices now show garbled characters in the preview, although most notices still display normally."
+   },
+   "summary": "A transposed frequency rank changes EUC-TW table entry 82 from 507 to 705, incorrectly excluding that character from the frequent set and lowering detection confidence for inputs containing it."
+  },
+  {
+   "path": "requests/packages/urllib3/packages/ordered_dict.py",
+   "category": "swallowed error (an exception caught and ignored, or an error path that returns a default)",
+   "defect_patch": "diff --git a/requests/packages/urllib3/packages/ordered_dict.py b/requests/packages/urllib3/packages/ordered_dict.py\nindex 7f8ee15..63ae24b 100644\n--- a/requests/packages/urllib3/packages/ordered_dict.py\n+++ b/requests/packages/urllib3/packages/ordered_dict.py\n@@ -175,7 +175,7 @@ class OrderedDict(dict):\n \n     __marker = object()\n \n-    def pop(self, key, default=__marker):\n+    def pop(self, key, default=None):\n         '''od.pop(k[,d]) -> v, remove specified key and return the corresponding value.\n         If key is not found, d is returned if given, otherwise KeyError is raised.\n \n",
+   "test_code": "import sys\n\n\ndef test_missing_pop_requires_an_explicit_default(monkeypatch):\n    # Supply compatibility aliases for this Python 2-era backport on Python 3.\n    if sys.version_info[0] >= 3:\n        import _thread\n        import collections\n        import collections.abc\n\n        monkeypatch.setitem(sys.modules, 'dummy_thread', _thread)\n        for name in ('Mapping', 'MutableMapping', 'Callable'):\n            if not hasattr(collections, name):\n                monkeypatch.setattr(\n                    collections, name, getattr(collections.abc, name),\n                    raising=False,\n                )\n\n    from requests.packages.urllib3.packages.ordered_dict import OrderedDict\n\n    pending = OrderedDict([('job-17', 'ready')])\n    fallback = object()\n    assert pending.pop('unknown-job', fallback) is fallback\n\n    raised = False\n    try:\n        pending.pop('unknown-job')\n    except KeyError as error:\n        raised = True\n        assert error.args == ('unknown-job',)\n\n    assert raised, 'Removing a missing key without a default must raise KeyError'\n    assert pending.items() == [('job-17', 'ready')]\n    assert pending.pop('job-17') == 'ready'\n    assert len(pending) == 0\n",
+   "signal": {
+    "kind": "user",
+    "source": "job-api support",
+    "text": "Some repeated completion requests now return success with an empty result instead of the usual unknown-job response, so our workers count them as acknowledged."
+   },
+   "summary": "Changing the pop default from the private sentinel to None silently returns None for missing keys when no default was supplied, instead of raising KeyError."
+  }
+ ],
+ "rejected": [
+  {
+   "path": "requests/packages/charade/charsetgroupprober.py",
+   "category": "silent wrong result (a value or output that is subtly wrong, no exception)",
+   "defect_patch": "--- a/requests/packages/charade/charsetgroupprober.py\n+++ b/requests/packages/charade/charsetgroupprober.py\n@@ -91,7 +91,7 @@\n                 if constants._debug:\n                     sys.stderr.write(prober.get_charset_name()\n                                      + ' not active\\n')\n-                continue\n+                    continue\n             cf = prober.get_confidence()\n             if constants._debug:\n                 sys.stderr.write('%s confidence = %s\\n' %\n",
+   "test_code": "import pytest\n\nfrom requests.packages.charade import constants\nfrom requests.packages.charade.charsetgroupprober import CharSetGroupProber\nfrom requests.packages.charade.charsetprober import CharSetProber\n\n\nclass CandidateProber(CharSetProber):\n    def __init__(self, name, confidence, feed_state):\n        CharSetProber.__init__(self)\n        self._name = name\n        self._confidence = confidence\n        self._feed_state = feed_state\n\n    def feed(self, data):\n        self._mState = self._feed_state\n        return self.get_state()\n\n    def get_confidence(self):\n        return self._confidence\n\n    def get_charset_name(self):\n        return self._name\n\n\n@pytest.mark.parametrize('debug', [False, True])\ndef test_rejected_candidate_is_excluded_from_confidence(monkeypatch, debug):\n    monkeypatch.setattr(constants, '_debug', debug)\n    rejected = CandidateProber('utf-8', 0.97, constants.eNotMe)\n    remaining = CandidateProber('windows-1252', 0.61, constants.eDetecting)\n    group = CharSetGroupProber()\n    group._mProbers = [rejected, remaining]\n    group.reset()\n\n    group.feed(b'legacy text: \\xff')\n\n    assert not rejected.active\n    assert remaining.active\n    assert group.get_confidence() == 0.61\n    assert group.get_charset_name() == 'windows-1252'\n",
+   "signal": {
+    "kind": "user",
+    "source": "Document import support inbox",
+    "text": "A few imported documents now display garbled characters despite high encoding confidence. Replaying the same files with verbose diagnostics enabled gives different encoding labels and readable text."
+   },
+   "summary": "An indentation slip makes confidence selection include inactive, rejected probers when debug logging is disabled, allowing a rejected encoding to win.",
+   "reject": "patch does not apply"
+  }
+ ]
+}

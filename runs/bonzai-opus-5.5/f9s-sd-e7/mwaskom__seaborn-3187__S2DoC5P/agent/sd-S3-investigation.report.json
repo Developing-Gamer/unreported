@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 232829,
+ "finalText": "I checked the report against the request. Two code quotes spanned two lines, which won't match exactly, so I swapped them for single-line quotes. Everything else in the finding is unchanged.\n\nThe issue doesn't come from the current code. The reporter was running seaborn 0.11.2, and both differences they saw are gone as of 0.12.0. Verdict: **covered**.\n\n**What the reporter saw.** In issue #3149, the `errorbar='sd'` plot matched the `errorbar='ci'` plot. The `ci='sd'` plot was different from both, and also a little narrower than their own standard deviation computed with pandas. Later in the thread they found they were on seaborn 0.11.2 (Colab's default at the time), and that upgrading to 0.12.1 made the problem go away.\n\n**Why it happened in 0.11.2:**\n- **`errorbar` was ignored.** That parameter only arrived in 0.12.0. Before then, `pointplot` quietly accepted unknown keyword arguments. So `errorbar='sd'` was silently dropped and the default 95% bootstrap interval was drawn, which is why it matched `errorbar='ci'`.\n- **`ci='sd'` used a different formula.** 0.11.2 computed it with `np.std`, which divides by n. The reporter's comparison used pandas `.std()`, which divides by n\u22121. With 3 points per group that gap shows on the plot. The maintainer pointed this out and the reporter confirmed it.\n\n**Why the current code no longer has the cause:**\n- `pointplot` now takes `errorbar` as a real parameter and no longer accepts unknown keyword arguments (seaborn/categorical.py:2829\u20132835). Calling it with `legend='sadf'` now raises `TypeError` instead of being silently ignored.\n- `ci='sd'` is converted to `errorbar='sd'` with a deprecation warning (seaborn/utils.py:843\u2013851), so both spellings run the same code.\n- The SD bars use pandas `vals.std()` (seaborn/_statistics.py:501\u2013503), which divides by n\u22121 and matches the reporter's hand calculation.\n- The 0.12.0 release notes (doc/whatsnew/v0.12.0.rst:60\u201364) record that `errorbar` was added and `ci` deprecated (PRs 2407 and 2866).\n\n**Checks I ran (in a throwaway copy, testbed environment, seaborn 0.12.2.dev0):**\n- The reporter's data plotted with `ci='sd'`, `errorbar='sd'` and `errorbar=('sd', 1)` gives identical error bars, e.g. set1 from 0.99601836 to 0.99673630. That is the mean \u00b1 the pandas standard deviation (set1: mean 0.996377, sd 0.000359).\n- The existing pointplot and error-bar tests pass: 16 passed.\n\nThere is nothing to change in the code. The only follow-up is for the person: upgrade seaborn to 0.12.0 or later. I couldn't give a commit SHA for the fix, because this checkout has a single \"Snapshot\" commit.\n\n```json\n{\n  \"verdict\": \"covered\",\n  \"title\": \"pointplot SD bars differed only in seaborn 0.11.2\",\n  \"cause\": \"The reporter ran seaborn 0.11.2 (Colab default), where pointplot had no errorbar parameter and silently swallowed unknown kwargs, so errorbar='sd' was ignored and the default 95% bootstrap CI was drawn; ci='sd' there used np.std (ddof=0), unlike the reporter's pandas std (ddof=1). Since 0.12.0 errorbar is a real parameter, unknown kwargs raise TypeError, ci='sd' is translated to errorbar='sd', and SD uses pandas std, so all variants match.\",\n  \"files\": [\n    {\"path\": \"seaborn/utils.py\", \"why\": \"_deprecate_ci maps ci='sd' to errorbar='sd', so both spellings share one code path\"},\n    {\"path\": \"seaborn/categorical.py\", \"why\": \"pointplot now takes errorbar explicitly and no **kwargs, so unknown args error instead of being swallowed\"},\n    {\"path\": \"seaborn/_statistics.py\", \"why\": \"EstimateAggregator computes the sd interval with pandas vals.std() (ddof=1)\"},\n    {\"path\": \"doc/whatsnew/v0.12.0.rst\", \"why\": \"Release note recording the errorbar parameter and ci deprecation\"}\n  ],\n  \"plan\": [\"No code change needed; the user should upgrade seaborn to >= 0.12.0\"],\n  \"verification\": [\n    \"Ran the reporter's data through pointplot with ci='sd', errorbar='sd' and errorbar=('sd',1) on 0.12.2.dev0: identical error bars ([0.99601836, 0.99673630] for set1), equal to mean \u00b1 pandas std\",\n    \"pointplot(..., legend='sadf') now raises TypeError instead of silently ignoring the argument\",\n    \"tests/test_categorical.py -k 'PointPlotter or errorbar or ci': 16 passed\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"none\",\n  \"risk\": \"none\",\n  \"confidence\": 0.93,\n  \"fixedIn\": {\"release\": \"0.12.0\"},\n  \"coveredBy\": 2407,\n  \"fixType\": \"error\",\n  \"intendedBehavior\": \"pointplot(data=df, x='label', y='percent correct', ci='sd') draws the same error bars as errorbar='sd', each equal to the group mean \u00b1 the pandas (ddof=1) standard deviation.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"The mismatch was not designed: it came from 0.11.2 silently swallowing the unknown errorbar kwarg. The 0.12.0 release notes record errorbar being added and ci deprecated, which removed it.\"},\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"In the reporter's version (0.11.2) pointplot had no errorbar parameter and swallowed extra kwargs, so errorbar='sd' silently drew the default 95% CI; the current code translates ci and takes errorbar explicitly.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s3\", \"quote\": \"different values for \\\"ci\\\" and \\\"errorbar\\\" when using \\\"sd\\\" for pointplot\"},\n      {\"type\": \"doc\", \"ref\": \"doc/whatsnew/v0.12.0.rst\", \"quote\": \"With the new `errorbar` parameter, it is now possible to select bootstrap confidence intervals\"},\n      {\"type\": \"code\", \"ref\": \"seaborn/categorical.py:2837\", \"quote\": \"errorbar = utils._deprecate_ci(errorbar, ci)\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"other\", \"text\": \"The deprecation shim turns ci='sd' into errorbar='sd', so both spellings share one code path.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"seaborn/utils.py:843\", \"quote\": \"elif ci == \\\"sd\\\":\"},\n      {\"type\": \"code\", \"ref\": \"seaborn/utils.py:849\", \"quote\": \"f\\\"Use `errorbar={repr(errorbar)}` for the same effect.\\\\n\\\"\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"other\", \"text\": \"The SD interval is now computed with pandas std (ddof=1), matching the reporter's hand-computed pandas standard deviation.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"seaborn/_statistics.py:502\", \"quote\": \"half_interval = vals.std() * self.error_level\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"other\", \"text\": \"pointplot no longer accepts arbitrary kwargs, so a silently ignored argument is impossible now.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"seaborn/categorical.py:2833\", \"quote\": \"orient=None, color=None, palette=None, errwidth=None, ci=\\\"deprecated\\\",\"}\n    ]},\n    {\"id\": \"c5\", \"role\": \"impact\", \"text\": \"Only people still on seaborn < 0.12 (e.g. Colab's older default) see the misleading error bars.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s3\", \"quote\": \"hello I am not sure if this is expected behavior or if I am missing something but I am getting different values\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"Current _deprecate_ci maps ci='sd' to something other than errorbar='sd'\", \"why\": \"It maps it exactly, and a probe with the reporter's data gave identical bars for ci='sd', errorbar='sd' and errorbar=('sd',1).\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"seaborn/utils.py:843\", \"quote\": \"elif ci == \\\"sd\\\":\"}\n    ]},\n    {\"hypothesis\": \"Current SD bars use bootstrapping or drop data points\", \"why\": \"The sd branch is purely parametric (mean \u00b1 vals.std()); bootstrap is only used for the 'ci' method.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"seaborn/_statistics.py:513\", \"quote\": \"boots = bootstrap(vals, units=units, func=self.estimator, **self.boot_kws)\"}\n    ]}\n  ],\n  \"plain\": {\n    \"headline\": \"A user's chart showed different 'spread' bars for two settings that should match, because they were on an old version of the library.\",\n    \"happened\": \"The user was running an old version that did not yet know the newer setting name, so it quietly ignored it and drew a different kind of bar. The old version also measured spread with a slightly different formula than the user's own check. The current version understands both names, runs them the same way, and uses the formula the user expected.\",\n    \"matters\": \"Only people still on the older version, such as Google Colab's former default, see the mismatch.\",\n    \"fix\": \"No change needed; the person should upgrade the library to version 0.12.0 or later.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 17,
+  "inputTokens": {
+   "avg": 27259.470588235294,
+   "max": 54089
+  },
+  "mainUsage": {
+   "inputTokens": 463411,
+   "cachedInputTokens": 416310,
+   "outputTokens": 11693
+  },
+  "cacheHitPercent": 89.83602029300124,
+  "wallSeconds": 231.93799996376038,
+  "tools": {
+   "read": 11,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 2,
+   "subagent": 0,
+   "other": 5
+  },
+  "reads": 11,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.552589,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.552589
+}

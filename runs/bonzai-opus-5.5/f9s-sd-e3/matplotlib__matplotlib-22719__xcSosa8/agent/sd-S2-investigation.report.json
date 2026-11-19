@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 133221,
+ "finalText": "I checked the report against the request. The only gap was that the plain-language summary (headline, what happened, why it matters, fix) was missing from the JSON, so it's added below. Nothing else changed: the checks I already ran still support the verdict.\n\n**Verdict: already fixed in the current code (covered).** The broken date labels were real in matplotlib 3.4, but the code here (tag v3.5.0) no longer has the cause.\n\n**What the reporter saw (3.4):** with LaTeX text rendering turned on, each date tick label was put inside a LaTeX math expression. In math mode LaTeX drops plain spaces and pads colons like an operator, so \"01 00:05\" came out as \"0100 : 05\" and neighbouring labels ran into each other.\n\n**Current code:** in `lib/matplotlib/dates.py:606-607`, `_wrap_in_tex` now puts the label in LaTeX's normal text mode (`{\\fontfamily{\\familydefault}\\selectfont \u2026}`). Spaces and colons render as written.\n\n**Checks I ran** (in the throwaway copy, with the real LaTeX installed):\n- The issue's script now gives readable labels `01 00:00` \u2026 `01 00:10`.\n- When I swapped the 3.4 version of the wrapper back in, the same plot showed the reported \"0100 : 00\" run-together labels.\n- The existing usetex date tests pass (9 passed).\n\n**Limits:**\n- The repository is a single snapshot commit (c1cd5c48d2, tag v3.5.0), so I can't name the upstream commit or pull request that made the change. The fix ships in 3.5.0.\n- At these settings the labels are still a bit tightly packed, but readable. That is about how many ticks are drawn, not the reported bug.\n\n```json\n{\n  \"verdict\": \"covered\",\n  \"title\": \"Date labels with LaTeX ran together (fixed in 3.5)\",\n  \"cause\": \"In matplotlib 3.4, date tick labels were wrapped in TeX math mode ($\\\\mathdefault{...}$), where TeX drops plain spaces and spaces ':' as a relation, so '01 00:05' rendered as '0100 : 05' and neighbouring labels ran together. The current code (v3.5.0) wraps labels in text mode ({\\\\fontfamily{\\\\familydefault}\\\\selectfont ...}) instead, which keeps spaces and normal colon spacing.\",\n  \"files\": [\n    {\"path\": \"lib/matplotlib/dates.py\", \"why\": \"_wrap_in_tex builds the TeX string for every date tick label when usetex is on; it now uses text mode instead of the 3.4 math-mode wrapper\"},\n    {\"path\": \"lib/matplotlib/tests/test_dates.py\", \"why\": \"test_date_formatter_usetex and test_concise_formatter_usetex assert the text-mode wrapping\"}\n  ],\n  \"plan\": [\n    \"No code change needed; users on 3.4 should upgrade to 3.5.0 or later\"\n  ],\n  \"verification\": [\n    \"Ran the issue's script with text.usetex=True against v3.5.0: tick labels are '{\\\\fontfamily{\\\\familydefault}\\\\selectfont 01 00:00}' \u2026 '01 00:10' and the saved figure shows clear 'DD HH:MM' labels\",\n    \"Swapped the 3.4 math-mode _wrap_in_tex back in: the same figure shows '0100 : 00' run-together labels, reproducing the issue\",\n    \"pytest --pyargs matplotlib.tests.test_dates -k usetex: 9 passed\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"none\",\n  \"risk\": \"low\",\n  \"confidence\": 0.85,\n  \"fixedIn\": {\"commit\": \"c1cd5c48d2\", \"release\": \"3.5.0\"},\n  \"fixType\": \"error\",\n  \"plain\": {\n    \"headline\": \"Time labels on charts drawn with LaTeX ran together in version 3.4 because spaces were dropped and colons were padded; the current version draws them correctly.\",\n    \"happened\": \"With LaTeX rendering on, version 3.4 drew each date label as a math formula. Math formulas ignore spaces and put extra room around colons, so '01 00:05' came out as '0100 : 05' and labels ran into each other. Version 3.5.0 draws these labels as ordinary text, so they read as intended.\",\n    \"matters\": \"Only people who stay on 3.4 and use LaTeX rendering with time-based charts still get the unreadable labels.\",\n    \"fix\": \"No code change is needed; affected users should upgrade to matplotlib 3.5.0 or later.\"\n  },\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"The reporter compares usetex datetime axes in matplotlib 3.4 against 3.3 and finds the 3.4 spacing unclear.\", \"role\": \"trigger\", \"citations\": [{\"type\": \"evidence\", \"ref\": \"ev_s2\", \"quote\": \"The spacing for a datetime axis when using `usetex=True` is unclear in matplotlib version 3.4 when comparing it to 3.3.\"}]},\n    {\"id\": \"c2\", \"text\": \"The current date-label TeX wrapper uses text mode, which keeps spaces and normal colon spacing, instead of the 3.4 math-mode wrapper that caused the run-together labels.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"lib/matplotlib/dates.py:607\", \"quote\": \"return r\\\"{\\\\fontfamily{\\\\familydefault}\\\\selectfont \\\" + text + \\\"}\\\"\"}]},\n    {\"id\": \"c3\", \"text\": \"Every usetex date formatter label goes through this wrapper, so the fix covers AutoDateFormatter and ConciseDateFormatter.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"lib/matplotlib/dates.py:638\", \"quote\": \"return _wrap_in_tex(result) if self._usetex else result\"}, {\"type\": \"code\", \"ref\": \"lib/matplotlib/dates.py:852\", \"quote\": \"return [_wrap_in_tex(l) for l in labels]\"}]},\n    {\"id\": \"c4\", \"text\": \"Existing tests assert the text-mode wrapping for the 10-minute case from the issue, and they pass.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"lib/matplotlib/tests/test_dates.py:345\", \"quote\": \"r'{\\\\fontfamily{\\\\familydefault}\\\\selectfont %s}' % s for s in expected]\"}]},\n    {\"id\": \"c5\", \"text\": \"The repository is at the v3.5.0 tag, so the fix ships in 3.5.0.\", \"role\": \"other\", \"citations\": [{\"type\": \"commit\", \"ref\": \"c1cd5c48d2\"}]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"The current code still drops spaces or pads colons in usetex date labels\", \"why\": \"Running the issue's script on v3.5.0 gives labels like '01 00:05' wrapped in text mode, and the rendered image shows readable labels; only swapping in the 3.4 math-mode wrapper reproduces '0100 : 00'\", \"citations\": [{\"type\": \"code\", \"ref\": \"lib/matplotlib/dates.py:606\", \"quote\": \"def _wrap_in_tex(text):\"}]}\n  ],\n  \"intendedBehavior\": \"With text.usetex=True, a date axis over 10 minutes shows tick labels such as '01 00:05' with the space kept and no extra padding around the colon, so labels do not run together.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"The 3.4 math-mode wrapping was meant to match the font of other tick labels; nobody chose the dropped spaces and padded colons, and the code was later changed to text mode.\"}\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 12,
+  "inputTokens": {
+   "avg": 18573.25,
+   "max": 26675
+  },
+  "mainUsage": {
+   "inputTokens": 222879,
+   "cachedInputTokens": 203202,
+   "outputTokens": 11876
+  },
+  "cacheHitPercent": 91.17144280080223,
+  "wallSeconds": 132.8090000152588,
+  "tools": {
+   "read": 7,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 5
+  },
+  "reads": 7,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.3765174,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.3765174
+}

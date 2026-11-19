@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 85031,
+ "finalText": "`texescape.escape_abbr` now adds `\\@{}` after a period that is followed by a newline or tab, as well as a space or end of string. That removes the wider gap in the PDF. Nothing is committed, as the benchmark note asks.\n\nI changed the regex in `sphinx/util/texescape.py` from `\\.(?= |$)` to `\\.(?=\\s|$)`. I added `tests/test_util_texescape.py` and a CHANGES entry. The PR title and description are in `/testbed/.factory/pr-S6.md`.\n\n- **Reproduction:** on the starting commit the new test failed for the newline and tab cases and passed for the other three.\n- **After the fix:** the new test file and `tests/test_build_latex.py` give 77 passed, 8 skipped.\n- **Environment:** the default python (3.11) can't import this Sphinx version at all. I ran everything with `/opt/miniconda3/envs/testbed/bin/python -m pytest`.\n- **Writer helper left alone:** I did not unify it with the one in `sphinx/writers/latex.py`. That one emits `\\@`, not `\\@{}`, so merging them would change the output.\n- **Other edits in the tree:** the working tree already had uncommitted changes in `CHANGES`, `sphinx/util/inspect.py`, `sphinx/util/template.py` and two test files. They are not mine and I left them alone.\n- **Other open PRs:** neither open PR (#1000, #1001) touches this code.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest tests/test_util_texescape.py tests/test_build_latex.py -q\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"reproductionSteps\": \"Call sphinx.util.texescape.escape_abbr('e.g.\\\\nfoo') or with a tab after the period; before the fix the result had no \\\\@{} inserted, so TeX used sentence-end spacing.\",\n  \"reproductionTest\": {\n    \"path\": \"tests/test_util_texescape.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest tests/test_util_texescape.py -q\",\n    \"signature\": \"FAILED tests/test_util_texescape.py::test_escape_abbr[e.g.\\\\nfoo-e.g.\\\\\\\\@{}\\\\nfoo]\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 17,
+  "inputTokens": {
+   "avg": 22769.117647058825,
+   "max": 27969
+  },
+  "mainUsage": {
+   "inputTokens": 387075,
+   "cachedInputTokens": 372984,
+   "outputTokens": 5462
+  },
+  "cacheHitPercent": 96.35962022863787,
+  "wallSeconds": 83.30299997329712,
+  "tools": {
+   "read": 9,
+   "edit": 5,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 8
+  },
+  "reads": 9,
+  "edits": 5,
+  "runs": 8,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 5,
+  "editOperations": 5,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1644253,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1644253
+}

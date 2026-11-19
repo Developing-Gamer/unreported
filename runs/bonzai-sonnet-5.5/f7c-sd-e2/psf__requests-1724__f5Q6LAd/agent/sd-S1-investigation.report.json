@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 89532,
+ "finalText": "Those files match upstream and add nothing new. The recheck confirms the earlier conclusion, so here is the final report.\n\nI found nothing in this repository that explains the signal. It is Requests 2.0.1, an HTTP client library with no job, completion or acknowledgement logic. I could not get a clean live run of the old library on this machine's Python 3.11, so the conclusion comes from reading the code.\n\n- **Error replies:** a 404 or 410 \"unknown job\" reply keeps its status code. `raise_for_status` raises for every 4xx and 5xx, and `Response.ok` is false for them.\n- **Redirects:** the only path that can turn a repeated POST into an empty success is a redirect from the job service. After a 301, 302 or 303 the library re-sends the request as a GET with no body. This is deliberate, commented \"Do what the browsers do, despite standards...\", and callers can turn it off with `allow_redirects=False`.\n- **Other code:** I also read the header store, the response hooks, digest auth and the adapter's response builder. None of them changes a status code or hides an error.\n\nThe more likely cause is the job-api service, or workers that follow redirects and count any 2xx as acknowledged. I couldn't confirm which, and no Sentry or PostHog data was available in this run.\n\n```json\n{\n  \"verdict\": \"notActionable\",\n  \"title\": \"Duplicate job completions look acknowledged: not a library bug\",\n  \"cause\": \"This repository is the Requests 2.0.1 HTTP client library and contains no job or completion logic. It returns 404/410 replies unchanged, and raise_for_status raises on every 4xx/5xx. The one way a repeated POST can end in an empty success is the deliberate browser-style rule that re-sends a POST as a GET after a 301, 302 or 303 redirect, which only happens if the job service sends such a redirect. The job-api service or the workers' reply handling is the likely cause, not this repo.\",\n  \"files\": [\n    {\"path\": \"requests/sessions.py\", \"why\": \"resolve_redirects turns a POST into a GET with no body after 301/302/303. This is deliberate and only fires when the server redirects.\"},\n    {\"path\": \"requests/models.py\", \"why\": \"raise_for_status and ok correctly flag 4xx/5xx as errors; no error-to-success conversion.\"}\n  ],\n  \"plan\": [\n    \"In the job-api service, check what a repeated completion call returns (a redirect, or a 2xx with an empty body, instead of a 404/410) and make it return the unknown-job error.\",\n    \"In the workers, call raise_for_status or check for an explicit success status, and pass allow_redirects=False on completion POSTs so a redirected GET is never counted as an acknowledgement.\"\n  ],\n  \"verification\": [\n    \"Replay a duplicate completion against the job service with allow_redirects=False and confirm it gets 404/410, not a 3xx or empty 2xx.\",\n    \"Confirm the workers no longer count a redirect-derived empty 200 as an acknowledgement.\"\n  ],\n  \"userFacing\": false,\n  \"certainty\": \"likely\",\n  \"effort\": \"low\",\n  \"risk\": \"low\",\n  \"confidence\": 0.7,\n  \"deliberate\": true,\n  \"intent\": \"The 301/302/303 redirect rule that re-sends a POST as a GET with no body follows RFC 2616 section 10.3.4 for 303 and is commented 'Do what the browsers do, despite standards...' in resolve_redirects. It is default behavior for post(), and callers can disable it with allow_redirects=False.\",\n  \"fixType\": \"silentFailure\",\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"Redirect handling re-sends a POST as a GET with the body removed after 301, 302 or 303. This is the only way the library can make a repeated POST end in an empty success, and it requires the server to send a redirect.\", \"role\": \"other\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/sessions.py:116\", \"quote\": \"# Do what the browsers do, despite standards...\"},\n      {\"type\": \"code\", \"ref\": \"requests/sessions.py:128\", \"quote\": \"prepared_request.body = None\"}\n    ]},\n    {\"id\": \"c2\", \"text\": \"Error statuses are reported faithfully: raise_for_status raises for 4xx/5xx and ok is false.\", \"role\": \"other\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/models.py:719\", \"quote\": \"if 400 <= self.status_code < 500:\"},\n      {\"type\": \"code\", \"ref\": \"requests/models.py:549\", \"quote\": \"self.raise_for_status()\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"The library converts a 404/410 unknown-job reply into a success\", \"why\": \"ok and raise_for_status treat every 4xx/5xx as an error and the status code is passed through unchanged.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/models.py:714\", \"quote\": \"def raise_for_status(self):\"}\n    ]},\n    {\"hypothesis\": \"Digest auth or cookie handling swallows repeated requests\", \"why\": \"The digest handler only retries a 401 once and does not alter other responses.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/auth.py:156\", \"quote\": \"if 'digest' in s_auth.lower() and num_401_calls < 2:\"}\n    ]},\n    {\"hypothesis\": \"Response hooks rewrite statuses\", \"why\": \"dispatch_hook only runs user-registered hooks and returns the original response unless a hook returns a replacement.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/hooks.py:41\", \"quote\": \"_hook_data = hook(hook_data, **kwargs)\"}\n    ]}\n  ],\n  \"intendedBehavior\": \"A repeated completion request for a job the service no longer knows gets an explicit 404/410 that workers treat as an error, never a redirect-derived empty 200 counted as an acknowledgement.\",\n  \"plain\": {\n    \"headline\": \"Repeat 'job done' messages were counted as acknowledged because the job service answered with success, not because of the HTTP library.\",\n    \"happened\": \"Workers resend a completion message for a job that is already finished or gone. The job service, or a redirect it sends, gives back an empty success. The workers read that as 'acknowledged' instead of 'unknown job'.\",\n    \"matters\": \"It affects whoever runs the job workers: duplicate completions look fine when they should be flagged.\",\n    \"fix\": \"Make the job service return its unknown-job error for repeats, and make the workers treat only an explicit success as acknowledged, without silently following redirects.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 18,
+  "inputTokens": {
+   "avg": 25326.722222222223,
+   "max": 42731
+  },
+  "mainUsage": {
+   "inputTokens": 455881,
+   "cachedInputTokens": 420134,
+   "outputTokens": 9923
+  },
+  "cacheHitPercent": 92.15869930968827,
+  "wallSeconds": 87.62199997901917,
+  "tools": {
+   "read": 16,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 4
+  },
+  "reads": 16,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 3,
+   "readFileIgnoringRange": 2
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.2726043,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.2726043
+}

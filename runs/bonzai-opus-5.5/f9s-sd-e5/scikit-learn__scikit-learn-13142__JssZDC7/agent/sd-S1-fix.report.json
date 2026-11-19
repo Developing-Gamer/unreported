@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 56565,
+ "finalText": "`fit_predict` now returns the same labels as `predict` when `n_init > 1`. The fix is uncommitted in the working tree, and the PR text is in `.factory/pr-S1.md`.\n\n**Cause.** The investigation was right. `BaseMixture.fit_predict` in `sklearn/mixture/base.py` ran its final E-step before restoring `best_params`. With `n_init > 1` the labels therefore came from the last initialization, while `predict` uses the best one. I moved the E-step to after the restore. `BayesianGaussianMixture` shares this code path, so it is fixed too.\n\n**Reproduction.** I added `test_gaussian_mixture_fit_predict_n_init` (`n_components=5`, `n_init=5`, 1000\u00d75 random data). On the starting commit it failed with 815 of 1000 labels mismatched. After the fix it passes, as do the 4 existing fit_predict tests.\n\n`pytest sklearn/mixture/tests` gave 57 passed, run with `/opt/miniconda3/envs/testbed/bin/python` because the default Python has no built sklearn. While finding that out I installed pytest into `/opt/miniconda3/bin/python` by mistake.\n\nI did not add `n_init > 1` to the existing parametrized fit_predict tests, because those compare `fit(X).predict(X)` with `fit_predict(X)`, and the first of those was never wrong. I added a changelog entry in `doc/whats_new/v0.20.rst`.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest sklearn/mixture/tests -q\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"reproduction\": \"Run GaussianMixture(n_components=5, n_init=5, random_state=0) on np.random.RandomState(0).randn(1000,5); compare fit_predict(X) with predict(X): 815/1000 labels differ before the fix, 0 after.\",\n  \"reproductionTest\": {\n    \"path\": \"sklearn/mixture/tests/test_gaussian_mixture.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest sklearn/mixture/tests/test_gaussian_mixture.py -k fit_predict_n_init -q\",\n    \"signature\": \"AssertionError: Arrays are not equal  Mismatched elements: 815 / 1000 (81.5%)\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 12,
+  "inputTokens": {
+   "avg": 24882.75,
+   "max": 29261
+  },
+  "mainUsage": {
+   "inputTokens": 298593,
+   "cachedInputTokens": 283220,
+   "outputTokens": 4733
+  },
+  "cacheHitPercent": 94.85152029685894,
+  "wallSeconds": 55.37000012397766,
+  "tools": {
+   "read": 8,
+   "edit": 5,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 3
+  },
+  "reads": 8,
+  "edits": 5,
+  "runs": 3,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 3,
+  "editOperations": 4,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1423925,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1423925
+}

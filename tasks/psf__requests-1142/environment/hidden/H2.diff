@@ -1,0 +1,14 @@
+diff --git a/requests/utils.py b/requests/utils.py
+index 34d92d2..0abfde2 100644
+--- a/requests/utils.py
++++ b/requests/utils.py
+@@ -363,9 +363,6 @@ def stream_decompress(iterator, mode='gzip'):
+             if rv:
+                 yield rv
+     except zlib.error:
+-        # If there was an error decompressing, just return the raw chunk
+-        yield chunk
+-        # Continue to return the rest of the raw data
+         for chunk in iterator:
+             yield chunk
+     else:

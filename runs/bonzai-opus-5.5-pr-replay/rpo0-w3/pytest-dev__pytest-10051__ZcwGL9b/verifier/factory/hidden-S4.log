@@ -1,0 +1,19 @@
+F.                                                                       [100%]
+=================================== FAILURES ===================================
+_____________ test_del_is_escaped_in_parameter_text[deviceready] ______________
+
+value = b'device\x7fready'
+
+    @pytest.mark.parametrize("value", [b"device\x7fready", "device\x7fready"])
+    def test_del_is_escaped_in_parameter_text(value):
+>       assert ascii_escaped(value) == r"device\x7fready"
+E       AssertionError: assert 'device\x7fready' == 'device\\x7fready'
+E         - device\x7fready
+E         ?       ^^^^
+E         + deviceready
+E         ?       ^
+
+/tmp/test_hidden_S4.py:8: AssertionError
+=========================== short test summary info ============================
+FAILED ../tmp/test_hidden_S4.py::test_del_is_escaped_in_parameter_text[deviceready] - AssertionError: assert 'device\x7fready' == 'device\\x7fready'
+1 failed, 1 passed in 0.02s

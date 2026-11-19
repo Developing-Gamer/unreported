@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 41157,
+ "finalText": "The fix is in place and the work matches the request. `pylint/extensions/docparams.py` now takes the last dotted component of a documented exception name. `tests/extensions/test_check_docs.py` has the two new tests, and `ChangeLog` has an entry. The PR text is in `.factory/pr-S5.md`.\n\nNothing is committed, as the benchmark note asks. `git status` also lists changes to `pylint/checkers/classes.py`, `pylint/testutils/lint_module_test.py`, the `access_to_protected_members` functional test files, and an untracked `tests/testutils/test_lint_module_test.py`. I did not touch those. They look like the work from open PRs #1000 and #1001, so I left them alone.\n\nThe two new tests failed before the fix and pass after it, and all 124 tests in `tests/extensions/test_check_docs.py` pass.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"checks\": [\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest tests/extensions/test_check_docs.py -q\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"reproduction\": [\n    \"Define a function with docstring ':raises package.errors.ValueError: Always' (or Google 'Raises:' with package.errors.ValueError) that does `raise ValueError(...)`.\",\n    \"Run the docparams checker's visit_raise on the raise node: W9006 missing-raises-doc is emitted for ValueError.\"\n  ],\n  \"reproductionTest\": {\n    \"path\": \"tests/extensions/test_check_docs.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest tests/extensions/test_check_docs.py -q -k many_dots\",\n    \"signature\": \"AssertionError: Message(msg_id='missing-raises-doc', ..., args=('ValueError',), ...)\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 14,
+  "inputTokens": {
+   "avg": 22181.428571428572,
+   "max": 26334
+  },
+  "mainUsage": {
+   "inputTokens": 310540,
+   "cachedInputTokens": 298090,
+   "outputTokens": 4542
+  },
+  "cacheHitPercent": 95.990854640304,
+  "wallSeconds": 39.47000002861023,
+  "tools": {
+   "read": 9,
+   "edit": 5,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 3
+  },
+  "reads": 9,
+  "edits": 5,
+  "runs": 3,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 5,
+  "editOperations": 5,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.136147,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.136147
+}

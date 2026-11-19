@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 86700,
+ "finalText": "The warning does come from this repository's code, and the fix is one line. I confirmed the faulty step by running the docstring parsers directly. The full `pylint` command failed in this sandbox with a reporter-loading error, so I did not reproduce the warning end to end. I edited no repository files, and the test file I name below exists.\n\n**What goes wrong.** The docparams check compares the exceptions a function raises with those listed in its docstring. To compare them, `visit_raise` in `pylint/extensions/docparams.py` (line 307) strips the module path from each documented name with `exc.split(\".\", 1)[-1]`. That removes only the first dot, so `package.errors.ValueError` becomes `errors.ValueError`. It never matches `ValueError`, so the checker reports \"ValueError not documented as being raised\" even though the docstring lists it.\n\n**Who it hits.** Only docstrings that name the exception with two or more dots (a package plus a module). A single dot, as in `re.error`, works. That matches \"a few API methods\". Teams that enforce the check get false failures and may disable it or rewrite correct docstrings.\n\n**What I ran.** For a Sphinx `:raises package.errors.ValueError:` entry and a Google `Raises:` entry, both parsers return `package.errors.ValueError`. Splitting at the first dot gives `errors.ValueError`; splitting at the last dot gives `ValueError`, which matches.\n\n**Intent.** The repository has a single snapshot commit, so there is no history showing this was chosen. Nothing in the docs or tests describes it, and the code's own comment says \"Extract just the class name\". It is a defect.\n\n**Fix.**\n1. Change line 307 to `exc.split(\".\")[-1]`, or `rsplit(\".\", 1)[-1]`.\n2. Add tests in `tests/extensions/test_check_docs.py` for a Sphinx entry and a Google entry with a multi-dot name. Both should produce no `missing-raises-doc`, and the new tests should fail before the change.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"False 'not documented as raised' warning on dotted names\",\n  \"cause\": \"The docparams checker strips the module path from documented exception names with split('.', 1)[-1], which only removes the first dot. A docstring entry like package.errors.ValueError becomes errors.ValueError, never matches the raised ValueError, and W9006 is reported even though the exception is documented.\",\n  \"files\": [\n    {\"path\": \"pylint/extensions/docparams.py\", \"why\": \"visit_raise computes found_excs_class_names with split('.', 1)[-1] at line 307, which is wrong for names with two or more dots.\"},\n    {\"path\": \"tests/extensions/test_check_docs.py\", \"why\": \"Add regression tests for multi-dot exception names in Sphinx and Google docstrings.\"}\n  ],\n  \"plan\": [\n    \"Change exc.split('.', 1)[-1] to exc.split('.')[-1] (or rsplit('.', 1)[-1]) in visit_raise.\",\n    \"Add failing-first tests for ':raises package.errors.ValueError:' and a Google 'Raises:' entry with a multi-dot name, asserting no missing-raises-doc.\"\n  ],\n  \"verification\": [\n    \"New tests pass and fail before the change.\",\n    \"Run tests/extensions/test_check_docs.py to confirm nothing else regresses.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.9,\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"Documented exception names are reduced to a class name by splitting only at the first dot, so names with 2+ dots keep a module prefix and never match the raised exception.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"pylint/extensions/docparams.py:307\", \"quote\": \"found_excs_class_names = {exc.split(\\\".\\\", 1)[-1] for exc in found_excs_full_names}\"}, {\"type\": \"code\", \"ref\": \"pylint/extensions/docparams.py:308\", \"quote\": \"missing_excs = expected_excs - found_excs_class_names\"}]},\n    {\"id\": \"c2\", \"text\": \"Both docstring parsers return the full dotted name as written, and split('.', 1)[-1] turns package.errors.ValueError into errors.ValueError, while split('.')[-1] gives ValueError.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"pylint/extensions/_check_docs_utils.py:345\", \"quote\": \"for match in re.finditer(self.re_raise_in_docstring, self.doc):\"}]}\n  ],\n  \"ruledOut\": [\n    {\"why\": \"The delimiter regex has a capture group so re.split also returns the separators, but those extra entries never match a raised exception name and do not cause a false warning.\", \"hypothesis\": \"_split_multiple_exc_types mishandles multiple exceptions\", \"citations\": [{\"type\": \"code\", \"ref\": \"pylint/extensions/_check_docs_utils.py:114\", \"quote\": \"delimiters = r\\\"(\\\\s*,(?:\\\\s*or\\\\s)?\\\\s*|\\\\s+or\\\\s+)\\\"\"}]}\n  ],\n  \"intendedBehavior\": \"A function whose docstring lists an exception by a dotted name such as package.errors.ValueError, with one or more dots, and that raises ValueError gets no missing-raises-doc warning.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"No comment, changelog entry or test says the checker should compare the name after only the first dot. The comment says 'Extract just the class name', which split('.', 1) does not do for names with 2+ dots.\"},\n  \"fixType\": \"error\",\n  \"plain\": {\n    \"headline\": \"Some documentation checks wrongly said an error type wasn't documented when it was.\",\n    \"happened\": \"The checker reads the list of errors a function can raise from its documentation. For errors written with a long package path, it only cut off the first part of the path. So the name never matched the real error, and it reported the error as missing.\",\n    \"matters\": \"Anyone who writes full package paths for error types in their docs gets false warnings that can fail their checks.\",\n    \"fix\": \"Compare only the final part of the error name, so long paths match correctly, and add tests for it.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 13,
+  "inputTokens": {
+   "avg": 17778.76923076923,
+   "max": 23062
+  },
+  "mainUsage": {
+   "inputTokens": 231124,
+   "cachedInputTokens": 215056,
+   "outputTokens": 6749
+  },
+  "cacheHitPercent": 93.04788771395441,
+  "wallSeconds": 85.62100005149841,
+  "tools": {
+   "read": 7,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 6
+  },
+  "reads": 7,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1506562,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1506562
+}

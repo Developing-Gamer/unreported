@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 83555,
+ "finalText": "The check turned up two problems in my report, so this is a corrected version. First, the plain-language block is now named `plain`, as the request asked. Second, I replaced the multi-line citation quotes with single-line quotes copied exactly from the code. The cause and verdict are unchanged. I still could not run the code, because the probe environment has no numpy, so the cause comes from reading it.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Malformed font settings are silently accepted as a font name\",\n  \"cause\": \"The font-pattern parser has a catch-all that treats any text without a colon as a plain font family name when it fails to parse. A saved style that sets a font like \\\"Helvetica-Bold\\\" or \\\"serif-12pt\\\" is therefore accepted. It is stored as an unknown family, so export falls back to the default font and default size, and no error is raised. A pattern containing a colon still raises a ValueError. The font-property setters and the validators for font size, weight and stretch all raise properly.\",\n  \"files\": [\n    {\"path\": \"lib/matplotlib/_fontconfig_pattern.py\", \"why\": \"parse_fontconfig_pattern returns {'family': [pattern]} for any unparseable pattern that has no ':' (lines 90-91) instead of raising ValueError.\"},\n    {\"path\": \"lib/matplotlib/rcsetup.py\", \"why\": \"validate_font_properties (used by mathtext.rm, mathtext.cal, mathtext.it, mathtext.bf, mathtext.sf and mathtext.tt) relies on the parser to reject bad values, so it now lets them through.\"},\n    {\"path\": \"lib/matplotlib/font_manager.py\", \"why\": \"FontProperties(str) and set_fontconfig_pattern consume the parser result, so a malformed string becomes an unknown family and the default font is used.\"},\n    {\"path\": \"lib/matplotlib/tests/test_fontconfig_pattern.py\", \"why\": \"No test covers invalid patterns; add one.\"}\n  ],\n  \"plan\": [\n    \"Remove the `if ':' not in pattern: return {'family': [pattern]}` fallback so a ParseException always becomes ValueError, as the matplotlib 3.7.0 release did.\",\n    \"Add tests: FontProperties('serif-12pt') and validate_font_properties('Helvetica-Bold') raise ValueError, and plain names such as 'serif' or 'DejaVu Sans' still work.\",\n    \"If plain family names with odd characters must keep working, handle that explicitly in the grammar rather than by swallowing all parse errors.\"\n  ],\n  \"verification\": [\n    \"Run lib/matplotlib/tests/test_fontconfig_pattern.py, test_rcparams.py and test_mathtext.py, including the new invalid-pattern test.\",\n    \"Load a style with 'mathtext.rm: serif-12pt' and confirm it logs a bad-value warning instead of applying a bogus family.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"likely\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.65,\n  \"claims\": [\n    {\n      \"id\": \"c1\",\n      \"text\": \"parse_fontconfig_pattern swallows parse errors for any pattern without a colon and returns it as a family name instead of raising.\",\n      \"role\": \"rootCause\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"lib/matplotlib/_fontconfig_pattern.py:91\", \"quote\": \"return {\\\"family\\\": [pattern]}\"}\n      ]\n    },\n    {\n      \"id\": \"c2\",\n      \"text\": \"validate_font_properties relies only on the parser to reject bad values, so the fallback lets invalid values pass validation.\",\n      \"role\": \"other\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"lib/matplotlib/rcsetup.py:401\", \"quote\": \"def validate_font_properties(s):\"}\n      ]\n    },\n    {\n      \"id\": \"c3\",\n      \"text\": \"FontProperties treats a lone string family as a pattern and applies the parse result, so a malformed pattern becomes an unknown family and the default font and size are used.\",\n      \"role\": \"impact\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"lib/matplotlib/font_manager.py:605\", \"quote\": \"# Treat family as a fontconfig pattern if it is the only parameter\"}\n      ]\n    }\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"The rc validators for font size, weight and stretch accept bad values.\", \"why\": \"validate_fontsize, validate_fontweight and validate_fontstretch all raise ValueError on bad input.\", \"citations\": [{\"type\": \"code\", \"ref\": \"lib/matplotlib/rcsetup.py:367\", \"quote\": \"is not a valid font size. Valid font sizes\"}]},\n    {\"hypothesis\": \"FontProperties setters accept invalid values.\", \"why\": \"set_weight, set_stretch and set_size raise ValueError on bad input.\", \"citations\": [{\"type\": \"code\", \"ref\": \"lib/matplotlib/font_manager.py:781\", \"quote\": \"raise ValueError(f\\\"{weight=} is invalid\\\")\"}]}\n  ],\n  \"intendedBehavior\": \"A font pattern that does not parse (for example 'serif-12pt', with no colon) raises ValueError, so a style file reports a bad value instead of silently using the default font.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"No test, comment or changelog entry chooses this. The fallback is undocumented, and test_fontconfig_pattern.py has no test of invalid patterns.\"},\n  \"fixType\": \"silentFailure\",\n  \"plain\": {\n    \"headline\": \"Some saved chart styles export with the default font and size because a mistyped font setting is no longer flagged as invalid.\",\n    \"happened\": \"The font-setting reader now treats any unreadable text without a colon as the name of a font. A style with a setting like 'Helvetica-Bold' is therefore accepted. No such font exists, so the export falls back to the default font and size, and nobody is told.\",\n    \"matters\": \"People with saved styles that contain a slightly wrong font setting get default-looking charts and no hint about the cause.\",\n    \"fix\": \"Make the reader reject unreadable font settings again so they are reported as invalid.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 17,
+  "inputTokens": {
+   "avg": 26882.235294117647,
+   "max": 41772
+  },
+  "mainUsage": {
+   "inputTokens": 456998,
+   "cachedInputTokens": 422214,
+   "outputTokens": 9617
+  },
+  "cacheHitPercent": 92.38858813386491,
+  "wallSeconds": 82.58800005912781,
+  "tools": {
+   "read": 16,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 2
+  },
+  "reads": 16,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 7,
+   "readFileIgnoringRange": 7
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.26755380000000006,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.26755380000000006
+}

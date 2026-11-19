@@ -1,0 +1,8 @@
+[
+  {"source": "S1", "decision": "skip", "reason": "Too vague to act on: no package, command, or option is named, and pyreverse has no exclusion-list option that matches the report."},
+  {"source": "S2", "decision": "skip", "reason": "Nothing in this repository imports or defines IS_PYPY in pylint.constants, so the ImportError comes from external code that uses a constant that no longer exists."},
+  {"source": "S3", "decision": "skip", "reason": "An OOMKilled CSV export worker (export/worker.py) is in an unrelated service and has nothing to do with pylint."},
+  {"source": "S4", "decision": "skip", "reason": "Too vague: there is no code, message ID, or checker, and 'tag groups'/'filter result' describe the user's application, not pylint behavior."},
+  {"source": "S5", "decision": "skip", "reason": "Not a defect: the fstr value of logging-format-style was removed on purpose in 2.5 in favor of the logging-fstring-interpolation message (see doc/whatsnew/2.5.rst)."},
+  {"source": "S6", "decision": "fix", "reason": "VariablesChecker._store_type_annotation_node ignored Attribute annotations like `abc.ABC` in type comments, so `import abc` was wrongly reported as unused-import."}
+]

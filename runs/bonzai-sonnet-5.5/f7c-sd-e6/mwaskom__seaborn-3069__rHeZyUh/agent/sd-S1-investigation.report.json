@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 44215,
+ "finalText": "The signal comes from this repository. Seaborn wraps its NaN-dropping code in a pandas option called `mode.use_inf_as_null`, and pandas 2.0 and later no longer have it. Entering that option context raises the `OptionError` in the evidence. I did not run the code or any tests: `probe` reported no pandas in its sandbox, so this rests on reading the code and on what I know of the pandas change. No Sentry or PostHog sources were available.\n\nThe option is used in three places:\n- **`seaborn/_core/plot.py:1478`** (`split_generator`): this runs for every layer, so every new-engine plot fails.\n- **`seaborn/_oldcore.py:1119`** (`comp_data`): this breaks the classic relational, distribution and categorical plots.\n- **`seaborn/categorical.py:1793`** (`_lv_box_ends`): this breaks boxenplot.\n\n`pyproject.toml` pins only `pandas>=0.25`, so any user on pandas 2.x hits it.\n\nThe fix is to turn infinities into NaN explicitly, for example `replace([np.inf, -np.inf], np.nan)`, in all three places. Switching to `mode.use_inf_as_na` would only delay the break, since it is deprecated in pandas 2.1 and removed in 3.0.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Plots crash on newer pandas (removed inf option)\",\n  \"cause\": \"Seaborn wraps NaN-dropping code in pd.option_context('mode.use_inf_as_null', True). Pandas deprecated that option name in 1.x and removed it in 2.0, so entering the context raises OptionError. The new Plot engine's split_generator runs this on every layer, so every Plot.plot()/show() fails. The same removed option is used in the old-core comp_data and in the categorical letter-value plot (boxenplot) helper.\",\n  \"files\": [\n    {\"path\": \"seaborn/_core/plot.py\", \"why\": \"line 1478, split_generator: option_context('mode.use_inf_as_null') crashes every Plot layer\"},\n    {\"path\": \"seaborn/_oldcore.py\", \"why\": \"line 1119, comp_data: same removed option, breaks the classic relational, distribution and categorical plots\"},\n    {\"path\": \"seaborn/categorical.py\", \"why\": \"line 1793, _lv_box_ends: same removed option, breaks boxenplot\"}\n  ],\n  \"plan\": [\n    \"Stop using the pandas option. Convert infinities to NaN explicitly before the NaN handling, e.g. axes_df.replace([np.inf, -np.inf], np.nan) in split_generator, and the same on orig in comp_data.\",\n    \"In _lv_box_ends, drop non-finite values with a mask such as vals = vals[np.isfinite(vals.astype(float))].\",\n    \"Do not switch to 'mode.use_inf_as_na': it is deprecated in pandas 2.1 and removed in 3.0, so it would only delay the break.\",\n    \"Bump the pandas pin and CI matrix to include pandas 2.x, and add a release note.\"\n  ],\n  \"verification\": [\n    \"On pandas>=2.0, run tests/_core/test_plot.py, tests/test_core.py and tests/test_categorical.py; they currently fail with OptionError.\",\n    \"Add a test: so.Plot(x=[1, np.inf, 3], y=[1, 2, 3]).add(so.Dot()).plot() does not raise, and the inf row is dropped or masked.\",\n    \"Run the same check for the classic path (sns.scatterplot with an inf value) and for sns.boxenplot with inf values.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"likely\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.9,\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"split_generator enters a pandas option context with the removed option name on every layer.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"seaborn/_core/plot.py:1478\", \"quote\": \"with pd.option_context(\\\"mode.use_inf_as_null\\\", True):\"}]},\n    {\"id\": \"c2\", \"text\": \"The same removed option is used in the old-core comp_data and in the boxenplot helper.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"seaborn/_oldcore.py:1119\", \"quote\": \"with pd.option_context('mode.use_inf_as_null', True):\"}, {\"type\": \"code\", \"ref\": \"seaborn/categorical.py:1793\", \"quote\": \"with pd.option_context('mode.use_inf_as_null', True):\"}]},\n    {\"id\": \"c3\", \"text\": \"Users hit this whenever they build a plot with pandas >= 2.0 installed, because pyproject.toml only sets a lower bound on pandas.\", \"role\": \"impact\", \"citations\": [{\"type\": \"evidence\", \"ref\": \"ev_s1\", \"quote\": \"No such keys(s): 'mode.use_inf_as_null'\"}]}\n  ],\n  \"ruledOut\": [\n    {\"why\": \"The seaborn call site is the only cause. The OptionError is raised inside pandas' option lookup, but the option name is passed in by seaborn.\", \"citations\": [{\"type\": \"code\", \"ref\": \"seaborn/_core/plot.py:1478\", \"quote\": \"with pd.option_context(\\\"mode.use_inf_as_null\\\", True):\"}]}\n  ],\n  \"intendedBehavior\": \"Plotting data containing inf or NaN values works on current pandas versions, and infinite values are treated as missing, with no OptionError.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"The option was meant to treat inf as NA. Its removal in pandas 2.0 was not handled in seaborn, and I found no changelog or test that chose the crash.\"},\n  \"fixType\": \"dependency\",\n  \"headline\": \"Charts failed to draw because the plotting library used a setting that newer data-library versions removed.\",\n  \"happened\": \"When a chart is built, seaborn switches on a pandas setting that treats infinite numbers as missing values. Newer pandas versions deleted that setting, so pandas refuses the request with an error. The chart is never drawn.\",\n  \"matters\": \"Anyone running seaborn on a recent pandas gets this error on every chart (447 errors from 56 people in 7 days).\",\n  \"fix\": \"Convert infinite values to missing values directly in seaborn instead of relying on the removed pandas setting.\"\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 5,
+  "inputTokens": {
+   "avg": 14497.8,
+   "max": 17891
+  },
+  "mainUsage": {
+   "inputTokens": 72489,
+   "cachedInputTokens": 61610,
+   "outputTokens": 5063
+  },
+  "cacheHitPercent": 84.99220571397039,
+  "wallSeconds": 40.61300015449524,
+  "tools": {
+   "read": 5,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 1
+  },
+  "reads": 5,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.09014250000000001,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.09014250000000001
+}

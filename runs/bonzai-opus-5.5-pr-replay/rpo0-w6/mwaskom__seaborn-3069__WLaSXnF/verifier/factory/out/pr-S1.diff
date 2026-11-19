@@ -1,0 +1,55 @@
+diff --git a/tests/_core/test_plot.py b/tests/_core/test_plot.py
+index 03a64917..aaf81517 100644
+--- a/tests/_core/test_plot.py
++++ b/tests/_core/test_plot.py
+@@ -2010,3 +2010,15 @@ class TestDefaultObject:
+     def test_default_repr(self):
+ 
+         assert repr(Default()) == "<default>"
++
++
++class TestInfinityHandling:
++
++    def test_inf_treated_as_missing(self):
++
++        x = [1, 2, np.inf, 4]
++        y = [1, 2, 3, 4]
++        m = MockMark()
++        Plot(x=x, y=y).add(m).plot()
++        assert_array_equal(m.passed_data[0]["x"], [1, 2, 4])
++        assert_array_equal(m.passed_data[0]["y"], [1, 2, 4])
+diff --git a/tests/test_categorical.py b/tests/test_categorical.py
+index 73b4b65c..5aed12e1 100644
+--- a/tests/test_categorical.py
++++ b/tests/test_categorical.py
+@@ -3259,6 +3259,13 @@ class TestBoxenPlotter(CategoricalFixture):
+ 
+         plt.close("all")
+ 
++    def test_boxen_inf_ignored(self):
++
++        ax = cat.boxenplot(x=[1., 2, 3, 4, np.inf])
++        assert np.isfinite(ax.get_xlim()).all()
++        assert ax.get_xlim()[1] < 10
++        plt.close("all")
++
+     def test_boxenplots(self):
+ 
+         # Smoke test the high level boxenplot options
+diff --git a/tests/test_distributions.py b/tests/test_distributions.py
+index c4d62fa3..1e685f26 100644
+--- a/tests/test_distributions.py
++++ b/tests/test_distributions.py
+@@ -2454,3 +2454,12 @@ def integrate(y, x):
+     x = np.asarray(x)
+     dx = np.diff(x)
+     return (dx * y[:-1] + dx * y[1:]).sum() / 2
++
++
++class TestInfinityHandling:
++
++    def test_histplot_inf_ignored(self):
++
++        ax = histplot(x=[1, 2, 3, np.inf])
++        assert sum(p.get_height() for p in ax.patches) == 3
++        plt.close("all")

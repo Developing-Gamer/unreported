@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 84280,
+ "finalText": "The fix is in, uncommitted in the working tree, and the PR text is at `.factory/pr-S6.md`. I re-ran the check and the four URL-quoting tests pass.\n\nPresigned links with escapes like `%7E` or `%41` are no longer rewritten, so their signatures stay valid. The cause was `requote_uri` in `requests/utils.py` decoding escapes of unreserved characters before every request. It now keeps valid `%XX` escapes exactly as written and quotes only illegal characters. A bare `%` that doesn't start a valid escape is now quoted as `%25`, where it used to pass through unchanged.\n\nI also fixed `unquote_unreserved`, whose `isalnum()` hex check made `%zz` raise `ValueError`. It now uses `string.hexdigits`. Nothing calls it any more, but I kept it rather than remove a public function.\n\nI added three tests to `test_requests.py`. Before the fix, three of the four selected tests failed. The run was `/opt/miniconda3/envs/testbed/bin/python -m pytest test_requests.py -k \"percent or illegal_char or double_encoded\"`.\n\nThe full `test_requests.py` run has 39 passing and 3 failing. Two digest-auth tests fail on `MockRequest.origin_req_host` under Python 3.9, and `test_links` fails SSL certificate verification. These look unrelated to the change, but I did not re-run the full suite on the original code to confirm that. The pytest results above were all run on Python 3.9.\n\nNone of the open pull requests touches `requote_uri`, so none of them covers this.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest test_requests.py -k \\\"percent or illegal_char or double_encoded\\\"\", \"passed\": true},\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest test_requests.py -q\", \"passed\": false, \"alsoOnBase\": true, \"note\": \"3 failures unrelated to this change (digest auth MockRequest.origin_req_host on py3.9, SSL cert verify in test_links); 39 pass. Not re-run on the base tree, so alsoOnBase is assumed rather than confirmed.\"}\n  ],\n  \"visual\": false,\n  \"missingEnv\": [],\n  \"reproductionSteps\": [\n    \"Build requests.Request('GET', 'http://example.com/b/a%7Eb%41%2D%5F%2E?X-Amz-Signature=ab%7E%41').prepare()\",\n    \"On the base commit, .url has %7E/%41/%2D/%5F/%2E decoded to ~/A/-/_/. so a presigned signature no longer matches\",\n    \"requests.Request('GET', 'http://example.com/%zz/%').prepare() raises ValueError\"\n  ],\n  \"reproductionTest\": {\n    \"path\": \"test_requests.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest test_requests.py -k \\\"percent or illegal_char or double_encoded\\\"\",\n    \"signature\": \"ValueError: invalid literal for int() with base 16: 'zz'\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 17,
+  "inputTokens": {
+   "avg": 27273.941176470587,
+   "max": 34615
+  },
+  "mainUsage": {
+   "inputTokens": 463657,
+   "cachedInputTokens": 442920,
+   "outputTokens": 8252
+  },
+  "cacheHitPercent": 95.52751279501874,
+  "wallSeconds": 83.73100018501282,
+  "tools": {
+   "read": 9,
+   "edit": 7,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 7
+  },
+  "reads": 9,
+  "edits": 7,
+  "runs": 7,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 4,
+  "editOperations": 7,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.22292750000000003,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.22292750000000003
+}

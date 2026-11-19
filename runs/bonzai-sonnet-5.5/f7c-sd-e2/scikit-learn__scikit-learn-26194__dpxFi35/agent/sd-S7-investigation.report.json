@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 20343,
+ "finalText": "Documented as deliberate.\n\n```json\n{\n  \"verdict\": \"notActionable\",\n  \"title\": \"min_samples_split ignores sample_weight by design\",\n  \"cause\": \"The tree builder compares the raw row count (n_node_samples) to min_samples_split. Weighted node size is only used for min_weight_fraction_leaf. The tree user guide states this on purpose and points users who need weight-aware pre-pruning to min_weight_fraction_leaf or min_impurity_decrease.\",\n  \"files\": [\n    {\"path\": \"sklearn/tree/_tree.pyx\", \"why\": \"The leaf test uses n_node_samples < min_samples_split and weighted_n_node_samples only against min_weight_leaf.\"},\n    {\"path\": \"doc/modules/tree.rst\", \"why\": \"Documents that min_samples_split ignores sample_weight.\"}\n  ],\n  \"plan\": [\"No code change. A weight-aware split threshold would be a new parameter or a design change, which is a product decision for the maintainers.\"],\n  \"verification\": [\"Read the leaf check in _tree.pyx and the note in doc/modules/tree.rst. I did not run any code.\"],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"n/a\",\n  \"risk\": \"n/a\",\n  \"confidence\": 0.85,\n  \"deliberate\": true,\n  \"intent\": \"doc/modules/tree.rst says: \\\"Note that ``min_samples_split`` considers samples directly and independent of ``sample_weight``, if provided (e.g. a node with m weighted samples is still treated as having exactly m samples). Consider ``min_weight_fraction_leaf`` or ``min_impurity_decrease`` if accounting for sample weights is required at splits.\\\" The parameter docstring also defines it as a number of samples.\",\n  \"fixType\": \"frustration\",\n  \"intendedBehavior\": \"min_samples_split continues to count rows regardless of sample_weight, and weight-aware stopping is done with min_weight_fraction_leaf.\",\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"The leaf decision compares the unweighted row count to min_samples_split.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"sklearn/tree/_tree.pyx:239\", \"quote\": \"n_node_samples < min_samples_split or\"}]},\n    {\"id\": \"c2\", \"text\": \"The documentation states this independence from sample_weight explicitly.\", \"role\": \"other\", \"citations\": [{\"type\": \"doc\", \"ref\": \"doc/modules/tree.rst\", \"quote\": \"``min_samples_split`` considers samples directly and independent of\"}]}\n  ],\n  \"headline\": \"A tree setting that counts rows ignores row weights, and the documentation says it should.\",\n  \"happened\": \"A user weighted aggregated rows and expected the minimum-rows-to-split setting to count the weights. The tree counts actual rows, as the guide says. Another setting that does use weights already exists.\",\n  \"matters\": \"It affects people who train on pre-aggregated, weighted data and expect weighted rows to behave like repeated rows.\",\n  \"fix\": \"No fix. Use the weight-based minimum leaf setting, or change the design in a separate maintainer decision.\"\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 4,
+  "inputTokens": {
+   "avg": 13410.75,
+   "max": 14949
+  },
+  "mainUsage": {
+   "inputTokens": 53643,
+   "cachedInputTokens": 45708,
+   "outputTokens": 1972
+  },
+  "cacheHitPercent": 85.20776242939434,
+  "wallSeconds": 18.907000064849854,
+  "tools": {
+   "read": 7,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 0
+  },
+  "reads": 7,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.0486941,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.0486941
+}

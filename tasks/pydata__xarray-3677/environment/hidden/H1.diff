@@ -1,0 +1,13 @@
+diff --git a/xarray/core/dask_array_ops.py b/xarray/core/dask_array_ops.py
+index 37f261cc..a1fa7a47 100644
+--- a/xarray/core/dask_array_ops.py
++++ b/xarray/core/dask_array_ops.py
+@@ -66,7 +66,7 @@ def rolling_window(a, axis, window, center, fill_value):
+         if pad_size < depth[axis]:
+             # overlapping requires each chunk larger than depth. If pad_size is
+             # smaller than the depth, we enlarge this and truncate it later.
+-            drop_size = depth[axis] - pad_size
++            drop_size = depth[axis] - pad_size + 1
+             pad_size = depth[axis]
+         shape = list(a.shape)
+         shape[axis] = pad_size

@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 25406,
+ "finalText": "The report no longer applies: the current code already has the fix, which first shipped in pytest 5.1.0.\n\n```json\n{\n  \"verdict\": \"covered\",\n  \"title\": \"Collection error when patch uses a numpy array\",\n  \"cause\": \"Older pytest compared patch's `new` value to mock's DEFAULT sentinel with `==`. That comparison is ambiguous for a numpy array, so it raised ValueError during collection. The current `num_mock_patch_args` compares by identity (`is`), so array values no longer raise. A regression test and a changelog entry for #5606 describe this fix.\",\n  \"files\": [\n    {\"path\": \"src/_pytest/compat.py\", \"why\": \"num_mock_patch_args compares p.new to the mock sentinels with `is`\"},\n    {\"path\": \"testing/python/integration.py\", \"why\": \"test_mock_sentinel_check_against_numpy_like covers this case\"}\n  ],\n  \"plan\": [\"No change needed in this checkout. The reporter should upgrade to pytest 5.1.0 or later.\"],\n  \"verification\": [\"Run testing/python/integration.py::TestMockDecoration::test_mock_sentinel_check_against_numpy_like\"],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"none\",\n  \"risk\": \"low\",\n  \"confidence\": 0.9,\n  \"coveredBy\": null,\n  \"fixedIn\": {\"release\": \"5.1.0\", \"commit\": \"not identified: the repo history is a single snapshot commit (tag 5.2.3), so I could not name the fixing commit\"},\n  \"deliberate\": false,\n  \"intent\": \"Comparing sentinels by identity was added on purpose to handle objects such as numpy arrays that cannot be compared for truth (#5606). The changelog entry for it sits under pytest 5.1.0.\",\n  \"fixType\": \"error\",\n  \"intendedBehavior\": \"Collecting a test decorated with @patch(target, new=np.array([...])) succeeds without ValueError and does not count the patch as a mock argument.\",\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"The sentinel check now uses identity, which does not evaluate truth of array values.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"src/_pytest/compat.py:85\", \"quote\": \"and (p.new is mock_sentinel or p.new is ut_mock_sentinel)\"}]},\n    {\"id\": \"c2\", \"text\": \"A regression test covers numpy-like patch values.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"testing/python/integration.py:181\", \"quote\": \"def test_mock_sentinel_check_against_numpy_like(self, testdir):\"}]},\n    {\"id\": \"c3\", \"text\": \"The changelog records the fix under 5.1.0.\", \"role\": \"other\", \"citations\": [{\"type\": \"doc\", \"ref\": \"CHANGELOG.rst\", \"quote\": \"Fixed internal error when test functions were patched with objects that cannot be compared\"}]}\n  ],\n  \"ruledOut\": [],\n  \"plain\": {\n    \"headline\": \"Test collection crashed when a test patched something with a numpy array, and this is already fixed.\",\n    \"happened\": \"An older pytest checked whether the patched-in value was the mock library's placeholder by comparing values. Comparing a numpy array that way is ambiguous and raised an error. Newer versions check whether it is the very same object, so arrays no longer cause the error.\",\n    \"matters\": \"It hit anyone on an old pytest release who patched with numpy arrays.\",\n    \"fix\": \"Upgrade to pytest 5.1.0 or later; no change is needed here.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 6,
+  "inputTokens": {
+   "avg": 13605,
+   "max": 15104
+  },
+  "mainUsage": {
+   "inputTokens": 81630,
+   "cachedInputTokens": 73536,
+   "outputTokens": 2165
+  },
+  "cacheHitPercent": 90.08452774715178,
+  "wallSeconds": 21.905999898910522,
+  "tools": {
+   "read": 7,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 0
+  },
+  "reads": 7,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.056585199999999995,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.056585199999999995
+}

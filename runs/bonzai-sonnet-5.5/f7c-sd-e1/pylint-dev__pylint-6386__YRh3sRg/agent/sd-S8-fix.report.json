@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 43342,
+ "finalText": "I fixed it: `options_and_values([])` now returns nothing, where before it returned every option. Your investigation was right about the cause. The new test fails on the original code and passes after the fix, and all 72 tests under `tests/config` pass. I did not run `tests/checkers`.\n\n`OptionsProviderMixIn.options_and_values` in `pylint/config/options_provider_mixin.py` tested `if not options:`. An empty list was treated like \"nothing passed\" and fell back to every option. It now tests `if options is None:`, which matches `_ArgumentsProvider.options_and_values`.\n\nThe test is `test_options_provider_mixin_options_and_values_selection` in `tests/config/test_deprecations.py`. It checks that no argument returns all options, `[]` returns none, and one option returns one entry. I also added a ChangeLog entry.\n\nYour probe environment had no pytest, so I ran the tests in the repo's own conda `testbed` environment. I briefly installed pytest into the base conda Python by mistake and uninstalled it afterwards.\n\nThe working tree already contained uncommitted changes from other work, in `pylint/config/utils.py`, `pylint/lint/base_options.py`, `pylint/message/message_id_store.py` and two test files. I left those alone. None of the three open pull requests touches `options_and_values`, so none covers this bug. Nothing is committed, as instructed. The pull request text is in `/testbed/.factory/pr-S8.md`.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"checks\": [\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest tests/config -q\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"reproductionSteps\": \"Create an OptionsProviderMixIn subclass with options a and b and call options_and_values([]); before the fix it yields both a and b instead of nothing.\",\n  \"reproductionTest\": {\n    \"path\": \"tests/config/test_deprecations.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest tests/config/test_deprecations.py -q -k selection\",\n    \"signature\": \"AssertionError at tests/config/test_deprecations.py:140 (assert not list(provider.options_and_values([])))\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 12,
+  "inputTokens": {
+   "avg": 23041.833333333332,
+   "max": 27007
+  },
+  "mainUsage": {
+   "inputTokens": 276502,
+   "cachedInputTokens": 263383,
+   "outputTokens": 4069
+  },
+  "cacheHitPercent": 95.25536885809144,
+  "wallSeconds": 41.59599995613098,
+  "tools": {
+   "read": 8,
+   "edit": 4,
+   "test": 1,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 2
+  },
+  "reads": 8,
+  "edits": 4,
+  "runs": 3,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 2,
+  "editOperations": 2,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1261501,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1261501
+}

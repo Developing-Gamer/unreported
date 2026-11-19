@@ -1,0 +1,46 @@
+{
+ "task": "astropy__astropy-14182",
+ "kept": [
+  {
+   "path": "astropy/timeseries/core.py",
+   "category": "silent wrong result (a value or output that is subtly wrong, no exception)",
+   "defect_patch": "diff --git a/astropy/timeseries/core.py b/astropy/timeseries/core.py\nindex 664578aee..ff91e83e1 100755\n--- a/astropy/timeseries/core.py\n+++ b/astropy/timeseries/core.py\n@@ -80,7 +80,7 @@ class BaseTimeSeries(QTable):\n                     \" series has no columns\"\n                 )\n \n-            elif self.colnames[: len(required_columns)] != required_columns:\n+            elif not set(required_columns).issubset(self.colnames):\n                 raise ValueError(\n                     f\"{self.__class__.__name__} object is invalid - expected\"\n                     f\" {as_scalar_or_list_str(required_columns)} as the first\"\n",
+   "test_code": "from astropy.time import Time\nfrom astropy.timeseries import TimeSeries\n\n\ndef test_added_column_cannot_precede_required_time_column():\n    series = TimeSeries(\n        time=Time([59000.0, 59000.001], format=\"mjd\", scale=\"utc\"),\n        data={\"flux\": [12.5, 12.7]},\n    )\n\n    rejected = False\n    try:\n        series.add_column([0, 1], name=\"quality\", index=0)\n    except ValueError:\n        rejected = True\n\n    assert rejected, (\n        \"A column was silently accepted ahead of the required time column: \"\n        f\"{series.colnames}\"\n    )\n",
+   "signal": {
+    "kind": "user",
+    "source": "Light-curve download support",
+    "text": "Some recent light-curve CSVs have a 0/1 field ahead of the timestamp, while older downloads always started with the timestamp. The flux samples and row counts otherwise look unchanged."
+   },
+   "summary": "Required-column validation checks only membership instead of the ordered leading columns, silently allowing additional columns to precede the time axis."
+  },
+  {
+   "path": "astropy/utils/shapes.py",
+   "category": "swallowed error (an exception caught and ignored, or an error path that returns a default)",
+   "defect_patch": "diff --git a/astropy/utils/shapes.py b/astropy/utils/shapes.py\nindex 20568b985..6962e2b00 100755\n--- a/astropy/utils/shapes.py\n+++ b/astropy/utils/shapes.py\n@@ -125,7 +125,10 @@ class NDArrayShapeMethods:\n         Parameters are as for :meth:`~numpy.ndarray.squeeze`.  All internal\n         data are views of the data of the original.\n         \"\"\"\n-        return self._apply(\"squeeze\", *args, **kwargs)\n+        try:\n+            return self._apply(\"squeeze\", *args, **kwargs)\n+        except ValueError:\n+            return self\n \n     def take(self, indices, axis=None, out=None, mode=\"raise\"):\n         \"\"\"Return a new instance formed from the elements at the given indices.\n",
+   "test_code": "import pytest\n\nfrom astropy.time import Time\n\n\n@pytest.mark.parametrize(\"axis\", [1, -1])\ndef test_squeeze_rejects_non_singleton_axis(axis):\n    times = Time([[59000.0, 59001.0, 59002.0]], format=\"mjd\", scale=\"tai\")\n    assert times.squeeze(axis=0).shape == (3,)\n\n    error = None\n    try:\n        times.squeeze(axis=axis)\n    except ValueError as exc:\n        error = exc\n\n    assert error is not None, \"Squeezing a non-singleton axis must raise ValueError\"\n",
+   "signal": {
+    "kind": "user",
+    "source": "observation-pipeline support",
+    "text": "Some observation batches now pass the dimension-normalization step unchanged and fail much later because they are still two-dimensional. Most batches still reduce to one dimension as before."
+   },
+   "summary": "The squeeze method catches ValueError and returns the original instance, silently accepting attempts to squeeze a non-singleton axis."
+  }
+ ],
+ "rejected": [
+  {
+   "path": "astropy/visualization/wcsaxes/axislabels.py",
+   "category": "silent wrong result (a value or output that is subtly wrong, no exception)",
+   "defect_patch": "--- a/astropy/visualization/wcsaxes/axislabels.py\n+++ b/astropy/visualization/wcsaxes/axislabels.py\n@@ -124,7 +124,7 @@\n \n                 elif axis == \"r\":\n                     if visible:\n-                        x = coord_ticklabels_bbox[axis][0].x1\n+                        x = coord_ticklabels_bbox[axis][0].xmin\n                     x = x + padding\n \n                 elif axis == \"b\":\n",
+   "test_code": "import pytest\nfrom matplotlib.backends.backend_agg import FigureCanvasAgg\nfrom matplotlib.figure import Figure\nfrom matplotlib.transforms import Bbox, IdentityTransform\n\nfrom astropy.visualization.wcsaxes.axislabels import AxisLabels\nfrom astropy.wcs import WCS\n\n\ndef test_right_axis_label_padding_clears_tick_text():\n    fig = Figure(figsize=(4, 3), dpi=100)\n    canvas = FigureCanvasAgg(fig)\n    ax = fig.add_subplot(111, projection=WCS(naxis=2))\n    canvas.draw()\n    renderer = canvas.get_renderer()\n\n    label = AxisLabels(ax.coords.frame, text=\"Latitude\", size=12, minpad=1)\n    label.set_figure(fig)\n    label.axes = ax\n    label.set_transform(IdentityTransform())\n    label.set_visible_axes(\"r\")\n    label.set_visibility_rule(\"always\")\n\n    # Tick text sits outside the right spine and has a nonzero width.\n    right = ax.bbox.x1\n    tick_bbox = Bbox.from_extents(right + 5, 100, right + 35, 120)\n    drawn_bboxes = []\n    label.draw(\n        renderer,\n        drawn_bboxes,\n        {0: {\"r\": [tick_bbox]}},\n        {\"r\": [tick_bbox]},\n        {\"r\": []},\n        [\"r\"],\n    )\n\n    expected_x = tick_bbox.x1 + renderer.points_to_pixels(label.get_size())\n    assert len(drawn_bboxes) == 1\n    assert label.get_position()[0] == pytest.approx(expected_x)\n",
+   "signal": {
+    "kind": "user",
+    "source": "science-plotting support",
+    "text": "When we move the vertical coordinate label to the right, it sometimes overlaps the tick numbers. The normal left-hand layout still looks fine."
+   },
+   "summary": "Right-side axis labels use the left edge of the tick-label bounding box instead of its right edge, placing them too far inward.",
+   "reject": "test does not separate defect from original",
+   "on_defect": "ib'\n=========================== short test summary info ============================\nERROR ../tmp/test_hidden_problem.py\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n1 error in 0.02s\n",
+   "on_clean": "=========================== short test summary info ============================\nERROR ../tmp/test_hidden_problem.py\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n1 error in 0.03s\n"
+  }
+ ]
+}

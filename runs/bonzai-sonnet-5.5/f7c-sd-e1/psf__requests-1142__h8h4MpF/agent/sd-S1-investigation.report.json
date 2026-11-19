@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 65523,
+ "finalText": "The check found one gap. My earlier report left out the plain-language summary fields (headline, happened, matters, fix), so they are added below. I also changed the quotes to single lines so they match the source text exactly. I did not repeat the code checks.\n\nThe cause is in this repository, in the code that unpacks compressed responses. When a compressed reply can't be unpacked, the code quietly drops the piece it was working on. So a catalog reply can arrive as HTTP 200 with an empty body or only its tail.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Compressed responses can come back empty or cut off\",\n  \"cause\": \"When a gzip or deflate response body fails to decompress, `stream_decompress` in `requests/utils.py` catches the zlib error and silently switches to passing through the remaining raw chunks. The chunk that raised the error is already consumed from the iterator and is never yielded. A JSON body under 10 KB arrives as one chunk, so the client gets an empty body with HTTP 200. A larger body loses its first chunk and yields undecoded bytes from the next chunk onward. The 'deflate' mode also uses raw-deflate window bits (`-zlib.MAX_WBITS`), so servers that send RFC-correct zlib-wrapped deflate always hit this path. It is intermittent because it depends on which server or CDN node answers, and a retry may reach one that sends gzip or raw deflate.\",\n  \"files\": [\n    {\"path\": \"requests/utils.py\", \"why\": \"`stream_decompress` swallows `zlib.error`, drops the failing chunk and falls back to raw passthrough. `deflate` mode only accepts raw deflate, not zlib-wrapped deflate.\"},\n    {\"path\": \"requests/models.py\", \"why\": \"`Response.iter_content` and `Response.content` consume this generator. The truncated or empty bytes then become `.content` and `.json()` with no error raised.\"},\n    {\"path\": \"requests/adapters.py\", \"why\": \"Sets `decode_content=False`, so decoding relies entirely on `stream_untransfer` and `stream_decompress`.\"}\n  ],\n  \"plan\": [\n    \"In `stream_decompress` for deflate, detect the zlib header (or try `zlib.MAX_WBITS` first and fall back to `-zlib.MAX_WBITS`) so both deflate variants decode.\",\n    \"Remove the silent `except zlib.error` passthrough. Raise a decoding error instead, or at minimum yield the failing chunk first, so a bad body is never presented as a successful partial or empty one.\",\n    \"Add tests for a zlib-wrapped deflate body arriving as a single chunk and as several chunks. Add a corrupt-gzip test that expects an error, not truncated content.\"\n  ],\n  \"verification\": [\n    \"Run `test_requests.py` with the new tests, which fail before the fix and pass after.\",\n    \"Call `stream_decompress` with a zlib-wrapped deflate JSON body as one chunk and as several chunks, and confirm the full JSON comes back.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"likely\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.7,\n  \"deliberate\": false,\n  \"intent\": \"No changelog entry, comment or test says that returning an empty or partial body after a decompression failure was chosen. The raw-passthrough fallback looks like a way to tolerate mis-labelled content, but it loses the failing chunk, so the outcome people saw was not intended.\",\n  \"fixType\": \"silentFailure\",\n  \"intendedBehavior\": \"A gzip or deflate JSON response always yields its complete body, or raises a clear decoding error, and never returns HTTP 200 with an empty or truncated body.\",\n  \"plain\": {\n    \"headline\": \"Some catalog responses arrived empty or cut off, even though the server said they succeeded.\",\n    \"happened\": \"The catalog server sent its answer in compressed form. Sometimes the app could not unpack the first piece of it. Instead of reporting an error, it threw that piece away and carried on, so the app ended up with nothing or only the end of the data. Trying again often reached a server that compressed the answer differently, which is why the retry worked.\",\n    \"matters\": \"Anyone whose catalog request lands on a server that compresses in the less common way can get blank or broken data with no error message.\",\n    \"fix\": \"Make the unpacking handle both common compression styles, and report a clear error instead of quietly dropping data when it truly can't unpack.\"\n  },\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"On a zlib error, `stream_decompress` falls back to passing raw chunks through. The chunk that raised is not yielded, so a single-chunk body comes out empty.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"requests/utils.py:365\", \"quote\": \"except zlib.error:\"}, {\"type\": \"code\", \"ref\": \"requests/utils.py:366\", \"quote\": \"for chunk in iterator:\"}]},\n    {\"id\": \"c2\", \"text\": \"Deflate mode is set up only for raw deflate, so zlib-wrapped deflate bodies raise a zlib error and reach the lossy fallback.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"requests/utils.py:358\", \"quote\": \"zlib_mode = 16 + zlib.MAX_WBITS if mode == 'gzip' else -zlib.MAX_WBITS\"}]},\n    {\"id\": \"c3\", \"text\": \"The adapter disables urllib3 decoding, so all decompression goes through this function. The result is stored as `.content` with no error raised.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"requests/adapters.py:169\", \"quote\": \"decode_content=False,\"}, {\"type\": \"code\", \"ref\": \"requests/models.py:563\", \"quote\": \"self._content = bytes().join(self.iter_content(CONTENT_CHUNK_SIZE)) or bytes()\"}]},\n    {\"id\": \"c4\", \"text\": \"A probe run of the function on zlib-wrapped deflate showed the symptom: a single-chunk body returned empty, a multi-chunk body returned only garbage from the later chunks, and a corrupted gzip stream returned just '{'.\", \"role\": \"impact\", \"citations\": [{\"type\": \"code\", \"ref\": \"requests/utils.py:362\", \"quote\": \"rv = dec.decompress(chunk)\"}]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"urllib3's `read` returns empty data mid-stream and ends the read loop early.\", \"why\": \"`read(amt)` returns whatever the underlying `read` returns and only closes the connection on an empty read, so it does not truncate a live stream.\", \"citations\": [{\"type\": \"code\", \"ref\": \"requests/packages/urllib3/response.py:149\", \"quote\": \"if amt != 0 and not data:  # Platform-specific: Buggy versions of Python.\"}]}\n  ]\n}\n```\n\nI could not run the existing test suite, because the probe's Python 3.11 cannot import the bundled urllib3 and pytest is not installed. Instead I ran the real `stream_decompress` code on its own. A zlib-wrapped deflate body sent as one chunk came back empty. The same body split into three chunks came back as only garbage bytes. A gzip stream with a bad second chunk returned just `{`. I had no access to Sentry or PostHog data, so I did not check what the catalog server actually sends. That is why certainty is \"likely\" rather than \"confirmed\".",
+ "totals": {
+  "turns": 1,
+  "requests": 12,
+  "inputTokens": {
+   "avg": 19334.25,
+   "max": 26976
+  },
+  "mainUsage": {
+   "inputTokens": 232011,
+   "cachedInputTokens": 212033,
+   "outputTokens": 8035
+  },
+  "cacheHitPercent": 91.38920137407278,
+  "wallSeconds": 64.10399985313416,
+  "tools": {
+   "read": 11,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 2
+  },
+  "reads": 11,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 3,
+   "readFileIgnoringRange": 3
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1726876,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1726876
+}

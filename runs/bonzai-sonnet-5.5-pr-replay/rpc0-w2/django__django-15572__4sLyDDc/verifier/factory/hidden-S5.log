@@ -1,0 +1,22 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_______ test_adding_or_group_to_single_condition_preserves_alternatives ________
+
+    def test_adding_or_group_to_single_condition_preserves_alternatives():
+        criteria = Node(children=["active"], connector="AND")
+        contact_options = Node(
+            children=["email_enabled", "sms_enabled"], connector="OR"
+        )
+        criteria.add(contact_options, "AND")
+    
+>       assert _matches(
+            criteria,
+            {"active": True, "email_enabled": True, "sms_enabled": False},
+        )
+E       AssertionError: assert False
+E        +  where False = _matches(<Node: (AND: active, email_enabled, sms_enabled)>, {'active': True, 'email_enabled': True, 'sms_enabled': False})
+
+/tmp/test_hidden_S5.py:19: AssertionError
+=========================== short test summary info ============================
+FAILED ../tmp/test_hidden_S5.py::test_adding_or_group_to_single_condition_preserves_alternatives
+1 failed in 0.04s

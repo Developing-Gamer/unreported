@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 167292,
+ "finalText": "I re-checked the report against the files and corrected two citation quotes that didn't match the source text. The conclusion is unchanged.\n\nThe report is below. Nothing was edited and no tests were run. The evidence is a vague issue text, so the match to this lookup behaviour is plausible, not certain.\n\n```json\n{\n  \"verdict\": \"notActionable\",\n  \"title\": \"Same-named variable links follow documented lookup order\",\n  \"cause\": \"The only way I could make an instance variable's text point at a same-named variable is a cross-reference written inside the class, such as :py:attr:`x` or a default-role `x`. Python domain lookup (find_obj, searchmode 0) tries the bare name, then module.name, then class.name, then module.class.name. So module.name, the global variable, wins over the class's own attribute. The reference docs state this order and say a leading dot reverses it. A probe confirmed it: inside class A, :py:attr:`x` links to m.x, while :py:attr:`.x` and :py:attr:`~.x` link to m.A.x. Autodoc output on its own produced no links at all. I found no code that makes autodoc link an instance variable to another variable. The report is vague, so this match is plausible, not certain.\",\n  \"files\": [\n    {\"path\": \"sphinx/domains/python.py\", \"why\": \"find_obj, searchmode 0 branch (lines ~1229-1242): module.name is tried before module.class.name, which gives the reported linking. Documented order.\"},\n    {\"path\": \"doc/usage/restructuredtext/domains.rst\", \"why\": \"Lines 626-630 document the order (unqualified, then module, then module and class) and that a leading dot reverses it.\"}\n  ],\n  \"plan\": [\n    \"No change recommended. Users who want the class attribute write :py:attr:`.x` (or `~.x`).\",\n    \"If the team wants a different default, that is a product decision: try the class-qualified name before the module-qualified one in searchmode 0, and update the docs and tests together. This would change links in existing projects.\"\n  ],\n  \"verification\": [\n    \"Probe build with py:data x and py:class A containing py:attribute x: inside A, :py:obj:`x` and :py:attr:`x` link to m.x, while :py:obj:`.x`, :py:attr:`.x` and :py:attr:`~.x` link to m.A.x.\",\n    \"Probe autodoc build of pkg.a (global x) and pkg.sub.b.A (x, y) produced no cross-reference links, only the expected anchors.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"likely\",\n  \"effort\": \"small\",\n  \"risk\": \"medium: reordering the lookup would change how existing projects' links resolve\",\n  \"confidence\": 0.5,\n  \"deliberate\": true,\n  \"intent\": \"doc/usage/restructuredtext/domains.rst lines 626-630 say names are searched first unqualified, then with the module prepended, then with module and class, and that a leading dot reverses the order. The behaviour matches that documentation, and a documented workaround exists.\",\n  \"fixType\": \"frustration\",\n  \"intendedBehavior\": \"In a class, :py:attr:`.x` resolves to the class's own x, and bare :py:attr:`x` resolves per the documented order (module-level x first).\",\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"Searchmode 0 checks modname.name before modname.classname.name, so a global variable beats the class attribute of the same name.\", \"role\": \"rootCause\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"sphinx/domains/python.py:1238\", \"quote\": \"elif modname and modname + '.' + name in self.objects:\"},\n      {\"type\": \"code\", \"ref\": \"sphinx/domains/python.py:1241\", \"quote\": \"modname + '.' + classname + '.' + name in self.objects:\"}\n    ]},\n    {\"id\": \"c2\", \"text\": \"The order is documented, with a leading dot to reverse it.\", \"role\": \"other\", \"citations\": [\n      {\"type\": \"doc\", \"ref\": \"doc/usage/restructuredtext/domains.rst\", \"quote\": \"current module and class name (if any) prepended.  If you prefix the name with\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \":ivar:/:var: fields link the variable name to other objects\", \"why\": \"The Variables field has no rolename, so the name is rendered as plain text; the probe showed no link.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"sphinx/util/docfields.py:67\", \"quote\": \"return contnode or innernode(target, target)\"}\n    ]},\n    {\"hypothesis\": \"Autodoc, apidoc or napoleon output links instance variables to same-named globals\", \"why\": \"Probe builds with a global x and a class x/y, with and without napoleon, produced no reference links.\", \"citations\": []}\n  ],\n  \"plain\": {\n    \"headline\": \"A reference to a variable inside a class can point at a same-named module-level variable, because the documented lookup order checks the module first.\",\n    \"happened\": \"When a class page refers to a variable by its bare name, the docs tool looks for the plain name, then the module-level name, then the class-level name. A module-level variable with the same name is therefore found first. This is how the documentation says it works, and a leading dot flips the order.\",\n    \"matters\": \"It affects projects that use the same variable name at module level and inside a class and write plain cross-references.\",\n    \"fix\": \"No change is needed; write the reference with a leading dot to reach the class's own variable, or the team can decide to change the default order.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 20,
+  "inputTokens": {
+   "avg": 26147.55,
+   "max": 45913
+  },
+  "mainUsage": {
+   "inputTokens": 522951,
+   "cachedInputTokens": 484020,
+   "outputTokens": 19833
+  },
+  "cacheHitPercent": 92.5555166736463,
+  "wallSeconds": 166.59099984169006,
+  "tools": {
+   "read": 20,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 7
+  },
+  "reads": 20,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 1,
+   "readFile": 1,
+   "shell": 0,
+   "sameFile": 6,
+   "readFileIgnoringRange": 6
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.3924395,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.3924395
+}

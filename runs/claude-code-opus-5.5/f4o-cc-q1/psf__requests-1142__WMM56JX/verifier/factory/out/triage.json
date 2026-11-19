@@ -1,0 +1,8 @@
+[
+  {"source": "S1", "decision": "skip", "reason": "Intermittent empty/truncated 200 bodies that succeed on retry, with no client code path, headers or reproduction identified, is not enough to act on and points to a server/proxy or network problem."},
+  {"source": "S2", "decision": "fix", "reason": "Reproduced in this checkout: the vendored urllib3 connectionpool passes `strict=` to http.client connection classes, which Python 3.4+ removed, so every request raises TypeError (the event's frame list is jumbled, but the exception and the urllib3 frames match the code)."},
+  {"source": "S3", "decision": "skip", "reason": "ECONNREFUSED from api.stripe.com is the remote host or network refusing the TCP connection, and requests correctly reports it as ConnectionError; that's not a defect in this library."},
+  {"source": "S4", "decision": "fix", "reason": "PreparedRequest.prepare_content_length unconditionally sets Content-Length: 0, so bodiless GET/HEAD requests always send it."},
+  {"source": "S5", "decision": "fix", "reason": "requests.api.request creates a throwaway Session and never closes it, so pooled keep-alive sockets stay open until garbage collection."},
+  {"source": "S6", "decision": "skip", "reason": "A 403 SignatureDoesNotMatch on a subset of copied pre-signed links has no URL, request, or code path tying it to this library and most likely comes from altered/expired copied links; not enough to act on."}
+]

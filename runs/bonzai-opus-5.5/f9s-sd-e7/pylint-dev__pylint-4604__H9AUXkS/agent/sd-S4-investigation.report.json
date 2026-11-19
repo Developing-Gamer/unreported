@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 136270,
+ "finalText": "I found the cause in pylint's own code. The `unneeded-not` hint tells people to drop the `not` and flip the operator. It is meant to stay quiet when sets are compared, because that rewrite is wrong for sets. But it only checks the left-hand value, so a set on the right still gets the bad hint. For two groups of tags with nothing in common, the suggested rewrite turns True into False. I reproduced this in a throwaway copy and didn't edit the repository.\n\n**Cause.** Line 70 of [not_checker.py](file:///testbed/pylint/checkers/refactoring/not_checker.py) only looks at the left value: `for _type in (utils.node_type(left),):`. Lines 38\u201339 say on purpose that sets should be skipped. Checking only one side was not deliberate.\n\n**Reproduction:**\n- With `KEYS = {\"red\": 1, \"blue\": 2}.keys()` and `GROUP = {\"green\", \"yellow\"}`, pylint reports `Consider changing \"not KEYS <= GROUP\" to \"KEYS > GROUP\" (unneeded-not)`.\n- In plain Python, `not k <= g` is `True` but `k > g` is `False`, which is the change the reporter saw.\n- `not GROUP <= KEYS`, with the set on the left, gets no hint, which confirms only one side is checked.\n- The existing `unnecessary_not` test passes because it only puts sets on the left.\n\n**Fix.** Check both sides: `for _type in (utils.node_type(left), utils.node_type(right)):`. In the throwaway copy this made the false hint go away. The `unnecessary_not`, `consider_using_in` and `superfluous_parens` tests still pass. A test case with a set on the right should be added to `tests/functional/u/unnecessary/unnecessary_not.py`.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"unneeded-not hint wrongly rewrites set comparisons\",\n  \"cause\": \"NotChecker.visit_unaryop is meant to skip set/frozenset comparisons because `not a <= b` is not `a > b` for sets, but its type loop only inspects the left operand (`for _type in (utils.node_type(left),):`). When the left operand is a set-like value that isn't a literal set/frozenset instance (e.g. a dict keys view) and the right is a set, it emits `unneeded-not` suggesting the flipped operator, which changes the result for disjoint groups from True to False.\",\n  \"files\": [\n    {\"path\": \"pylint/checkers/refactoring/not_checker.py\", \"why\": \"Type guard at line 70 checks only the left operand, so set comparisons with the set on the right still get the non-equivalent suggestion.\"},\n    {\"path\": \"tests/functional/u/unnecessary/unnecessary_not.py\", \"why\": \"Tolerated cases only cover sets on the left; needs a regression case with a set on the right.\"}\n  ],\n  \"plan\": [\n    \"In NotChecker.visit_unaryop, iterate over both operand types: `for _type in (utils.node_type(left), utils.node_type(right)):`.\",\n    \"Add tolerated cases to unnecessary_not.py, e.g. `if not {}.keys() <= set(something):` and `if not 3 <= set(something):`, with no expected message.\",\n    \"Run the unnecessary_not, consider_using_in and superfluous_parens functional tests.\"\n  ],\n  \"verification\": [\n    \"Lint `KEYS = {'red': 1}.keys(); GROUP = {'green'}; if not KEYS <= GROUP: ...` with only unneeded-not enabled: no message after the fix (today it suggests `KEYS > GROUP`).\",\n    \"pytest tests/test_functional.py -k 'unnecessary_not or consider_using_in or superfluous_parens' passes (confirmed in probe with the patch).\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.9,\n  \"fixType\": \"silentFailure\",\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"The set/frozenset exemption only checks the left operand's inferred type, so a set on the right side does not stop the suggestion.\", \"citations\": [{\"type\": \"code\", \"ref\": \"pylint/checkers/refactoring/not_checker.py:70\", \"quote\": \"for _type in (utils.node_type(left),):\"}]},\n    {\"id\": \"c2\", \"role\": \"other\", \"text\": \"The authors deliberately exempt sets because the operator flip is not equivalent for unordered sets.\", \"citations\": [{\"type\": \"code\", \"ref\": \"pylint/checkers/refactoring/not_checker.py:38\", \"quote\": \"# sets are not ordered, so for example \\\"not set(LEFT_VALS) <= set(RIGHT_VALS)\\\" is\"}]},\n    {\"id\": \"c3\", \"role\": \"trigger\", \"text\": \"With a dict keys view on the left and a set on the right, pylint suggests the non-equivalent rewrite.\", \"citations\": [{\"type\": \"query\", \"ref\": \"probe:pylint --enable=unneeded-not /tmp/t.py\", \"quote\": \"C0113: Consider changing \\\"not KEYS <= GROUP\\\" to \\\"KEYS > GROUP\\\" (unneeded-not)\"}]},\n    {\"id\": \"c4\", \"role\": \"impact\", \"text\": \"For disjoint groups the suggested expression evaluates to False where the original was True, matching the report.\", \"citations\": [{\"type\": \"query\", \"ref\": \"probe:python -c\", \"quote\": \"not k<=g True  k>g False\"}, {\"type\": \"evidence\", \"ref\": \"ev_s4\", \"quote\": \"For disjoint tag groups, accepting a new comparison-simplification hint changes our filter result from true to false.\"}]},\n    {\"id\": \"c5\", \"role\": \"other\", \"text\": \"The existing functional test only covers sets on the left, so it passes despite the gap.\", \"citations\": [{\"type\": \"code\", \"ref\": \"tests/functional/u/unnecessary/unnecessary_not.py:52\", \"quote\": \"if not set('bar') <= set('foobaz'):\"}]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"chained-comparison (R1716) rewrites set comparisons incorrectly\", \"why\": \"It emits no concrete rewrite and a < b and b < c -> a < b < c is equivalent for any type.\", \"citations\": [{\"type\": \"code\", \"ref\": \"pylint/checkers/refactoring/refactoring_checker.py:249\", \"quote\": \"\\\"Simplify chained comparison between the operands\\\",\"}]},\n    {\"hypothesis\": \"consider-using-in (R1714) produces the non-equivalent hint\", \"why\": \"It only handles ==/!= chains on a shared variable, which stay equivalent as membership tests; not related to subset ordering.\", \"citations\": [{\"type\": \"code\", \"ref\": \"pylint/checkers/refactoring/refactoring_checker.py:1048\", \"quote\": \"allowed_ops = {\\\"or\\\": \\\"==\\\", \\\"and\\\": \\\"!=\\\"}\"}]}\n  ],\n  \"intendedBehavior\": \"pylint does not emit unneeded-not for `not X <= Y` when either X or Y is inferred as a set or frozenset, such as `not {}.keys() <= {'a'}`.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"The set exemption is deliberate (comment at not_checker.py:38-39), but limiting it to the left operand is not: the comment's reasoning applies to either side, and no changelog or test asserts that a set on the right should be flagged.\"},\n  \"plain\": {\n    \"headline\": \"A code-style hint told people to rewrite a check on groups of tags in a way that silently flips its answer, because the tool only looks at one side of the comparison before deciding that the rewrite is safe.\",\n    \"happened\": \"Someone checked whether one group of tags was not fully inside another. The linter suggested dropping the 'not' and flipping the comparison, which only works for things like numbers, not for groups. It skips that hint when the group is on the left side but forgets to check the right side, so accepting it turned a correct True into False.\",\n    \"matters\": \"Anyone who trusts this hint on group comparisons gets wrong filter results without any error to warn them.\",\n    \"fix\": \"Make the hint check both sides of the comparison and stay quiet when either side is a group.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 18,
+  "inputTokens": {
+   "avg": 22599.222222222223,
+   "max": 33602
+  },
+  "mainUsage": {
+   "inputTokens": 406786,
+   "cachedInputTokens": 380170,
+   "outputTokens": 11071
+  },
+  "cacheHitPercent": 93.45700196171943,
+  "wallSeconds": 135.47500014305115,
+  "tools": {
+   "read": 13,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 5
+  },
+  "reads": 13,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 2,
+   "readFileIgnoringRange": 2
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.43049400000000004,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.43049400000000004
+}

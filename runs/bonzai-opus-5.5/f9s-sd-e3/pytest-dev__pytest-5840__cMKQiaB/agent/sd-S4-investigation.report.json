@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 189538,
+ "finalText": "I re-read the request and checked the report against it: it's read-only, ends in a single JSON block, and every quote matches what I read. The only change since my last reply is a `sourceId` field set to S4. My verdict is unchanged: **fixable**.\n\nIf a `pytest_make_parametrize_id` hook returns an empty string, pytest throws it away and uses its default ID for that value. The cause is in `_idval` ([python.py](file:///testbed/src/_pytest/python.py), line 1153): `if hook_id:` treats an empty string as \"no answer\". The hook's documentation ([hookspec.py](file:///testbed/src/_pytest/hookspec.py), line 278) says only `None` means that, and the `ids=` function path a few lines up already checks `is not None`. Neither the changelog nor any test says empty strings should be ignored, so this was not deliberate.\n\n**What I ran** (in a throwaway copy; nothing in the repository changed):\n- **Reproduction:** a hook returning `\"\"` for `x`, with `parametrize(\"x,y\", [(1, 2), (3, 4)])`, gives test IDs `test_f[1-2]` and `test_f[3-4]`.\n- **The fix:** changing line 1153 to `if hook_id is not None:` gives `test_f[-2]` and `test_f[-4]`.\n- **Existing tests:** `testing/python/metafunc.py` passes with and without the change (98 passed, 1 xfailed) once `hypothesis` is installed, which the environment lacked. Nothing tests an empty-string result today.\n- **Unrelated failures:** `testing/python/collect.py` has the same 2 failures with and without the change, so they come from the environment.\n\n**Fix:** that one-line change, plus a regression test in `testing/python/metafunc.py` and a changelog entry.\n\n```json\n{\n  \"sourceId\": \"S4\",\n  \"kind\": \"investigation\",\n  \"verdict\": \"fixable\",\n  \"title\": \"Empty ID from parametrize hook is ignored\",\n  \"cause\": \"In _idval, the result of the pytest_make_parametrize_id hook is checked with `if hook_id:`, so an empty string counts as 'no answer' and pytest falls back to its default ID. The hook's own documentation says only None means the hook doesn't know about the value. The ids= callable path already uses `is not None` and keeps an empty string.\",\n  \"files\": [\n    {\"path\": \"src/_pytest/python.py\", \"why\": \"Line 1153 uses a truthiness check on the hook result instead of `is not None`.\"},\n    {\"path\": \"testing/python/metafunc.py\", \"why\": \"Place for a regression test next to test_pytest_make_parametrize_id_with_argname.\"},\n    {\"path\": \"src/_pytest/hookspec.py\", \"why\": \"Hook contract: return None when the hook doesn't know about the value; stops at the first non-None result.\"}\n  ],\n  \"plan\": [\n    \"In _idval in src/_pytest/python.py, change `if hook_id:` to `if hook_id is not None:`.\",\n    \"Add a testdir test where a conftest hook returns \\\"\\\" for one argname and check that the collected IDs use the empty string (for example test_func[-2]).\",\n    \"Add a changelog/ bugfix entry.\"\n  ],\n  \"verification\": [\n    \"With a conftest hook returning \\\"\\\" for argname x and parametrize('x,y', [(1,2),(3,4)]), `pytest --collect-only -q` lists test_f[-2] and test_f[-4] (today it lists test_f[1-2] and test_f[3-4]).\",\n    \"testing/python/metafunc.py still passes (98 passed, 1 xfailed in the probe with the change applied).\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.95,\n  \"fixType\": \"error\",\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"_idval treats an empty string from the hook as no result, because the check is a truthiness test instead of a None check.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"src/_pytest/python.py:1153\", \"quote\": \"        if hook_id:\\n            return hook_id\"},\n      {\"type\": \"evidence\", \"ref\": \"ev_s4\", \"quote\": \"it should be `if hook_id is not None`, otherwise you're intentionally ignoring the developer's explicit desire\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"other\", \"text\": \"The hook's documented contract reserves None, not an empty string, for 'doesn't know about this value'.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"src/_pytest/hookspec.py:278\", \"quote\": \"by @pytest.mark.parametrize calls. Return None if the hook doesn't know about ``val``.\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"other\", \"text\": \"The ids= callable path in the same function already accepts empty strings by checking `is not None`, so the hook path is inconsistent.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"src/_pytest/python.py:1142\", \"quote\": \"            if generated_id is not None:\\n                val = generated_id\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"impact\", \"text\": \"Anyone who returns an empty string from the hook to drop a parameter from test IDs gets the default value-based IDs instead, so they cannot control their test names as documented.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s4\", \"quote\": \"when PyTest sees the \\\"\\\" returned by the `else`, it decides to ignore it and do its standard variable stuff\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"Ignoring empty strings is deliberate behaviour.\", \"why\": \"The hookspec says only None means 'don't know'; neither the changelog entries for this hook nor any test say empty results are ignored, and the parallel ids= path keeps empty strings.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"src/_pytest/hookspec.py:281\", \"quote\": \"Stops at first non-None result, see :ref:`firstresult`\"}\n    ]},\n    {\"hypothesis\": \"Already fixed in the current code.\", \"why\": \"The current checkout still has `if hook_id:`, and the probe reproduced the symptom (IDs test_f[1-2], test_f[3-4]).\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"src/_pytest/python.py:1153\", \"quote\": \"        if hook_id:\\n            return hook_id\"}\n    ]}\n  ],\n  \"intendedBehavior\": \"When a pytest_make_parametrize_id hook returns \\\"\\\" for a value, that empty string is used as the value's ID part (for example test_f[-2]), and only a None result falls back to the default ID.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"The hookspec documents None as the 'not handled' signal and stops at the first non-None result; no changelog entry or test asserts that empty strings are ignored, and the ids= callable branch in the same function uses `is not None`.\"},\n  \"plain\": {\n    \"headline\": \"People who tell pytest to leave a value out of their test names get the default name anyway, because pytest treats a blank name as no answer.\",\n    \"happened\": \"A user wrote a small plugin hook that returns a blank name for some test parameters, so those parameters are left out of the test names. Pytest treats the blank answer the same as 'no answer' and builds the usual name from the value. The documentation says only an explicit 'nothing' answer should mean that.\",\n    \"matters\": \"Anyone who customizes test names this way can't drop a parameter from the name, so their test names don't come out the way they asked.\",\n    \"fix\": \"Treat a blank name from the hook as a real answer and fall back to the default name only when the hook gives no answer at all.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 15,
+  "inputTokens": {
+   "avg": 17121.466666666667,
+   "max": 22763
+  },
+  "mainUsage": {
+   "inputTokens": 256822,
+   "cachedInputTokens": 241051,
+   "outputTokens": 8952
+  },
+  "cacheHitPercent": 93.85917094329925,
+  "wallSeconds": 188.55799984931946,
+  "tools": {
+   "read": 4,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 2,
+   "subagent": 0,
+   "other": 8
+  },
+  "reads": 4,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.3060712,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.3060712
+}

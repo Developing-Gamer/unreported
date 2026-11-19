@@ -1,0 +1,82 @@
+FFF                                                                      [100%]
+=================================== FAILURES ===================================
+____________ test_legacy_name_keeps_all_replacement_messages[W9000] ____________
+
+legacy_name = 'W9000'
+
+    @pytest.mark.parametrize("legacy_name", ["W9000", "w9000", "old-combined-warning"])
+    def test_legacy_name_keeps_all_replacement_messages(legacy_name):
+        store = MessageIdStore()
+        store.register_message_definition(
+            "W9001", "first-warning", [("W9000", "old-combined-warning")]
+        )
+        store.register_message_definition(
+            "W9002", "second-warning", [("W9000", "old-combined-warning")]
+        )
+    
+        assert store.get_active_msgids("first-warning") == ["W9001"]
+        assert store.get_active_msgids("second-warning") == ["W9002"]
+>       assert store.get_active_msgids(legacy_name) == ["W9001", "W9002"]
+E       AssertionError: assert ['W9002'] == ['W9001', 'W9002']
+E         At index 0 diff: 'W9002' != 'W9001'
+E         Right contains one more item: 'W9002'
+E         Use -v to get more diff
+
+/tmp/test_hidden_S1.py:18: AssertionError
+____________ test_legacy_name_keeps_all_replacement_messages[w9000] ____________
+
+legacy_name = 'w9000'
+
+    @pytest.mark.parametrize("legacy_name", ["W9000", "w9000", "old-combined-warning"])
+    def test_legacy_name_keeps_all_replacement_messages(legacy_name):
+        store = MessageIdStore()
+        store.register_message_definition(
+            "W9001", "first-warning", [("W9000", "old-combined-warning")]
+        )
+        store.register_message_definition(
+            "W9002", "second-warning", [("W9000", "old-combined-warning")]
+        )
+    
+        assert store.get_active_msgids("first-warning") == ["W9001"]
+        assert store.get_active_msgids("second-warning") == ["W9002"]
+>       assert store.get_active_msgids(legacy_name) == ["W9001", "W9002"]
+E       AssertionError: assert ['W9002'] == ['W9001', 'W9002']
+E         At index 0 diff: 'W9002' != 'W9001'
+E         Right contains one more item: 'W9002'
+E         Use -v to get more diff
+
+/tmp/test_hidden_S1.py:18: AssertionError
+____ test_legacy_name_keeps_all_replacement_messages[old-combined-warning] _____
+
+legacy_name = 'old-combined-warning'
+
+    @pytest.mark.parametrize("legacy_name", ["W9000", "w9000", "old-combined-warning"])
+    def test_legacy_name_keeps_all_replacement_messages(legacy_name):
+        store = MessageIdStore()
+        store.register_message_definition(
+            "W9001", "first-warning", [("W9000", "old-combined-warning")]
+        )
+        store.register_message_definition(
+            "W9002", "second-warning", [("W9000", "old-combined-warning")]
+        )
+    
+        assert store.get_active_msgids("first-warning") == ["W9001"]
+        assert store.get_active_msgids("second-warning") == ["W9002"]
+>       assert store.get_active_msgids(legacy_name) == ["W9001", "W9002"]
+E       AssertionError: assert ['W9002'] == ['W9001', 'W9002']
+E         At index 0 diff: 'W9002' != 'W9001'
+E         Right contains one more item: 'W9002'
+E         Use -v to get more diff
+
+/tmp/test_hidden_S1.py:18: AssertionError
+=============================== warnings summary ===============================
+../opt/miniconda3/envs/testbed/lib/python3.9/site-packages/astroid/interpreter/_import/util.py:6
+  /opt/miniconda3/envs/testbed/lib/python3.9/site-packages/astroid/interpreter/_import/util.py:6: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html
+    import pkg_resources
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED ../tmp/test_hidden_S1.py::test_legacy_name_keeps_all_replacement_messages[W9000]
+FAILED ../tmp/test_hidden_S1.py::test_legacy_name_keeps_all_replacement_messages[w9000]
+FAILED ../tmp/test_hidden_S1.py::test_legacy_name_keeps_all_replacement_messages[old-combined-warning]
+3 failed, 1 warning in 0.26s

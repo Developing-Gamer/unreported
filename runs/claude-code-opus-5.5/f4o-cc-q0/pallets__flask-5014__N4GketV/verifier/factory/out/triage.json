@@ -1,0 +1,7 @@
+[
+  {"source": "S1", "decision": "skip", "reason": "A user report about an application's sign-out flow with no detail tying it to Flask's session code; it points to how the app clears its session or cookie, not a Flask defect."},
+  {"source": "S2", "decision": "skip", "reason": "A timeout from api.github.com in a separate webhook-relay service using aiohttp; it is an upstream/network problem outside this repository."},
+  {"source": "S3", "decision": "skip", "reason": "A metrics issue in a separate worker dashboard; Flask has no requests_in_progress metric, so there is nothing in this repository to act on."},
+  {"source": "S4", "decision": "skip", "reason": "Using timezone-aware datetime.now(timezone.utc) is intentional and correct; the failures come from freezegun/pendulum bugs, which the reporter agrees are not Flask's problem, and utcnow() is deprecated."},
+  {"source": "S5", "decision": "fix", "reason": "Blueprint('') is accepted silently and causes broken endpoint and registration behavior; it should raise ValueError like a dotted name does."}
+]

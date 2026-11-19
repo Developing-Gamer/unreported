@@ -1,0 +1,151 @@
+diff --git a/lib/matplotlib/backends/qt_compat.py b/lib/matplotlib/backends/qt_compat.py
+index a1a239ae9c..b1b96f93d6 100644
+--- a/lib/matplotlib/backends/qt_compat.py
++++ b/lib/matplotlib/backends/qt_compat.py
+@@ -38,10 +38,10 @@ _ETS = {  # Mapping of QT_API_ENV to requested binding.
+ # First, check if anything is already imported.
+ if sys.modules.get("PyQt6.QtCore"):
+     QT_API = QT_API_PYQT6
+-elif sys.modules.get("PyQt5.QtCore"):
+-    QT_API = QT_API_PYQT5
+ elif sys.modules.get("PySide6.QtCore"):
+     QT_API = QT_API_PYSIDE6
++elif sys.modules.get("PyQt5.QtCore"):
++    QT_API = QT_API_PYQT5
+ elif sys.modules.get("PySide2.QtCore"):
+     QT_API = QT_API_PYSIDE2
+ # Otherwise, check the QT_API environment variable (from Enthought).  This can
+diff --git a/lib/matplotlib/mlab.py b/lib/matplotlib/mlab.py
+index 3552904c3d..7ba42f7ab2 100644
+--- a/lib/matplotlib/mlab.py
++++ b/lib/matplotlib/mlab.py
+@@ -395,12 +395,12 @@ def _spectral_helper(x, y=None, NFFT=None, Fs=None, detrend_func=None,
+     elif mode == 'psd':
+         result = np.conj(result) * result
+     elif mode == 'magnitude':
+-        result = np.abs(result) / np.abs(window).sum()
++        result = np.abs(result) / window.sum()
+     elif mode == 'angle' or mode == 'phase':
+         # we unwrap the phase later to handle the onesided vs. twosided case
+         result = np.angle(result)
+     elif mode == 'complex':
+-        result /= np.abs(window).sum()
++        result /= window.sum()
+ 
+     if mode == 'psd':
+ 
+@@ -427,7 +427,7 @@ def _spectral_helper(x, y=None, NFFT=None, Fs=None, detrend_func=None,
+             result /= (np.abs(window)**2).sum()
+         else:
+             # In this case, preserve power in the segment, not amplitude
+-            result /= np.abs(window).sum()**2
++            result /= window.sum()**2
+ 
+     t = np.arange(NFFT/2, len(x) - NFFT/2 + 1, NFFT - noverlap)/Fs
+ 
+diff --git a/lib/matplotlib/tests/test_mlab.py b/lib/matplotlib/tests/test_mlab.py
+index 86beb5c8c8..e58a8a5482 100644
+--- a/lib/matplotlib/tests/test_mlab.py
++++ b/lib/matplotlib/tests/test_mlab.py
+@@ -682,6 +682,44 @@ class TestSpectral:
+         assert_allclose(fsp, freqs, atol=1e-06)
+         assert spec.shape == freqs.shape
+ 
++    def test_psd_window_flattop(self):
++        # flattop window, which has negative values; adapted from
++        # https://github.com/scipy/scipy/blob/v1.10.0/scipy/signal/windows/_windows.py#L562-L622
++        a = [.21557895, .41663158, .27726316, .08357895, .00694737]
++        fac = np.linspace(-np.pi, np.pi, self.NFFT_density_real)
++        win = np.zeros(self.NFFT_density_real)
++        for k in range(len(a)):
++            win += a[k] * np.cos(k * fac)
++        assert (win < 0).any()
++
++        spec, fsp = mlab.psd(x=self.y,
++                             NFFT=self.NFFT_density,
++                             Fs=self.Fs,
++                             noverlap=0,
++                             sides=self.sides,
++                             window=win,
++                             scale_by_freq=False)
++        spec_a, fsp_a = mlab.psd(x=self.y,
++                                 NFFT=self.NFFT_density,
++                                 Fs=self.Fs,
++                                 noverlap=0,
++                                 sides=self.sides,
++                                 window=win)
++        assert_allclose(spec*win.sum()**2,
++                        spec_a*self.Fs*(win**2).sum(),
++                        atol=1e-08)
++
++        spec_m, _ = mlab.magnitude_spectrum(x=self.y[:self.NFFT_density_real],
++                                            Fs=self.Fs,
++                                            sides=self.sides,
++                                            window=win)
++        spec_r, _ = mlab.magnitude_spectrum(x=self.y[:self.NFFT_density_real],
++                                            Fs=self.Fs,
++                                            sides=self.sides,
++                                            window=mlab.window_none)
++        # A flattop window preserves the amplitude of the strongest peak.
++        assert_allclose(spec_m.max(), spec_r.max(), rtol=0.05)
++
+     def test_psd_windowarray_scale_by_freq(self):
+         win = mlab.window_hanning(np.ones(self.NFFT_density_real))
+ 
+diff --git a/lib/matplotlib/tests/test_qt_compat.py b/lib/matplotlib/tests/test_qt_compat.py
+new file mode 100644
+index 0000000000..a9ec535173
+--- /dev/null
++++ b/lib/matplotlib/tests/test_qt_compat.py
+@@ -0,0 +1,51 @@
++import os
++import subprocess
++import sys
++import textwrap
++
++import pytest
++
++
++# Fake binding modules are injected into sys.modules so that the binding
++# selection logic of qt_compat can be exercised without any Qt installed.
++_FAKE_BINDINGS = textwrap.dedent("""
++    import sys
++    from unittest import mock
++
++    def fake_binding(name, version):
++        pkg = mock.MagicMock(name=name, __version__=version)
++        pkg.__name__ = name
++        core = pkg.QtCore
++        core.__package__ = name
++        core.PYQT_VERSION_STR = version
++        core.QLibraryInfo.version.return_value.segments.return_value = (
++            [int(part) for part in version.split(".")])
++        sys.modules[name] = pkg
++        sys.modules[name + ".QtCore"] = core
++        sys.modules[name + ".QtGui"] = pkg.QtGui
++        sys.modules[name + ".QtWidgets"] = pkg.QtWidgets
++
++    for name in {names!r}:
++        fake_binding(name, "6.5.0" if name.endswith("6") else "5.15.2")
++    sys.modules["shiboken6"] = mock.MagicMock()
++    sys.modules["sip"] = mock.MagicMock()
++
++    from matplotlib.backends import qt_compat
++    print(qt_compat.QT_API)
++""")
++
++
++@pytest.mark.parametrize("names, expected", [
++    (["PyQt5", "PySide6"], "PySide6"),
++    (["PySide6", "PyQt5"], "PySide6"),
++    (["PyQt6", "PySide6", "PyQt5"], "PyQt6"),
++    (["PyQt5"], "PyQt5"),
++])
++def test_already_imported_binding_priority(names, expected):
++    # Already imported bindings are checked in the documented order:
++    # PyQt6, PySide6, PyQt5, PySide2.
++    proc = subprocess.run(
++        [sys.executable, "-c", _FAKE_BINDINGS.format(names=names)],
++        env={**os.environ, "MPLBACKEND": "agg"},
++        capture_output=True, text=True, check=True)
++    assert proc.stdout.strip() == expected

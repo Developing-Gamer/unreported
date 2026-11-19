@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 65273,
+ "finalText": "Everything checks out. The fix is in the working tree and uncommitted, and `.factory/pr-S2.md` exists.\n\n`git status` also shows modifications to `seaborn/_core/scales.py` and `tests/_core/test_scales.py`. I did not make those. They were already in the working tree and look like the legend-offset change from PR #1000. I left them alone and they are not part of this fix.\n\nThe checks from the earlier run still stand. `TestDodge::test_gap` failed before the change and passes now, and `tests/_core/test_moves.py` plus `tests/_core/test_plot.py` give 207 passed, 5 xfailed.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"visual\": false,\n  \"checks\": [\n    {\"command\": \"pytest tests/_core/test_moves.py tests/_core/test_plot.py\", \"passed\": true}\n  ],\n  \"reproductionSteps\": \"Run Dodge(gap=.25) on two bars of width .8 in one group: before the fix centres were at \u00b1.15 with width .3 (bars touching); expected \u00b1.2.\",\n  \"reproductionTest\": {\n    \"path\": \"tests/_core/test_moves.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest tests/_core/test_moves.py -q\",\n    \"signature\": \"AssertionError: Arrays are not almost equal to 6 decimals; x: array([-0.15, 0.15, 1.15]) y: array([-0.2, 0.2, 1.2])\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 12,
+  "inputTokens": {
+   "avg": 21812.583333333332,
+   "max": 24662
+  },
+  "mainUsage": {
+   "inputTokens": 261751,
+   "cachedInputTokens": 250977,
+   "outputTokens": 3791
+  },
+  "cacheHitPercent": 95.88387436915237,
+  "wallSeconds": 63.248000144958496,
+  "tools": {
+   "read": 6,
+   "edit": 3,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 1,
+   "subagent": 0,
+   "other": 3
+  },
+  "reads": 6,
+  "edits": 3,
+  "runs": 3,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 3,
+  "editOperations": 3,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.11502639999999997,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.11502639999999997
+}

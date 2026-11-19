@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 387837,
+ "finalText": "A brief numeric legend now keeps a tick that lands exactly on the data maximum, so a 0\u2013100 scatter legend ends at 100 instead of 80. I re-checked just now that the one-line fix is in the working tree and that `.factory/pr-S6.md` exists.\n\n`locator_to_legend_entries` in `seaborn/utils.py` clipped ticks with `l < limits[1]`, which dropped a tick equal to the maximum. I changed that to `l <= limits[1]`. Hue and size legends both go through this function, so both are fixed. The investigation's suspected cause was right.\n\nBefore the fix, the existing `test_locator_to_legend_entries` already failed (`['2', '4'] != ['2', '4', '6']`). The new tests also failed: a 0\u2013100 locator test in `tests/test_utils.py`, and a hue and a size scatterplot test in `tests/test_relational.py` checking the last legend label is `'100'`. After the fix, `pytest tests/test_utils.py tests/test_relational.py` gives 122 passed. I didn't run the rest of the suite.\n\nNo open PR touches this code, so none covers it. Nothing is committed, per the benchmark note. The working tree also holds earlier uncommitted changes to other files, which I left alone.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"checks\": [\n    {\"command\": \"pytest tests/test_utils.py tests/test_relational.py\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"reproductionSteps\": \"Call utils.locator_to_legend_entries(MaxNLocator(nbins=6), (0, 100), int), or draw sns.scatterplot(x=np.arange(101), y=np.arange(101), hue=np.arange(101), legend='brief'). The last legend label is 80 instead of 100.\",\n  \"reproductionTest\": {\n    \"path\": \"tests/test_utils.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest tests/test_utils.py tests/test_relational.py -q -k 'max_tick or locator_to'\",\n    \"signature\": \"AssertionError: assert ['2', '4'] == ['2', '4', '6']\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 25,
+  "inputTokens": {
+   "avg": 26173.12,
+   "max": 31399
+  },
+  "mainUsage": {
+   "inputTokens": 654328,
+   "cachedInputTokens": 636791,
+   "outputTokens": 5949
+  },
+  "cacheHitPercent": 97.31984570429509,
+  "wallSeconds": 386.92899990081787,
+  "tools": {
+   "read": 9,
+   "edit": 5,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 11,
+   "subagent": 0,
+   "other": 2
+  },
+  "reads": 9,
+  "edits": 5,
+  "runs": 2,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 5,
+  "editOperations": 5,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.23066370000000003,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.23066370000000003
+}

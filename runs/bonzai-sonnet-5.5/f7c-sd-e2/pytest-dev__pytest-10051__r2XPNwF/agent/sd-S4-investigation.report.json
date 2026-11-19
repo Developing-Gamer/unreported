@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 35899,
+ "finalText": "The cause is in this repository: pytest does not escape the DEL character (0x7f) when it builds test IDs for bytes or str parameters. I re-checked the two code citations against the source and they match. I did not run the existing tests, and the probe could not import `_pytest` because `attr` is missing.\n\n**Cause.** `_non_printable_ascii_translate_table` in `src/_pytest/compat.py` skips `range(32, 128)`, and that range includes 127. DEL is a control character, so it goes into the ID as a raw, invisible character instead of the escape text `\\x7f`. Only parameters that contain that one byte are affected, which fits \"a few IDs\".\n\n**Check I ran.** I ran the same translate logic on `b'a\\x7fb'` in the probe, and the raw DEL came through unescaped.\n\n**Fix.**\n- Change `range(32, 128)` to `range(32, 127)` so DEL becomes `\\x7f`.\n- Add a test that `ascii_escaped(b\"\\x7f\")` and `ascii_escaped(\"\\x7f\")` both return `\\x7f`.\n- Add a parametrize-ID test and a changelog entry.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"DEL character left raw in byte test IDs\",\n  \"cause\": \"The table that escapes non-printable characters in test IDs is built with `i not in range(32, 128)`, so 127 (DEL) is not escaped. Bytes or str parameters containing 0x7f get a raw invisible DEL in their ID instead of the `\\\\x7f` escape text, so the report text can't be reliably copied into rerun commands.\",\n  \"files\": [\n    {\"path\": \"src/_pytest/compat.py\", \"why\": \"`_non_printable_ascii_translate_table` excludes 127 from escaping because it uses range(32, 128); it should use range(32, 127)\"}\n  ],\n  \"plan\": [\n    \"Change `range(32, 128)` to `range(32, 127)` in `_non_printable_ascii_translate_table` in src/_pytest/compat.py\",\n    \"Add a test that ascii_escaped(b'\\\\x7f') and ascii_escaped('\\\\x7f') both return '\\\\\\\\x7f'\",\n    \"Add a parametrize ID test with a DEL-containing bytes value, and add a changelog entry\"\n  ],\n  \"verification\": [\n    \"New unit test fails before the change and passes after\",\n    \"Run testing/python/metafunc.py and testing/test_compat.py\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.93,\n  \"claims\": [\n    {\n      \"id\": \"c1\",\n      \"text\": \"The translate table excludes 127 from escaping because it uses range(32, 128), so DEL passes through unescaped.\",\n      \"role\": \"rootCause\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"src/_pytest/compat.py:203\", \"quote\": \"i: f\\\"\\\\\\\\x{i:02x}\\\" for i in range(128) if i not in range(32, 128)\"}\n      ]\n    },\n    {\n      \"id\": \"c2\",\n      \"text\": \"ascii_escaped applies only this table for both bytes and str, so IDs keep the raw DEL.\",\n      \"role\": \"other\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"src/_pytest/compat.py:242\", \"quote\": \"return _translate_non_printable(ret)\"}\n      ]\n    }\n  ],\n  \"intendedBehavior\": \"Test IDs generated for bytes or str parameters containing 0x7f show the literal text \\\\x7f and no raw control character.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"The docstring says non-printable bytes are escaped, and the table is meant to cover control characters. DEL is a control character, and range(32, 128) is an off-by-one.\"},\n  \"fixType\": \"error\",\n  \"plain\": {\n    \"headline\": \"Some test names contain an invisible character, so copying them into a rerun command is unreliable.\",\n    \"happened\": \"When a test is run with byte or text values, its name is built from those values. Special characters are normally spelled out as escape text. One control character, DEL, was left out of that step, so it appears in the name as an invisible character.\",\n    \"matters\": \"Anyone copying a test name from the report into a command to rerun it can end up with a name that doesn't match.\",\n    \"fix\": \"Make the name-building step spell out DEL like the other control characters, and add a test for it.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 8,
+  "inputTokens": {
+   "avg": 14111,
+   "max": 16739
+  },
+  "mainUsage": {
+   "inputTokens": 112888,
+   "cachedInputTokens": 103155,
+   "outputTokens": 4230
+  },
+  "cacheHitPercent": 91.37818014315073,
+  "wallSeconds": 33.69500017166138,
+  "tools": {
+   "read": 4,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 3
+  },
+  "reads": 4,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.0872535,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.0872535
+}

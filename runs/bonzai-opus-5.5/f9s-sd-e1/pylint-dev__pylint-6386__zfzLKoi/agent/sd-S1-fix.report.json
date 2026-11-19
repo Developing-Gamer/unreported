@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 36934,
+ "finalText": "The fix is in the working tree, uncommitted as the benchmark note asked. The PR text is in `.factory/pr-S1.md`. A disable entry for an old name now silences all the messages that share it, so `disable=missing-docstring` covers C0114, C0115 and C0116 again.\n\nThe cause matched the investigation. `add_legacy_msgid_and_symbol` in `pylint/message/message_id_store.py` overwrote the old name's list with `[new_msgid]` on every registration, so only the last new message stayed linked. It now appends the new id to the existing list and skips duplicates. The `get_active_msgids` cache logic is unchanged.\n\nI did not add a new test, because the existing `test_multiple_child_of_old_name` already covers this and was failing before the change.\n\n- **Before:** it failed with `assert 1 == 2 where 1 = len([MessageDefinition:child-two (W1236)])`.\n- **After:** it passes, and all of `tests/message` passes (33 tests).\n- **Real checkers:** with them registered, `get_active_msgids(\"missing-docstring\")` and `get_active_msgids(\"C0111\")` both return `['C0114', 'C0115', 'C0116']`.\n\nI did not run the full pylint command line on a file with an undocumented class and function. `python -m pylint` crashed with an \"Unknown message\" error for `c-extension-no-member`. I did not check whether it crashes the same way without my change.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"checks\": [\n    {\"command\": \"python -m pytest tests/message -q\", \"passed\": true},\n    {\"command\": \"python -m pytest tests/message/unittest_message_definition_store.py::test_multiple_child_of_old_name -q\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"reproduction\": \"Register several messages sharing one old name (e.g. C0111/missing-docstring -> C0114, C0115, C0116) and call MessageIdStore.get_active_msgids('missing-docstring'); before the fix it returned only the last new msgid, so disabling the old name silenced just one message.\",\n  \"reproductionTest\": {\n    \"path\": \"tests/message/unittest_message_definition_store.py\",\n    \"command\": \"python -m pytest tests/message/unittest_message_definition_store.py::test_multiple_child_of_old_name -q\",\n    \"signature\": \"assert 1 == 2 where 1 = len([MessageDefinition:child-two (W1236)])\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 11,
+  "inputTokens": {
+   "avg": 25337.18181818182,
+   "max": 28959
+  },
+  "mainUsage": {
+   "inputTokens": 278709,
+   "cachedInputTokens": 263640,
+   "outputTokens": 4377
+  },
+  "cacheHitPercent": 94.59328546979107,
+  "wallSeconds": 35.82800006866455,
+  "tools": {
+   "read": 3,
+   "edit": 4,
+   "test": 2,
+   "verify": 0,
+   "git": 1,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 1
+  },
+  "reads": 3,
+  "edits": 4,
+  "runs": 4,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 3,
+  "editOperations": 3,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.13415749999999999,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.13415749999999999
+}

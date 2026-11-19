@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 58415,
+ "finalText": "Everything checks out. The 3.5.0 changelog (`doc/users/prev_whats_new/github_stats_3.5.0.rst`) lists the report as GitHub issue 21518, \"[Bug]: Datetime axis with usetex is unclear\", closed in 3.5.0. It also lists pull request 21568, \"Enhancing support for tex and datetimes\", backported as 21625. That is almost certainly the fix, though the changelog doesn't link the two explicitly. I'm updating the report with this. The 3.4 behaviour is from the issue text and the 3.4 changelog entries, not from 3.4 code, which isn't in this checkout.\n\n```json\n{\n  \"verdict\": \"covered\",\n  \"title\": \"Usetex date axis spacing already fixed in 3.5.0\",\n  \"cause\": \"In 3.4 the date formatters wrapped usetex tick labels in TeX math mode, so characters like ':' and '-' got math-operator spacing and looked spread out versus 3.3. In this checkout (v3.5.0) _wrap_in_tex wraps labels in text mode with the default font family, so the cause no longer exists. The 3.5.0 changelog lists this issue (21518) as closed and lists PR 21568 (Enhancing support for tex and datetimes, backported as 21625).\",\n  \"files\": [\n    {\"path\": \"lib/matplotlib/dates.py\", \"why\": \"_wrap_in_tex now uses a text-mode font wrapper instead of math mode; used by DateFormatter, ConciseDateFormatter and AutoDateFormatter\"},\n    {\"path\": \"lib/matplotlib/tests/test_dates.py\", \"why\": \"usetex formatter tests assert the text-mode wrapper\"}\n  ],\n  \"plan\": [\"No change needed; users on 3.4.x should upgrade to 3.5.0 or later.\"],\n  \"verification\": [\"Run the issue's script on 3.5.0 with LaTeX installed and compare the tick label spacing with 3.3.\", \"Run test_date_formatter_usetex and test_concise_formatter_usetex in lib/matplotlib/tests/test_dates.py.\"],\n  \"userFacing\": true,\n  \"certainty\": \"likely\",\n  \"effort\": \"none\",\n  \"risk\": \"low\",\n  \"confidence\": 0.8,\n  \"coveredBy\": \"21568\",\n  \"fixedIn\": {\"commit\": \"41bd4a7323\", \"release\": \"v3.5.0\"},\n  \"intendedBehavior\": \"With text.usetex=True, date tick labels render in the document's default text font with no math-mode operator spacing around ':' or '-'.\",\n  \"intent\": {\"deliberate\": true, \"evidence\": \"test_date_formatter_usetex and test_concise_formatter_usetex assert the text-mode fontfamily wrapper at lib/matplotlib/tests/test_dates.py:344-345 and 658-659.\"},\n  \"fixType\": \"frustration\",\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"The current wrapper uses text mode, not math mode, so the 3.4 operator-spacing cause is gone.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"lib/matplotlib/dates.py:607\", \"quote\": \"return r\\\"{\\\\fontfamily{\\\\familydefault}\\\\selectfont \\\" + text + \\\"}\\\"\"}]},\n    {\"id\": \"c2\", \"text\": \"Tests assert the text-mode wrapper for usetex date formatting.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"lib/matplotlib/tests/test_dates.py:345\", \"quote\": \"r'{\\\\fontfamily{\\\\familydefault}\\\\selectfont %s}' % s for s in expected]\"}]},\n    {\"id\": \"c3\", \"text\": \"The 3.5.0 changelog lists the issue as closed and a tex/datetime pull request as merged.\", \"role\": \"other\", \"citations\": [{\"type\": \"doc\", \"ref\": \"doc/users/prev_whats_new/github_stats_3.5.0.rst\", \"quote\": \"Enhancing support for tex and datetimes\"}]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"Another path still wraps labels in math mode\", \"why\": \"All usetex paths (DateFormatter.__call__, ConciseDateFormatter offset and tick labels) go through _wrap_in_tex.\", \"citations\": [{\"type\": \"code\", \"ref\": \"lib/matplotlib/dates.py:852\", \"quote\": \"return [_wrap_in_tex(l) for l in labels]\"}]}\n  ],\n  \"plain\": {\n    \"headline\": \"Date labels on charts looked oddly spaced with LaTeX text in 3.4, and this is already fixed in the current release.\",\n    \"happened\": \"In version 3.4, date labels drawn with LaTeX were treated as maths, so characters like colons and dashes got extra gaps. The current code draws them as ordinary text in the document's default font.\",\n    \"matters\": \"It affected anyone plotting dates with LaTeX text on version 3.4.\",\n    \"fix\": \"Nothing to change; upgrade to 3.5.0 or later.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 9,
+  "inputTokens": {
+   "avg": 17910,
+   "max": 24487
+  },
+  "mainUsage": {
+   "inputTokens": 161190,
+   "cachedInputTokens": 143705,
+   "outputTokens": 6681
+  },
+  "cacheHitPercent": 89.15255288789628,
+  "wallSeconds": 58.01300001144409,
+  "tools": {
+   "read": 8,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 1
+  },
+  "reads": 8,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 2,
+   "readFile": 2,
+   "shell": 0,
+   "sameFile": 3,
+   "readFileIgnoringRange": 3
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1392525,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1392525
+}

@@ -1,0 +1,38 @@
+diff --git a/requests/models.py b/requests/models.py
+index f82f56a..2d49061 100644
+--- a/requests/models.py
++++ b/requests/models.py
+@@ -307,7 +307,7 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):
+         """Prepares the given HTTP method."""
+         self.method = method
+         if self.method is not None:
+-            self.method = self.method.upper()
++            self.method = to_native_string(self.method.upper())
+ 
+     def prepare_url(self, url, params):
+         """Prepares the given HTTP URL."""
+diff --git a/test_requests.py b/test_requests.py
+index a593db3..a35e1e3 100755
+--- a/test_requests.py
++++ b/test_requests.py
+@@ -434,6 +434,20 @@ class RequestsTestCase(unittest.TestCase):
+         assert b'name="stuff"' in prep.body
+         assert b'name="b\'stuff\'"' not in prep.body
+ 
++    def test_unicode_method_name(self):
++        # The method must be converted to the native string type; otherwise
++        # on Python 2 a unicode method forces the multipart body to be
++        # decoded implicitly and raises UnicodeDecodeError.
++        files = {'file': open(__file__, 'rb')}
++        r = requests.Request(method='POST'.encode('ascii'),
++                             url=httpbin('post'), files=files)
++        prep = r.prepare()
++        assert prep.method == 'POST'
++        assert isinstance(prep.method, str)
++        s = requests.Session()
++        prep = s.prepare_request(r)
++        assert isinstance(prep.method, str)
++
+     def test_custom_content_type(self):
+         r = requests.post(httpbin('post'),
+                           data={'stuff': json.dumps({'a': 123})},

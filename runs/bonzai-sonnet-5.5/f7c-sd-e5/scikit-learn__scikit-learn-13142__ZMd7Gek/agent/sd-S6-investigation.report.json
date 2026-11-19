@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 26805,
+ "finalText": "The behaviour in the report is by design, so I'm calling it not actionable. It comes from this repository's code, but it isn't a defect. I only read the code and ran nothing, since probe wasn't available here.\n\n- **What the code does:** `n_components` is stored and checked in `fit` as `_max_components`. The only place it is applied is the final slice in `transform`, `X_new[:, :self._max_components]` (`sklearn/discriminant_analysis.py:517`).\n- **Why predict ignores it:** `predict`, `predict_proba` and `decision_function` score with `coef_` and `intercept_`, computed from the full class-means space. They never project to fewer components. All three solvers do this, which matches the report.\n- **Design:** The docstring describes `n_components` as being \"for dimensionality reduction\". The transform logic is unchanged since the 0.19 snapshot. The tests only check `n_components` through `transform` and the warning when it is too large (`sklearn/tests/test_discriminant_analysis.py:140-147` and `:274-293`). Making `predict` truncate would change classification results for existing users. The `lsqr` solver doesn't support `transform` at all. Truncating predictions is a new feature, which the team would have to decide on.\n- **Optional docs fix:** The docstring never says that `n_components` affects only `transform`, which is what likely misled the reporter. A one-line note in the `n_components` parameter docs would close that gap. It is a docs-only change.\n- **Who feels it:** One person hit it, and only because the docs are silent. Nothing is lost or broken for anyone.\n\n```json\n{\n  \"verdict\": \"notActionable\",\n  \"title\": \"LDA n_components only affects transform, by design\",\n  \"cause\": \"n_components is stored in fit as _max_components and applied only as a slice at the end of transform. predict, predict_proba and decision_function use coef_ and intercept_ computed from the full class-means space, so they ignore it for every solver. This is how the feature has worked since it was written. The docstring just doesn't say that n_components only affects transform.\",\n  \"files\": [\n    {\"path\": \"sklearn/discriminant_analysis.py\", \"why\": \"n_components is applied only in transform (line 517). The prediction methods use coef_ and intercept_. The docstring at lines 167-170 doesn't state this.\"}\n  ],\n  \"plan\": [\"Optional: add one sentence to the n_components docstring saying it only affects transform and not predict, predict_proba or decision_function.\", \"Truncating predictions would be a new feature and a product decision.\"],\n  \"verification\": [\"Fit LinearDiscriminantAnalysis with n_components=1 on multi-class data and confirm transform returns 1 column while predict matches the n_components=None model.\"],\n  \"userFacing\": false,\n  \"certainty\": \"likely\",\n  \"effort\": \"trivial\",\n  \"risk\": \"low\",\n  \"confidence\": 0.8,\n  \"deliberate\": true,\n  \"intent\": \"n_components is documented as a dimensionality-reduction parameter and is applied only in transform. Tests exercise it only through transform and the too-large warning. The prediction methods have never used it. No changelog entry says that predict should truncate.\",\n  \"intendedBehavior\": \"LinearDiscriminantAnalysis(n_components=k).transform(X) returns k columns, and its docstring states that predict is unaffected by n_components.\",\n  \"fixType\": \"frustration\",\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"n_components is applied only by slicing the output of transform.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"sklearn/discriminant_analysis.py:517\", \"quote\": \"return X_new[:, :self._max_components]\"}]},\n    {\"id\": \"c2\", \"text\": \"predict_proba goes through decision_function, which uses the full coef_, not the reduced projection.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"sklearn/discriminant_analysis.py:532\", \"quote\": \"prob = self.decision_function(X)\"}]},\n    {\"id\": \"c3\", \"text\": \"_max_components is set in fit from n_components and used only by transform.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"sklearn/discriminant_analysis.py:474\", \"quote\": \"self._max_components = self.n_components\"}]}\n  ],\n  \"plain\": {\n    \"headline\": \"Asking the classifier for fewer dimensions only changes the reshaped data, not its predictions, and that is how it was built.\",\n    \"happened\": \"A user set the number of components, then saw that predictions came out the same as with no limit. The setting is only used when the data is reshaped into fewer dimensions. Predictions always use the full model, and the documentation doesn't say so.\",\n    \"matters\": \"It confuses people who expect the setting to change predictions, but nothing is lost or broken.\",\n    \"fix\": \"Optionally add a sentence to the documentation saying the setting only affects reshaping. Making predictions use fewer dimensions would be a new feature for the team to decide on.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 5,
+  "inputTokens": {
+   "avg": 14206.4,
+   "max": 17620
+  },
+  "mainUsage": {
+   "inputTokens": 71032,
+   "cachedInputTokens": 60424,
+   "outputTokens": 3131
+  },
+  "cacheHitPercent": 85.06588579795022,
+  "wallSeconds": 25.39300012588501,
+  "tools": {
+   "read": 8,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 0
+  },
+  "reads": 8,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 2,
+   "readFile": 2,
+   "shell": 0,
+   "sameFile": 4,
+   "readFileIgnoringRange": 4
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.06990880000000001,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.06990880000000001
+}

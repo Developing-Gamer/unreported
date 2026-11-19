@@ -1,0 +1,8 @@
+[
+  {"source": "S1", "decision": "skip", "reason": "Already fixed in this checkout: EncodedFile.mode returns the buffer mode with 'b' stripped (src/_pytest/capture.py)."},
+  {"source": "S2", "decision": "fix", "reason": "unique_path() normcase-lowercased conftest paths on Windows before importing them, so package names like 'Python' were imported as 'python'."},
+  {"source": "S3", "decision": "skip", "reason": "Timeout in an unrelated webhook-relay service talking to api.github.com; not a defect in pytest."},
+  {"source": "S4", "decision": "fix", "reason": "_idval used a truthiness check on the pytest_make_parametrize_id result, so an explicit empty-string id was ignored although the hook spec only treats None as 'no answer'."},
+  {"source": "S5", "decision": "fix", "reason": "FastFilesCompleter used 'or' instead of 'and' when checking for glob wildcards, so it added '*' to prefixes like 'test_*.py' and matched .py.bak files."},
+  {"source": "S6", "decision": "fix", "reason": "The --pastebin=failed summary labeled each paste with the first traceback entry (the test call) instead of the last one (the failing line)."}
+]

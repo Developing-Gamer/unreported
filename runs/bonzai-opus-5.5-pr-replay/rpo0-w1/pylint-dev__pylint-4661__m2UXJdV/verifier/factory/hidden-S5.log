@@ -1,0 +1,76 @@
+..F                                                                      [100%]
+=================================== FAILURES ===================================
+_ TestQualifiedRaisesDocumentation.test_documented_exception_class_is_recognized[acme.errors.ValueError] _
+
+self = <test_hidden_S5.TestQualifiedRaisesDocumentation object at 0x7f0df7f747c0>
+documented_name = 'acme.errors.ValueError'
+
+        @pytest.mark.parametrize(
+            "documented_name",
+            ["ValueError", "errors.ValueError", "acme.errors.ValueError"],
+        )
+        def test_documented_exception_class_is_recognized(self, documented_name):
+            node = astroid.extract_node(
+                f'''
+    def validate():
+        """Validate the payload.
+    
+        :raises {documented_name}: If the payload is invalid.
+        """
+        raise ValueError("invalid payload")  #@
+    '''
+            )
+            with self.assertNoMessages():
+>               self.checker.visit_raise(node)
+
+/tmp/test_hidden_S5.py:27: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/miniconda3/envs/testbed/lib/python3.9/contextlib.py:126: in __exit__
+    next(self.gen)
+pylint/testutils/checker_test_case.py:29: in assertNoMessages
+    yield
+/opt/miniconda3/envs/testbed/lib/python3.9/contextlib.py:126: in __exit__
+    next(self.gen)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <test_hidden_S5.TestQualifiedRaisesDocumentation object at 0x7f0df7f747c0>
+messages = ()
+got = [Message(msg_id='missing-raises-doc', line=None, node=<FunctionDef.validate l.2 at 0x7f0df7f95b20>, args=('ValueError',), confidence=Confidence(name='UNDEFINED', description='Warning without any associated confidence level.'))]
+no_msg = 'No message.', expected = 'No message.'
+
+    @contextlib.contextmanager
+    def assertAddsMessages(self, *messages):
+        """Assert that exactly the given method adds the given messages.
+    
+        The list of messages must exactly match *all* the messages added by the
+        method. Additionally, we check to see whether the args in each message can
+        actually be substituted into the message string.
+        """
+        yield
+        got = self.linter.release_messages()
+        no_msg = "No message."
+        expected = "\n".join(repr(m) for m in messages) or no_msg
+        got_str = "\n".join(repr(m) for m in got) or no_msg
+        msg = (
+            "Expected messages did not match actual.\n"
+            f"\nExpected:\n{expected}\n\nGot:\n{got_str}\n"
+        )
+>       assert got == list(messages), msg
+E       AssertionError: Expected messages did not match actual.
+E       
+E       Expected:
+E       No message.
+E       
+E       Got:
+E       Message(msg_id='missing-raises-doc', line=None, node=<FunctionDef.validate l.2 at 0x7f0df7f95b20>, args=('ValueError',), confidence=Confidence(name='UNDEFINED', description='Warning without any associated confidence level.'))
+
+pylint/testutils/checker_test_case.py:48: AssertionError
+=============================== warnings summary ===============================
+../opt/miniconda3/envs/testbed/lib/python3.9/site-packages/astroid/interpreter/_import/util.py:6
+  /opt/miniconda3/envs/testbed/lib/python3.9/site-packages/astroid/interpreter/_import/util.py:6: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html
+    import pkg_resources
+
+-- Docs: https://docs.pytest.org/en/stable/warnings.html
+=========================== short test summary info ============================
+FAILED ../tmp/test_hidden_S5.py::TestQualifiedRaisesDocumentation::test_documented_exception_class_is_recognized[acme.errors.ValueError]
+1 failed, 2 passed, 1 warning in 0.71s

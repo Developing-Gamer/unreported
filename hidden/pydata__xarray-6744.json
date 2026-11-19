@@ -1,0 +1,30 @@
+{
+ "task": "pydata__xarray-6744",
+ "kept": [
+  {
+   "path": "xarray/testing.py",
+   "category": "silent wrong result (a value or output that is subtly wrong, no exception)",
+   "defect_patch": "diff --git a/xarray/testing.py b/xarray/testing.py\nindex 59737e1d..bdb55623 100644\n--- a/xarray/testing.py\n+++ b/xarray/testing.py\n@@ -155,7 +155,9 @@ def assert_allclose(a, b, rtol=1e-05, atol=1e-08, decode_bytes=True):\n         a = getattr(a, \"variable\", a)\n         b = getattr(b, \"variable\", b)\n \n-        return a.dims == b.dims and (a._data is b._data or equiv(a.data, b.data))\n+        return set(a.dims) == set(b.dims) and (\n+            a._data is b._data or equiv(a.data, b.data)\n+        )\n \n     if isinstance(a, Variable):\n         allclose = compat_variable(a, b)\n",
+   "test_code": "import numpy as np\nimport pytest\nimport xarray as xr\nfrom xarray.testing import assert_allclose\n\n\n@pytest.mark.parametrize(\"kind\", [\"variable\", \"dataarray\", \"dataset\"])\ndef test_allclose_checks_dimension_order(kind):\n    values = np.array([[1.0, 2.0], [3.0, 4.0]])\n    left = xr.Variable((\"row\", \"column\"), values)\n    right = xr.Variable((\"column\", \"row\"), values.copy())\n\n    if kind == \"dataarray\":\n        left = xr.DataArray(left)\n        right = xr.DataArray(right)\n    elif kind == \"dataset\":\n        left = xr.Dataset({\"reading\": left})\n        right = xr.Dataset({\"reading\": right})\n\n    rejected = False\n    try:\n        assert_allclose(left, right)\n    except AssertionError:\n        rejected = True\n\n    assert rejected, \"Different dimension orders must not compare equal positionally\"\n",
+   "signal": {
+    "kind": "user",
+    "source": "data-export-support",
+    "text": "Validation still reports success for the exported square grids, but checking a few off-diagonal cells shows different readings from the source."
+   },
+   "summary": "The approximate comparison treats dimension names as an unordered set, silently accepting matching positional values attached to different dimension orders."
+  },
+  {
+   "path": "xarray/util/generate_ops.py",
+   "category": "silent wrong result (a value or output that is subtly wrong, no exception)",
+   "defect_patch": "diff --git a/xarray/util/generate_ops.py b/xarray/util/generate_ops.py\nindex f90346ed..ff143247 100644\n--- a/xarray/util/generate_ops.py\n+++ b/xarray/util/generate_ops.py\n@@ -84,7 +84,7 @@ template_unary = \"\"\"\n         return self._unary_op({func})\"\"\"\n template_other_unary = \"\"\"\n     def {method}(self, *args, **kwargs):\n-        return self._unary_op({func}, *args, **kwargs)\"\"\"\n+        return self._unary_op({func}, *args)\"\"\"\n required_method_unary = \"\"\"\n     def _unary_op(self, f, *args, **kwargs):\n         raise NotImplementedError\"\"\"\n",
+   "test_code": "import xarray as xr\nfrom xarray.util import generate_ops\n\n\ndef test_generated_round_preserves_decimal_keyword(monkeypatch):\n    source = \"\\n\".join(generate_ops.render(generate_ops.ops_info, is_module=True))\n    namespace = {\n        \"__name__\": \"xarray.core._generated_ops_test\",\n        \"__package__\": \"xarray.core\",\n    }\n    exec(compile(source, \"<generated operators>\", \"exec\"), namespace)\n\n    # Exercise the generated wrapper with the library's real array implementation.\n    monkeypatch.setattr(\n        xr.DataArray, \"round\", namespace[\"DataArrayOpsMixin\"].round\n    )\n    data = xr.DataArray([1.234, 5.678], dims=\"sample\")\n    expected = xr.DataArray([1.23, 5.68], dims=\"sample\")\n\n    xr.testing.assert_identical(data.round(2), expected)\n    xr.testing.assert_identical(data.round(decimals=2), expected)\n",
+   "signal": {
+    "kind": "user",
+    "source": "analytics-export-support",
+    "text": "The nightly export now shows whole numbers in the measurement column even though the job is configured to retain two decimal places. Row counts and timestamps still look normal."
+   },
+   "summary": "Generated unary-method wrappers silently discard keyword arguments, causing calls such as round(decimals=2) to use default precision."
+  }
+ ],
+ "rejected": []
+}

@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 24808,
+ "finalText": "I confirmed that `.factory/pr-S5.md` exists. I made no code changes and opened no pull request. Open PR #1000 already fixes the same root cause, so I'm reporting \"failed\" with `coveredBy: 1000`. I did not run any tests or reproduce the error.\n\nThe cause is as the investigation described. `PreparedRequest.prepare_method` only called `.upper()`, so a unicode method stayed unicode on Python 2. httplib then raised the `UnicodeDecodeError` when joining it with the non-ASCII byte body.\n\n#1000 changes that line to `to_native_string(self.method.upper())`. `Session.request`, `Request.prepare` and `Session.prepare_request` all go through `prepare_method`, so that one change covers every path. The extra `builtin_str` conversion in `Session.request` that the investigation proposed is redundant.\n\nThe #1000 change and its `test_unicode_method_name` test are already uncommitted in the working tree, and I left them as they were.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"failed\",\n  \"coveredBy\": 1000,\n  \"what_failed\": \"No new pull request: open PR #1000 already fixes the same root cause. PreparedRequest.prepare_method only called .upper(), so a unicode method stayed unicode on Python 2 and httplib raised UnicodeDecodeError when joining it with a non-ASCII byte body. #1000 converts it with to_native_string(self.method.upper()), and Session.request, Request.prepare and Session.prepare_request all go through prepare_method. The Session.request change from the investigation is redundant. No checks were run and the error was not reproduced here.\",\n  \"checks\": [],\n  \"visual\": false,\n  \"missingEnv\": []\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 7,
+  "inputTokens": {
+   "avg": 21606.285714285714,
+   "max": 24091
+  },
+  "mainUsage": {
+   "inputTokens": 151244,
+   "cachedInputTokens": 141053,
+   "outputTokens": 3097
+  },
+  "cacheHitPercent": 93.2618814630663,
+  "wallSeconds": 24.388000011444092,
+  "tools": {
+   "read": 6,
+   "edit": 2,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 0
+  },
+  "reads": 6,
+  "edits": 2,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 2,
+  "editOperations": 2,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.0846491,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.0846491
+}

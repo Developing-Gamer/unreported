@@ -1,0 +1,13 @@
+diff --git a/lib/matplotlib/_api/deprecation.py b/lib/matplotlib/_api/deprecation.py
+index 7c304173b2..52848ce86d 100644
+--- a/lib/matplotlib/_api/deprecation.py
++++ b/lib/matplotlib/_api/deprecation.py
+@@ -293,7 +293,7 @@ def rename_parameter(since, old, new, func=None):
+                 since, message=f"The {old!r} parameter of {func.__name__}() "
+                 f"has been renamed {new!r} since Matplotlib {since}; support "
+                 f"for the old name will be dropped %(removal)s.")
+-            kwargs[new] = kwargs.pop(old)
++            kwargs.setdefault(new, kwargs.pop(old))
+         return func(*args, **kwargs)
+ 
+     # wrapper() must keep the same documented signature as func(): if we

@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 29704,
+ "finalText": "This signal doesn't come from this repository. The repo is Django itself, and it has no code that matches the evidence.\n\n```json\n{\n  \"verdict\": \"notActionable\",\n  \"title\": \"Export job memory kill is not from this repo\",\n  \"cause\": \"The error comes from a separate `export-job` service whose pods hit a 512Mi memory limit while building a nightly CSV. The files it names (`export/worker.py`, `export/csv_writer.py`) don't exist in this checkout, and a search for `csv_writer`, `export-job` and `OOMKilled` found no matches. The checkout is the Django framework source, which has no nightly CSV export job. The likely cause is that the job's own code builds the whole CSV in memory before flushing it. A fix belongs in that service, or in its memory limit.\",\n  \"files\": [],\n  \"plan\": [\n    \"Fix this in the export-job service's own repository, not in Django.\",\n    \"Have that job write the CSV to disk or storage in chunks and flush as it goes, instead of building it all in memory. Alternatively, raise the pod memory limit.\"\n  ],\n  \"verification\": [\n    \"Searched the workspace for the export files and the error text: no results.\",\n    \"Globbed for any worker.py or csv_writer.py: none exist.\"\n  ],\n  \"userFacing\": false,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"n/a for this repo\",\n  \"risk\": \"none\",\n  \"confidence\": 0.9,\n  \"deliberate\": false,\n  \"fixType\": \"performance\",\n  \"plain\": {\n    \"headline\": \"A nightly export job was killed for using too much memory, but the job's code isn't in this project.\",\n    \"happened\": \"The nightly data export ran out of memory and its server container was shut down. The files named in the error don't exist in this codebase, which is the Django web framework.\",\n    \"matters\": \"It affects whoever owns the separate export service, and anyone waiting on its nightly file.\",\n    \"fix\": \"The export service's owners should make it write the file in pieces instead of all at once, or give it more memory.\"\n  },\n  \"ruledOut\": [\n    {\n      \"id\": \"r1\",\n      \"hypothesis\": \"A Django CSV export helper in this repo causes the memory growth.\",\n      \"why\": \"No matching files or strings exist in the repo.\"\n    }\n  ],\n  \"intendedBehavior\": \"The nightly CSV export finishes within its memory limit by streaming rows rather than holding the whole file in memory.\"\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 3,
+  "inputTokens": {
+   "avg": 12063.333333333334,
+   "max": 12248
+  },
+  "mainUsage": {
+   "inputTokens": 36190,
+   "cachedInputTokens": 30958,
+   "outputTokens": 1103
+  },
+  "cacheHitPercent": 85.54296767062725,
+  "wallSeconds": 26.917999982833862,
+  "tools": {
+   "read": 3,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 0
+  },
+  "reads": 3,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.0302976,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.0302976
+}

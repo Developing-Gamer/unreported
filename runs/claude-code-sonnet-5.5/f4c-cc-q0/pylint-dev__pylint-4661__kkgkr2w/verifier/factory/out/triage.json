@@ -1,0 +1,8 @@
+[
+ {"source":"S1","decision":"fix","reason":"protected-access was still emitted for instance attribute access inside a staticmethod of the same class; only classmethods were exempted."},
+ {"source":"S2","decision":"fix","reason":"Default data dir was always ~/.pylint.d; it now follows XDG ($XDG_CACHE_HOME/pylint) using only the stdlib, keeping an existing legacy dir."},
+ {"source":"S3","decision":"skip","reason":"This checkout never imports appdirs (and doesn't declare it as a dependency); the XDG fix deliberately avoids adding that dependency, so no code defect here."},
+ {"source":"S4","decision":"fix","reason":"LintModuleTest.multiset_difference computed 'unexpected' from a Counter subtraction that drops negatives, so extra warnings were never listed in the mismatch summary."},
+ {"source":"S5","decision":"fix","reason":"docparams used split('.', 1)[-1] on documented exception names, so names with more than one dot (a.b.ValueError) never matched and raised false missing-raises-doc."},
+ {"source":"S6","decision":"skip","reason":"A Stripe/requests connection error from a billing-worker service is unrelated to this repository's code."}
+]

@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 85274,
+ "finalText": "`roc_curve` in this repository gives a first threshold above 1 when the scores are probabilities. The defect is still in the current code and is fixable with a one-line change plus test and release-note updates.\n\n**What users get:** when you pass probability scores (between 0 and 1), the first threshold returned is above 1, which isn't a valid probability. Anyone who range-checks the thresholds, or picks a cut-off from them, gets an impossible value.\n\n**Cause:** to make the curve start at (0, 0), `roc_curve` adds an extra first threshold set to the highest score plus 1 (`sklearn/metrics/_ranking.py` line 1086). Its docstring calls this value \"arbitrarily set to `max(y_score) + 1`\".\n\n**What I checked:**\n- **Reproduction:** with the issue's own input (seed 42, 10 random scores) on this checkout (1.3.dev0), the first threshold is 1.97 while the highest score is 0.97.\n- **Existing tests:** all 17 `roc_curve` tests pass. One of them (`test_roc_curve_drop_intermediate`, `sklearn/metrics/tests/test_ranking.py` line 421) explicitly expects `2.0` as the first threshold, so it has to change with the fix.\n- **Not already fixed:** the only commit available here is a snapshot, and the 1.3 release notes don't mention `roc_curve`.\n- **Intent:** adding the extra starting threshold was deliberate. Its exact value was only ever \"arbitrary\", and nothing records a choice to return a value above 1 for probabilities, so I'm treating it as a defect.\n\n**Fix:** use infinity (`np.inf`) as the first threshold instead of the highest score plus 1. It still means \"nothing is predicted positive\" and can never look like a real probability. The curve's points and AUC (the area under it) don't change, but any code that expects a finite first threshold will now see infinity.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"roc_curve returns a threshold above 1 for probabilities\",\n  \"cause\": \"roc_curve prepends an extra threshold so the curve starts at (0, 0), and sets it to thresholds[0] + 1 (max(y_score) + 1). When y_score are probability estimates in [0, 1], that first threshold lands in (1, 2], outside the valid probability range, so callers who validate or reuse thresholds get an impossible value.\",\n  \"files\": [\n    {\"path\": \"sklearn/metrics/_ranking.py\", \"why\": \"Line 1086 builds the extra threshold as thresholds[0] + 1; the docstring at lines 1021-1022 documents it as max(y_score) + 1.\"},\n    {\"path\": \"sklearn/metrics/tests/test_ranking.py\", \"why\": \"test_roc_curve_drop_intermediate (lines 421, 427) asserts the 2.0 first threshold; needs updating and a new non-regression test from the issue.\"},\n    {\"path\": \"doc/whats_new/v1.3.rst\", \"why\": \"Changelog entry for the changed value of thresholds[0].\"}\n  ],\n  \"plan\": [\n    \"In roc_curve, replace `thresholds = np.r_[thresholds[0] + 1, thresholds]` with `thresholds = np.r_[np.inf, thresholds]`.\",\n    \"Update the docstring to say thresholds[0] is np.inf and represents no instances predicted positive.\",\n    \"Update test_roc_curve_drop_intermediate's expected first threshold from 2.0 to np.inf.\",\n    \"Add test_roc_curve_with_probablity_estimates from the issue, asserting all thresholds except the first sentinel lie in [0, 1] (or that thresholds[0] is inf).\",\n    \"Add a v1.3 changelog entry describing the change.\"\n  ],\n  \"verification\": [\n    \"Run pytest sklearn/metrics/tests/test_ranking.py -k roc_curve and confirm all pass with the updated expectations.\",\n    \"With rng=RandomState(42), y_true=rng.randint(0,2,10), y_score=rng.rand(10): roc_curve(...)[2][0] is inf and all other thresholds are within [0, 1].\",\n    \"Run the RocCurveDisplay tests and the doctests in _ranking.py to catch any consumer relying on a finite first threshold.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low: only thresholds[0] changes; fpr/tpr and AUC are unchanged, but code that expects a finite first threshold sees inf\",\n  \"confidence\": 0.9,\n  \"fixType\": \"error\",\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"roc_curve sets the extra leading threshold to one more than the highest score, which exceeds 1 whenever the scores are probabilities.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"sklearn/metrics/_ranking.py:1086\", \"quote\": \"thresholds = np.r_[thresholds[0] + 1, thresholds]\"},\n      {\"type\": \"code\", \"ref\": \"sklearn/metrics/_ranking.py:1022\", \"quote\": \"and is arbitrarily set to `max(y_score) + 1`.\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"trigger\", \"text\": \"Running the issue's input on this checkout returns a first threshold of 1.97 for probability scores whose maximum is 0.97.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:python roc_curve repro\", \"quote\": \"[1.96990985 0.96990985 0.21233911 0.18182497 0.15599452 0.02058449] 0.9699098521619943 False\"},\n      {\"type\": \"evidence\", \"ref\": \"ev_s5\", \"quote\": \"Thresholds can exceed 1 in `roc_curve` while providing probability estimate\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"other\", \"text\": \"An existing test asserts the arbitrary +1 value for scores in [0, 1], so it must be updated together with the fix.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"sklearn/metrics/tests/test_ranking.py:421\", \"quote\": \"assert_array_almost_equal(thresholds, [2.0, 1.0, 0.7, 0.0])\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"impact\", \"text\": \"Users who pass predict_proba output and check or reuse thresholds as probabilities get a value outside [0, 1].\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s5\", \"quote\": \"I found out that something was odd with `roc_curve` that returns a threshold greater than 1\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"Already fixed in the current code or noted as a deliberate change in the release notes.\", \"why\": \"The current code still adds +1 and the v1.3 release notes have no roc_curve entry.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"sklearn/metrics/_ranking.py:1086\", \"quote\": \"thresholds = np.r_[thresholds[0] + 1, thresholds]\"}\n    ]},\n    {\"hypothesis\": \"Existing tests would catch the out-of-range threshold.\", \"why\": \"All 17 roc_curve tests pass; one even asserts the 2.0 sentinel.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:pytest test_ranking.py -k roc_curve\", \"quote\": \"17 passed, 187 deselected\"}\n    ]}\n  ],\n  \"intendedBehavior\": \"For y_score in [0, 1], roc_curve returns thresholds[0] == np.inf and every other threshold within [0, 1].\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"The extra leading threshold, which makes the curve start at (0, 0), is deliberate (code comment 'Add an extra threshold position to make sure that the curve starts at (0, 0)'). Its value is described as 'arbitrarily set to max(y_score) + 1', and no changelog or comment chose a threshold above 1 for probability inputs. The test asserting 2.0 only pins the arbitrary value.\"},\n  \"plain\": {\n    \"headline\": \"The tool that draws ROC curves (how well a model separates two groups) reports a cut-off above 100% even when the model's scores are probabilities, because it adds one to the top score to make a starting point.\",\n    \"happened\": \"To start the curve at zero, the library adds an extra cut-off before all the real ones. It sets that cut-off to the highest score plus one. When the scores are probabilities between 0 and 1, that extra cut-off is above 1, which is not a valid probability.\",\n    \"matters\": \"Anyone who checks the cut-offs or picks one from them for a model that outputs probabilities gets an impossible value.\",\n    \"fix\": \"Use 'infinity' for the extra starting cut-off so it always means 'nothing is flagged' and never looks like a real probability, and update the tests and release notes.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 9,
+  "inputTokens": {
+   "avg": 16226.666666666666,
+   "max": 21885
+  },
+  "mainUsage": {
+   "inputTokens": 146040,
+   "cachedInputTokens": 131159,
+   "outputTokens": 8495
+  },
+  "cacheHitPercent": 89.81032593809915,
+  "wallSeconds": 84.48200011253357,
+  "tools": {
+   "read": 4,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 3
+  },
+  "reads": 4,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.2705148,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.2705148
+}

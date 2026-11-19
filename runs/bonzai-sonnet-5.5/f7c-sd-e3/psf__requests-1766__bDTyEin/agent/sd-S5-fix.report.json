@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 33948,
+ "finalText": "The fix and its test are in place and verified, so no further changes were needed.\n\n`git status` also shows changes I did not make. `requests/auth.py`, `requests/cacert.pem` and `requests/packages/urllib3/response.py` are modified, and `test_requests.py` has extra tests for Digest qop, `tell()` and the CA bundle. These match open pull requests #1000, #1001 and #1002, and were already in the working tree. I left them alone. My change is only `requests/api.py` and `test_requests.py::test_head_allow_redirects_is_honoured`, so the final diff will carry those other changes too.\n\nThe report below is the same as before.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"checks\": [\n    {\n      \"name\": \"pytest test_requests.py -k test_head_allow_redirects_is_honoured\",\n      \"passed\": true\n    }\n  ],\n  \"visual\": false,\n  \"reproduction\": \"Run a local HTTP server where HEAD /c returns 301 with Location /d and HEAD /d returns 200. Call requests.head('http://127.0.0.1:PORT/c', allow_redirects=True): it returned 301 before the fix and returns 200 (one history entry) after. requests.head(url) with no argument still returns 301.\",\n  \"reproductionTest\": {\n    \"path\": \"test_requests.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest test_requests.py -k test_head_allow_redirects_is_honoured\",\n    \"signature\": \"assert 301 == 200\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 12,
+  "inputTokens": {
+   "avg": 23864.166666666668,
+   "max": 27332
+  },
+  "mainUsage": {
+   "inputTokens": 286370,
+   "cachedInputTokens": 272926,
+   "outputTokens": 3762
+  },
+  "cacheHitPercent": 95.30537416628837,
+  "wallSeconds": 33.133999824523926,
+  "tools": {
+   "read": 8,
+   "edit": 3,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 3
+  },
+  "reads": 8,
+  "edits": 3,
+  "runs": 3,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 2,
+  "editOperations": 2,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1258012,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1258012
+}

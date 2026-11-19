@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 32997,
+ "finalText": "The feature is not implemented in the current code. This is a feature request that the maintainers' own TODO notes anticipate.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Nominal axes don't get categorical-style drawing\",\n  \"cause\": \"In the objects interface, Nominal scales (explicit or inferred) are set up as plain linear scales. Nothing in the code applies the three categorical-axis conventions: padding of \u00b10.5 around the first and last tick, hiding the grid, and inverting the y axis. The TODO in Nominal._setup says as much. Only the PseudoAxis view interval is set, and only for non-coordinate use. The per-subplot loop in Plot._setup_scales sets the scale on the matplotlib axis and does nothing else.\",\n  \"files\": [\n    {\"path\": \"seaborn/_core/plot.py\", \"why\": \"Plot._setup_scales: after set_scale_obj for coordinate axes, nothing applies categorical axis finishing. The finalize step (_finalize_figure) is the natural place to add it.\"},\n    {\"path\": \"seaborn/_core/scales.py\", \"why\": \"Nominal._setup: TODO notes padding is not set. Nominal has no hook for axis-level styling.\"}\n  ],\n  \"plan\": [\n    \"In Plot._finalize_figure, for each subplot axis whose scale is a Nominal instance, turn the grid off for that axis (ax.xaxis.grid(False) or ax.yaxis.grid(False)).\",\n    \"In the same place, set the limits to (-0.5, n-1+0.5) from the number of categories, or add a sticky-edge artist so margins are bypassed. Respect any user-specified limit() and don't override it.\",\n    \"For a Nominal y axis, invert it, unless the user set limits explicitly.\",\n    \"Handle shared axes and facets so the limits cover every category on the shared axis.\",\n    \"Add tests for inferred and explicit Nominal on x and y, with a grid style active.\"\n  ],\n  \"verification\": [\n    \"New tests in tests/_core/test_plot.py: with Plot(x=['a','b','c'], y=[1,2,3]).add(...) the x limits are (-0.5, 2.5) and the x grid lines are not visible under a darkgrid style.\",\n    \"A test that a nominal y axis comes out inverted, e.g. ax.yaxis_inverted() is True.\",\n    \"A test that an explicit .limit() still takes precedence.\",\n    \"Run tests/_core and tests/_marks.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"likely\",\n  \"effort\": \"medium\",\n  \"risk\": \"medium: matplotlib limit and margin handling with shared and faceted axes is tricky, and the issue says so.\",\n  \"confidence\": 0.7,\n  \"deliberate\": false,\n  \"intent\": \"Not deliberate. It is an unimplemented enhancement, and the TODO in Nominal._setup says padding for categorical plots is still to do. No changelog entry or test says nominal axes should keep margin-based limits, a grid and a non-inverted y.\",\n  \"fixType\": \"frustration\",\n  \"intendedBehavior\": \"A Plot with a Nominal x or y scale draws its axis with \u00b10.5 padding beyond the first and last category, shows no grid on that axis, and inverts the axis when it is y.\",\n  \"claims\": [\n    {\n      \"id\": \"c1\",\n      \"text\": \"Nominal._setup builds a plain LinearScale subclass and only sets a view interval on a PseudoAxis. No padding, grid or inversion logic exists, and a TODO says the padding is not yet handled.\",\n      \"role\": \"rootCause\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"seaborn/_core/scales.py:190\", \"quote\": \"# TODO Currently just used in non-Coordinate contexts, but should\"}\n      ]\n    },\n    {\n      \"id\": \"c2\",\n      \"text\": \"For coordinate variables, Plot._setup_scales just sets the scale on each axis and applies no categorical-specific axis styling.\",\n      \"role\": \"rootCause\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"seaborn/_core/plot.py:1276\", \"quote\": \"set_scale_obj(view[\\\"ax\\\"], axis, view_scale._matplotlib_scale)\"}\n      ]\n    }\n  ],\n  \"ruledOut\": [\n    {\n      \"why\": \"A search of seaborn/_core for grid, margins, invert, set_xlim/set_ylim and sticky found no handling for nominal axes, so no existing code or open PR covers this.\",\n      \"hypothesis\": \"Already implemented elsewhere\",\n      \"citations\": []\n    }\n  ],\n  \"plain\": {\n    \"headline\": \"Charts with category axes in the newer interface look different from seaborn's classic category charts.\",\n    \"happened\": \"Classic category charts pad half a step beyond the first and last category, hide the grid, and put the first category at the top of a vertical axis. The newer interface treats category axes like ordinary number axes, so none of that happens. Someone filed this as a request to make the two match.\",\n    \"matters\": \"Anyone who builds category charts with the newer interface gets edge-cramped bars, distracting grid lines, and a reversed category order on vertical axes.\",\n    \"fix\": \"When an axis is made of categories, add the half-step padding, turn off the grid, and flip a vertical axis.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 4,
+  "inputTokens": {
+   "avg": 14583,
+   "max": 17315
+  },
+  "mainUsage": {
+   "inputTokens": 58332,
+   "cachedInputTokens": 48031,
+   "outputTokens": 2335
+  },
+  "cacheHitPercent": 82.34073921689638,
+  "wallSeconds": 25.098999977111816,
+  "tools": {
+   "read": 5,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 0
+  },
+  "reads": 5,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.058703700000000004,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.058703700000000004
+}

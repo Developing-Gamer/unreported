@@ -1,0 +1,46 @@
+{
+ "task": "django__django-13406",
+ "kept": [
+  {
+   "path": "django/utils/dateformat.py",
+   "category": "silent wrong result (a value or output that is subtly wrong, no exception)",
+   "defect_patch": "diff --git a/django/utils/dateformat.py b/django/utils/dateformat.py\nindex afd36d79e0..72b3aca7f2 100644\n--- a/django/utils/dateformat.py\n+++ b/django/utils/dateformat.py\n@@ -277,7 +277,7 @@ class DateFormat(TimeFormat):\n \n     def o(self):\n         \"ISO 8601 year number matching the ISO week number (W)\"\n-        return self.data.isocalendar()[0]\n+        return self.data.year\n \n     def r(self):\n         \"RFC 5322 formatted date; e.g. 'Thu, 21 Dec 2000 16:01:07 +0200'\"\n",
+   "test_code": "import datetime\n\nimport pytest\n\nfrom django.utils.dateformat import format as date_format\n\n\n@pytest.mark.parametrize(\n    'value, expected',\n    [\n        (datetime.date(2018, 12, 31), '2019-1'),\n        (datetime.date(2019, 12, 30), '2020-1'),\n        (datetime.date(2021, 1, 1), '2020-53'),\n        (datetime.date(2021, 1, 3), '2020-53'),\n        (datetime.date(2021, 1, 4), '2021-1'),\n        (datetime.date(2021, 6, 16), '2021-24'),\n    ],\n)\ndef test_iso_week_year_stays_aligned_with_week_number(value, expected):\n    assert date_format(value, 'o-W') == expected\n",
+   "signal": {
+    "kind": "user",
+    "source": "Reporting support inbox",
+    "text": "The weekly export labels January 1 as '2021-53', but the December dates in that same reporting week are labeled '2020-53'. Daily totals still look correct."
+   },
+   "summary": "The ISO week-year specifier returns the calendar year, producing incorrect year labels for dates whose ISO week belongs to an adjacent year."
+  },
+  {
+   "path": "django/views/defaults.py",
+   "category": "swallowed error (an exception caught and ignored, or an error path that returns a default)",
+   "defect_patch": "diff --git a/django/views/defaults.py b/django/views/defaults.py\nindex 2fb0d0b38c..1873a40d56 100644\n--- a/django/views/defaults.py\n+++ b/django/views/defaults.py\n@@ -86,6 +86,7 @@ def server_error(request, template_name=ERROR_500_TEMPLATE_NAME):\n     \"\"\"\n     try:\n         template = loader.get_template(template_name)\n+        return HttpResponseServerError(template.render())\n     except TemplateDoesNotExist:\n         if template_name != ERROR_500_TEMPLATE_NAME:\n             # Reraise if it's a missing custom template.\n@@ -94,7 +95,6 @@ def server_error(request, template_name=ERROR_500_TEMPLATE_NAME):\n             ERROR_PAGE_TEMPLATE % {'title': 'Server Error (500)', 'details': ''},\n             content_type='text/html',\n         )\n-    return HttpResponseServerError(template.render())\n \n \n @requires_csrf_token\n",
+   "test_code": "import django\nfrom django.conf import settings\nfrom django.template import TemplateDoesNotExist\nfrom django.test import RequestFactory, override_settings\nfrom django.views.defaults import server_error\n\n\ndef test_server_error_propagates_missing_included_template():\n    if not settings.configured:\n        settings.configure(\n            SECRET_KEY='error-page-test',\n            INSTALLED_APPS=[],\n            USE_I18N=False,\n        )\n    django.setup()\n\n    missing_template = 'errors/support_details.html'\n    templates = [{\n        'BACKEND': 'django.template.backends.django.DjangoTemplates',\n        'APP_DIRS': False,\n        'OPTIONS': {\n            'loaders': [\n                ('django.template.loaders.locmem.Loader', {\n                    '500.html': (\n                        '<h1>Service unavailable</h1>'\n                        \"{% include 'errors/support_details.html' %}\"\n                    ),\n                }),\n            ],\n        },\n    }]\n\n    caught = None\n    with override_settings(DEBUG=False, TEMPLATES=templates):\n        request = RequestFactory().get('/failed-operation/')\n        try:\n            server_error(request)\n        except TemplateDoesNotExist as exc:\n            caught = exc\n\n    assert caught is not None, 'Rendering failures must not become a generic error page.'\n    assert missing_template in str(caught)\n",
+   "signal": {
+    "kind": "user",
+    "source": "customer-support",
+    "text": "Since the latest deployment, internal-error responses sometimes show only \u201cServer Error (500)\u201d instead of our usual branded page."
+   },
+   "summary": "Moving the 500 response rendering inside the template-lookup try block silently replaces missing-template errors from nested includes with the built-in fallback page."
+  }
+ ],
+ "rejected": [
+  {
+   "path": "django/contrib/gis/gdal/geometries.py",
+   "category": "silent wrong result (a value or output that is subtly wrong, no exception)",
+   "defect_patch": "--- a/django/contrib/gis/gdal/geometries.py\n+++ b/django/contrib/gis/gdal/geometries.py\n@@ -638,7 +638,7 @@\n     def z(self):\n         \"Return the Z coordinates in a list.\"\n         if self.coord_dim == 3:\n-            return self._listarr(capi.getz)\n+            return self._listarr(capi.gety)\n \n \n # LinearRings are used in Polygons.\n",
+   "test_code": "from django.contrib.gis.gdal import OGRGeometry\n\n\ndef test_linestring_elevations_match_vertex_coordinates():\n    route = OGRGeometry('LINESTRING Z (10 20 3, 11 25 8, 14 31 -2)')\n\n    assert route.coord_dim == 3\n    assert route.z == [3.0, 8.0, -2.0]\n    assert route.z == [route[i][2] for i in range(len(route))]\n",
+   "signal": {
+    "kind": "user",
+    "source": "route-planning support",
+    "text": "Some imported 3D tracks display in the right place, but their elevation profiles are wrong. Inspecting the individual waypoints still shows the expected heights."
+   },
+   "summary": "The LineString Z-coordinate accessor returns Y coordinates instead of elevations for three-dimensional lines.",
+   "reject": "test does not separate defect from original",
+   "on_defect": "mmary info ============================\nERROR ../tmp/test_hidden_problem.py - django.core.exceptions.ImproperlyConfig...\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n1 error in 0.14s\n",
+   "on_clean": "mmary info ============================\nERROR ../tmp/test_hidden_problem.py - django.core.exceptions.ImproperlyConfig...\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n1 error in 0.13s\n"
+  }
+ ]
+}

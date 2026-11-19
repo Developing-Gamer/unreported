@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 61768,
+ "finalText": "`FITSDiff` now reports a file with a 64-bit variable-length column (`QD` and similar) as identical to itself. I left the change uncommitted, as the benchmark note asked. I re-checked that `.factory/pr-S2.md` and the changelog file exist and that the diff is limited to `diff.py` and `test_diff.py`.\n\n`TableDataDiff` only used its row-by-row comparison for `P` columns. `Q` columns went through `np.where(arra != arrb)` on an object array and raised \"The truth value of an array with more than one element is ambiguous\". I changed the condition in `astropy/io/fits/diff.py` to cover both `P` and `Q`.\n\nI also made rows of different length count as different. Without that, a one-element row can broadcast against a longer row and compare equal.\n\n**Tests**\n- **New tests:** in `astropy/io/fits/tests/test_diff.py`, I added the identical-file check for `PD` and `QD` from the issue, and a differing-rows check (one row differs in value, one in length).\n- **Before the fix:** 3 of the 4 new cases failed. The `QD` cases raised the ambiguous-truth-value `ValueError`, and the `PD` differing-rows case failed on the length-broadcast problem.\n- **After the fix:** `test_diff.py` and `test_table.py` together give 165 passed, 3 skipped, using `/opt/miniconda3/envs/testbed/bin/python`. The default `python` has no `astropy` dependencies.\n- **Environment:** I briefly pip-installed `numpy` and `pyerfa` into the default Python while looking for a working interpreter, then uninstalled both.\n\n**Other changes**\n- **Changelog:** I added `docs/changes/io.fits/14539.bugfix.rst`; the 14539 is a placeholder guess and should be renamed to the real PR number.\n- **PR text:** the pull request description is in `.factory/pr-S2.md`.\n- **Unrelated changes:** the working tree also had earlier changes to `name_resolve.py`, its test and `docs/changes/coordinates/14400.api.rst`. They belong to open PR #1000, which does not touch this problem, and I left them alone.\n\n```json\n{\n  \"kind\": \"fix\",\n  \"outcome\": \"ready\",\n  \"pullRequest\": null,\n  \"checks\": [\n    {\"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest astropy/io/fits/tests/test_diff.py astropy/io/fits/tests/test_table.py -q\", \"passed\": true}\n  ],\n  \"visual\": false,\n  \"reproduction\": \"Create fits.Column('a', format='QD', array=[[0],[0,0]]), build BinTableHDU.from_columns, writeto a file, then fits.FITSDiff(f, f). Before the fix it raises ValueError: The truth value of an array with more than one element is ambiguous (diff.py np.where(arra != arrb)).\",\n  \"reproductionTest\": {\n    \"path\": \"astropy/io/fits/tests/test_diff.py\",\n    \"command\": \"/opt/miniconda3/envs/testbed/bin/python -m pytest astropy/io/fits/tests/test_diff.py -q\",\n    \"signature\": \"ValueError: The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 13,
+  "inputTokens": {
+   "avg": 23221.23076923077,
+   "max": 28474
+  },
+  "mainUsage": {
+   "inputTokens": 301876,
+   "cachedInputTokens": 287288,
+   "outputTokens": 5855
+  },
+  "cacheHitPercent": 95.16755223999257,
+  "wallSeconds": 60.67700004577637,
+  "tools": {
+   "read": 4,
+   "edit": 4,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 5
+  },
+  "reads": 4,
+  "edits": 4,
+  "runs": 5,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 1,
+  "editOperations": 1,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1524626,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1524626
+}

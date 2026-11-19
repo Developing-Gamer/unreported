@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 71305,
+ "finalText": "The investigation is complete and nothing was edited. One correction from re-checking my citations: the `template.render()` call is on line 89 of `django/views/defaults.py`, not line 88. The corrected report is below.\n\n**Verdict: fixable.** `server_error` puts `loader.get_template()` and `template.render()` inside one `try/except TemplateDoesNotExist`. If `500.html` exists but something it extends or includes is missing, the error raised during render is caught. The view then returns the plain \"Server Error (500)\" page and the real error is hidden.\n\nI could not reproduce it: the probe sandbox has no `asgiref`, so Django wouldn't import. The finding comes from reading the code and the existing tests, so certainty is \"likely\".\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"500 page falls back to plain text when its template breaks\",\n  \"cause\": \"server_error wraps both get_template and template.render in one try/except TemplateDoesNotExist. If 500.html exists but something it extends or includes is missing, the exception raised during render is swallowed and the generic 'Server Error (500)' page is returned. The real error is hidden. bad_request in the same file already keeps render outside the try.\",\n  \"files\": [\n    {\"path\": \"django/views/defaults.py\", \"why\": \"server_error catches TemplateDoesNotExist raised during template.render(), not only during lookup\"},\n    {\"path\": \"tests/view_tests/tests/test_defaults.py\", \"why\": \"add a test where 500.html extends a missing template\"}\n  ],\n  \"plan\": [\n    \"In server_error, wrap only loader.get_template() in try/except TemplateDoesNotExist (keep the re-raise for custom template names and the generic fallback for the default name).\",\n    \"Call template.render() after the try block, as bad_request does, so errors from a broken 500.html surface instead of being hidden.\",\n    \"Add a test with a 500.html that extends a nonexistent template, asserting the failure is not turned into the generic page.\"\n  ],\n  \"verification\": [\n    \"Run tests/view_tests/tests/test_defaults.py; the existing missing-500.html fallback tests must still pass.\",\n    \"The new test fails before the change and passes after.\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"likely\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.6,\n  \"fixType\": \"error\",\n  \"deliberate\": false,\n  \"intent\": \"The generic page is deliberate only when 500.html does not exist (a test asserts it). Hiding a template error raised while rendering an existing 500.html was not chosen: bad_request keeps render outside the try.\",\n  \"intendedBehavior\": \"When 500.html exists, internal errors always show that template; the generic 'Server Error (500)' page appears only when 500.html itself is not found.\",\n  \"claims\": [\n    {\n      \"id\": \"c1\",\n      \"text\": \"get_template and render share one try/except TemplateDoesNotExist, so a missing parent or included template makes the branded page fall back to the generic one.\",\n      \"role\": \"rootCause\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"django/views/defaults.py:89\", \"quote\": \"return HttpResponseServerError(template.render())\"},\n        {\"type\": \"code\", \"ref\": \"django/views/defaults.py:95\", \"quote\": \"ERROR_PAGE_TEMPLATE % {'title': 'Server Error (500)', 'details': ''},\"}\n      ]\n    },\n    {\n      \"id\": \"c2\",\n      \"text\": \"bad_request keeps render outside the try block, showing the intended pattern.\",\n      \"role\": \"other\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"django/views/defaults.py:119\", \"quote\": \"return HttpResponseBadRequest(template.render())\"}\n      ]\n    }\n  ],\n  \"ruledOut\": [\n    {\n      \"hypothesis\": \"The exception handlers add a generic fallback of their own\",\n      \"why\": \"handle_uncaught_exception just calls the resolved 500 handler.\",\n      \"citations\": [\n        {\"type\": \"code\", \"ref\": \"django/core/handlers/exception.py:152\", \"quote\": \"callback = resolver.resolve_error_handler(500)\"}\n      ]\n    }\n  ],\n  \"plain\": {\n    \"headline\": \"Some error pages show a bare 'Server Error (500)' instead of our branded page because the error page itself can fail to load part of its design.\",\n    \"happened\": \"When something goes wrong, the site shows its error page. If a piece that page depends on (such as a shared layout) can't be found, the site quietly switches to a plain built-in page. It does not report that the branded page is broken.\",\n    \"matters\": \"Customers who hit an error see an unbranded page, and the team gets no sign that the error page is broken.\",\n    \"fix\": \"Only fall back to the plain page when the error page itself is missing, and let a broken error page show its real problem.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 9,
+  "inputTokens": {
+   "avg": 16693.88888888889,
+   "max": 21920
+  },
+  "mainUsage": {
+   "inputTokens": 150245,
+   "cachedInputTokens": 135329,
+   "outputTokens": 5711
+  },
+  "cacheHitPercent": 90.07221538154347,
+  "wallSeconds": 65.89599990844727,
+  "tools": {
+   "read": 7,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 2
+  },
+  "reads": 7,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.1214548,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.1214548
+}

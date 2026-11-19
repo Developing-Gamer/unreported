@@ -1,0 +1,25 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_____________ test_euctw_confidence_for_mixed_frequency_characters _____________
+
+    def test_euctw_confidence_for_mixed_frequency_characters():
+        analyzer = EUCTWDistributionAnalysis()
+        analyzer.reset()
+        # Eight frequent characters and twelve characters outside the frequent set.
+        characters = (
+            [b'\xc4\xa1'] * 4
+            + [b'\xc4\xf3'] * 4
+            + [b'\xc4\xa2'] * 12
+        )
+        for character in characters:
+            analyzer.feed(character, 2)
+    
+>       assert analyzer.get_confidence() == pytest.approx(8.0 / (12 * 0.75))
+E       assert 0.3333333333333333 == 0.888888888889 +- 8.9e-07
+E        +  where 0.3333333333333333 = <bound method EUCTWDistributionAnalysis.get_confidence of <requests.packages.charade.chardistribution.EUCTWDistributionAnalysis instance at 0x7f62ab3cc7d0>>()
+E        +    where <bound method EUCTWDistributionAnalysis.get_confidence of <requests.packages.charade.chardistribution.EUCTWDistributionAnalysis instance at 0x7f62ab3cc7d0>> = <requests.packages.charade.chardistribution.EUCTWDistributionAnalysis instance at 0x7f62ab3cc7d0>.get_confidence
+E        +  and   0.888888888889 +- 8.9e-07 = <function approx at 0x7f62ab7b2050>((8.0 / (12 * 0.75)))
+E        +    where <function approx at 0x7f62ab7b2050> = pytest.approx
+
+/tmp/test_hidden_S6.py:18: AssertionError
+1 failed in 0.12 seconds

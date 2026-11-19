@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 175320,
+ "finalText": "I checked the report once more: four citation quotes were too short to verify, so I swapped in longer quotes from the same lines I had read. The finding is unchanged.\n\n**What's wrong.** Matplotlib still accepts old, renamed parameter names so older scripts keep working. The code that does this is `rename_parameter` in `lib/matplotlib/_api/deprecation.py`. At line 296 it runs `kwargs.setdefault(new, kwargs.pop(old))`. Wrappers such as pyplot's, or a subclass calling `super()`, often pass the new name too, holding its default. When they do, that default wins and the value the script gave under the old name is thrown away. The only sign is a deprecation warning, so the chart comes out with default settings. This breaks the function's own docstring, which says the old name's value must win even when the new name is also passed. Scripts that use only the new names never go through this line, which matches \"older scripts are wrong, newer ones look right\".\n\n**How I confirmed it.** numpy isn't installed, so `matplotlib` can't be imported and the existing tests can't run. I loaded the `_api` package on its own and decorated a function `f(new=1)`:\n- `f(old=5)` returns 5, which is correct.\n- `f(new=1, old=5)` returns 1, the default. The 5 the caller asked for is lost.\n\n**Not the cause:** the old seaborn style names, the deprecated rcParams mappings (empty in this version), `rc()`'s short names like `lw` and `c`, and the property-alias handling. All of them pass the requested value through.\n\n**Fix:** change line 296 to `kwargs[new] = kwargs.pop(old)`, and add a test in `lib/matplotlib/tests/test_api.py` that `f(new=1, old=5)` returns 5 and still warns.\n\n```json\n{\n  \"verdict\": \"fixable\",\n  \"title\": \"Old parameter names silently fall back to defaults\",\n  \"cause\": \"The deprecation shim rename_parameter in lib/matplotlib/_api/deprecation.py maps an old (renamed) keyword to the new one with kwargs.setdefault(new, kwargs.pop(old)). When the new keyword is also present (pyplot-style wrappers and subclass super() calls pass it explicitly, usually holding its default), the old-name value is popped and discarded and the default wins. This contradicts the function's own docstring, so older scripts using deprecated names silently get default values while scripts using new names are unaffected.\",\n  \"files\": [\n    {\"path\": \"lib/matplotlib/_api/deprecation.py\", \"why\": \"rename_parameter wrapper (line 296) uses setdefault, so the old-name value loses to an explicitly passed new-name default\"},\n    {\"path\": \"lib/matplotlib/tests/test_api.py\", \"why\": \"place for a regression test covering old and new passed together (no existing test covers it)\"}\n  ],\n  \"plan\": [\n    \"In rename_parameter's wrapper, replace `kwargs.setdefault(new, kwargs.pop(old))` with `kwargs[new] = kwargs.pop(old)` so the old-name value always takes effect, as the docstring promises.\",\n    \"Add a test: a function decorated with rename_parameter('x', 'old', 'new') called as f(new=<default>, old=5) returns 5 and emits MatplotlibDeprecationWarning; f(old=5) returns 5; f(new=5) returns 5 with no warning.\"\n  ],\n  \"verification\": [\n    \"Run pytest lib/matplotlib/tests/test_api.py lib/matplotlib/tests/test_pyplot.py::test_copy_docstring_and_deprecators.\",\n    \"Check that f(new=1, old=5) returns 5 after the fix (it returns 1 today).\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"small\",\n  \"risk\": \"low\",\n  \"confidence\": 0.8,\n  \"fixType\": \"silentFailure\",\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"rename_parameter maps the old keyword with setdefault, so an explicitly passed new keyword (even its default) overrides the value the caller gave under the old name.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/_api/deprecation.py:296\", \"quote\": \"kwargs.setdefault(new, kwargs.pop(old))\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"rootCause\", \"text\": \"The shim's own contract says the old-name value must win even when the new name is also passed, because pyplot wrappers always pass the new name explicitly.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/_api/deprecation.py:262\", \"quote\": \"is passed to *func*, a DeprecationWarning is emitted, and its value is\"},\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/_api/deprecation.py:263\", \"quote\": \"used, even if *new* is also passed by keyword (this is to simplify pyplot\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"trigger\", \"text\": \"A probe with the shim loaded on its own showed the old-name value being dropped when new is also passed with its default.\", \"citations\": [\n      {\"type\": \"query\", \"ref\": \"probe:python rename_parameter check\", \"quote\": \"both (new passed explicitly with default): 1\"}\n    ]},\n    {\"id\": \"c4\", \"role\": \"impact\", \"text\": \"Several public APIs go through this shim with deprecated names that older scripts still use, including offset transforms, pick radius and tick labels.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/collections.py:223\", \"quote\": \"@_api.rename_parameter(\\\"3.6\\\", \\\"transOffset\\\", \\\"offset_transform\\\")\"},\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/axis.py:1917\", \"quote\": \"@_api.rename_parameter(\\\"3.7\\\", \\\"ticklabels\\\", \\\"labels\\\")\"},\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/collections.py:421\", \"quote\": \"@_api.rename_parameter(\\\"3.6\\\", \\\"pr\\\", \\\"pickradius\\\")\"}\n    ]},\n    {\"id\": \"c5\", \"role\": \"impact\", \"text\": \"Only older scripts are affected because the remapping runs only when a deprecated keyword is present, matching the report that newer scripts look right.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s3\", \"quote\": \"Some older chart scripts are producing plots with default styling even when we request custom values; newer scripts still look right.\"},\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/_api/deprecation.py:293\", \"quote\": \"since, message=f\\\"The {old!r} parameter of {func.__name__}() \\\"\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"Deprecated seaborn style names are mapped wrongly and fall back to the default style\", \"why\": \"Both style.use and the style library map every old seaborn name to its seaborn-v0_8 equivalent.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/style/core.py:140\", \"quote\": \"style = _DEPRECATED_SEABORN_STYLES[style]\"}\n    ]},\n    {\"hypothesis\": \"Deprecated rcParams aliases are dropped\", \"why\": \"The deprecated and ignored rcParams maps are empty in this version, so no rcParam is redirected or ignored.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/__init__.py:622\", \"quote\": \"_deprecated_ignore_map = {}\"},\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/__init__.py:626\", \"quote\": \"_deprecated_remain_as_none = {}\"}\n    ]},\n    {\"hypothesis\": \"matplotlib.rc short aliases (lw, c, fc...) are lost\", \"why\": \"rc() resolves each alias and assigns the value into rcParams.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/__init__.py:1043\", \"quote\": \"name = aliases.get(k) or k\"}\n    ]},\n    {\"hypothesis\": \"Artist property aliases (normalize_kwargs) drop values\", \"why\": \"normalize_kwargs maps each alias to its canonical name and keeps the value, raising only when both are given.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"lib/matplotlib/cbook.py:1717\", \"quote\": \"canonical = to_canonical.get(k, k)\"}\n    ]}\n  ],\n  \"intendedBehavior\": \"A function decorated with rename_parameter('x', 'old', 'new') and called as f(new=<default>, old=5) receives new=5 and emits a deprecation warning.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"The rename_parameter docstring says the old-name value must be used even if the new name is also passed by keyword. The setdefault call does the opposite, and no comment, test or changelog entry chooses that behaviour.\"},\n  \"plain\": {\n    \"headline\": \"Older chart scripts get default looks because settings given under an old, renamed option name are silently thrown away.\",\n    \"happened\": \"Some chart options were renamed, and the library still accepts the old names so older scripts keep working. When the new name is also filled in behind the scenes with its default, the library keeps that default and discards the value the script asked for. The script only gets a 'this name is deprecated' warning and produces a chart with default settings.\",\n    \"matters\": \"Anyone running older chart scripts that still use the old option names gets wrong-looking charts without any error.\",\n    \"fix\": \"Make the old-name compatibility layer always use the value the script gave, as its own documentation promises, and add a test for it.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 25,
+  "inputTokens": {
+   "avg": 24410.56,
+   "max": 39817
+  },
+  "mainUsage": {
+   "inputTokens": 610264,
+   "cachedInputTokens": 577417,
+   "outputTokens": 14772
+  },
+  "cacheHitPercent": 94.6175753444411,
+  "wallSeconds": 174.3600001335144,
+  "tools": {
+   "read": 21,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 3
+  },
+  "reads": 21,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 1,
+   "readFileIgnoringRange": 1
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.5751044000000001,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.5751044000000001
+}

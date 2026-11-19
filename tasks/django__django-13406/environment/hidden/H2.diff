@@ -1,0 +1,20 @@
+diff --git a/django/views/defaults.py b/django/views/defaults.py
+index 2fb0d0b38c..1873a40d56 100644
+--- a/django/views/defaults.py
++++ b/django/views/defaults.py
+@@ -86,6 +86,7 @@ def server_error(request, template_name=ERROR_500_TEMPLATE_NAME):
+     """
+     try:
+         template = loader.get_template(template_name)
++        return HttpResponseServerError(template.render())
+     except TemplateDoesNotExist:
+         if template_name != ERROR_500_TEMPLATE_NAME:
+             # Reraise if it's a missing custom template.
+@@ -94,7 +95,6 @@ def server_error(request, template_name=ERROR_500_TEMPLATE_NAME):
+             ERROR_PAGE_TEMPLATE % {'title': 'Server Error (500)', 'details': ''},
+             content_type='text/html',
+         )
+-    return HttpResponseServerError(template.render())
+ 
+ 
+ @requires_csrf_token

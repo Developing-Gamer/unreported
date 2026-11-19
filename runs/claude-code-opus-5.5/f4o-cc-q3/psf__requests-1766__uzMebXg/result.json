@@ -1,0 +1,137 @@
+{
+    "schema_version": 1,
+    "id": "29e542c8-93cb-49dd-8d6a-0c4384befb54",
+    "task_name": "swe-bench/psf__requests-1766",
+    "trial_name": "psf__requests-1766__uzMebXg",
+    "trial_uri": "file:///home/user/bench/jobs/f4o-cc-q3/psf__requests-1766__uzMebXg",
+    "task_id": {
+        "path": "/home/user/bench/factory-tasks-v3f/psf__requests-1766"
+    },
+    "source": "factory-tasks-v3f",
+    "task_checksum": "c243c8bf9db8a8624afd20e4257852a318727dbf73c85d04dea37b81818dfe70",
+    "config": {
+        "schema_version": 1,
+        "task": {
+            "path": "/home/user/bench/factory-tasks-v3f/psf__requests-1766",
+            "git_url": null,
+            "git_commit_id": null,
+            "name": null,
+            "ref": null,
+            "overwrite": false,
+            "download_dir": null,
+            "source": "factory-tasks-v3f"
+        },
+        "trial_name": "psf__requests-1766__uzMebXg",
+        "trials_dir": "jobs/f4o-cc-q3",
+        "install_only": false,
+        "timeout_multiplier": 1.0,
+        "agent_timeout_multiplier": null,
+        "verifier_timeout_multiplier": null,
+        "agent_setup_timeout_multiplier": 4.0,
+        "environment_build_timeout_multiplier": null,
+        "agent": {
+            "name": "claude-code",
+            "import_path": null,
+            "model_name": "anthropic/claude-opus-5-5",
+            "base_url": null,
+            "model_api_key_name": null,
+            "model_api_format": null,
+            "skip_model_parsing": false,
+            "n_concurrent": null,
+            "concurrency_group": null,
+            "skills": [],
+            "override_timeout_sec": null,
+            "override_setup_timeout_sec": null,
+            "max_timeout_sec": null,
+            "resume_trajectory": false,
+            "load_trajectory": null,
+            "extra_allowed_hosts": [],
+            "kwargs": {
+                "reasoning_effort": "high",
+                "version": "2.1.325"
+            },
+            "mcp_servers": []
+        },
+        "user_agent": null,
+        "environment": {
+            "type": "docker",
+            "import_path": null,
+            "force_build": false,
+            "delete": true,
+            "stream": false,
+            "cpu_enforcement_policy": "auto",
+            "memory_enforcement_policy": "auto",
+            "override_cpus": null,
+            "override_memory_mb": null,
+            "override_storage_mb": null,
+            "override_gpus": null,
+            "override_tpu": null,
+            "mounts": null,
+            "extra_docker_compose": [],
+            "kwargs": {},
+            "extra_allowed_hosts": []
+        },
+        "verifier": {
+            "override_timeout_sec": null,
+            "max_timeout_sec": null,
+            "disable": false
+        },
+        "override_error_policy": {},
+        "artifacts": [],
+        "extra_instruction_paths": [],
+        "extra_instructions": [],
+        "job_id": "5c54a492-09cb-4411-8ad0-8601f211b344",
+        "source_trial": null
+    },
+    "agent_info": {
+        "name": "claude-code",
+        "version": "2.1.325",
+        "model_info": {
+            "name": "claude-opus-5-5",
+            "provider": "anthropic"
+        }
+    },
+    "agent_result": {
+        "n_input_tokens": 441031,
+        "n_cache_tokens": 422493,
+        "n_output_tokens": 5728,
+        "cost_usd": 0.34722660000000005,
+        "model_usage": {
+            "claude-opus-5-5": {
+                "n_input_tokens": 441031,
+                "n_cache_tokens": 422493,
+                "n_output_tokens": 5728,
+                "cost_usd": 0.29171459999999994
+            }
+        },
+        "rollout_details": null,
+        "metadata": null
+    },
+    "verifier_result": {
+        "rewards": {
+            "reward": 0.0
+        }
+    },
+    "verifier_environment_mode": "shared",
+    "exception_info": null,
+    "started_at": "2026-11-18T08:24:44.108815Z",
+    "finished_at": "2026-11-18T08:27:59.173098Z",
+    "environment_setup": {
+        "started_at": "2026-11-18T08:24:44.131093Z",
+        "finished_at": "2026-11-18T08:24:55.870931Z"
+    },
+    "agent_setup": {
+        "started_at": "2026-11-18T08:24:55.870958Z",
+        "finished_at": "2026-11-18T08:25:26.164838Z"
+    },
+    "agent_execution": {
+        "started_at": "2026-11-18T08:25:26.165082Z",
+        "finished_at": "2026-11-18T08:27:18.807627Z"
+    },
+    "verifier": {
+        "started_at": "2026-11-18T08:27:18.969630Z",
+        "finished_at": "2026-11-18T08:27:48.336009Z"
+    },
+    "step_results": null,
+    "reward_valid": true
+}

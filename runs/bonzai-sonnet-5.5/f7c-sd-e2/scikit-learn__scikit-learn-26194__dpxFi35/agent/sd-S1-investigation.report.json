@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-sonnet-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 47983,
+ "finalText": "Nothing new to check: the verdict rests on reading the code. The probe call failed because the package isn't built in the throwaway copy (\"run `python setup.py install` or `make`\"). I did not run the existing tests or the reproduction.\n\nThe reported bug is already gone from the current code, so the verdict is covered. The issue said `get_feature_names()` raised `NotFittedError` on a `CountVectorizer` given a vocabulary and never fitted, even though `transform` worked. The old `get_feature_names` method no longer exists. Its replacement, `get_feature_names_out`, calls `_check_vocabulary()` first. That check builds the vocabulary from the constructor argument and raises `NotFittedError` only when no vocabulary was provided. I could not identify the commit or release that fixed it, because the history is one snapshot commit, so `fixedIn` and `coveredBy` are left out.\n\n```json\n{\n  \"source\": \"S1\",\n  \"verdict\": \"covered\",\n  \"title\": \"CountVectorizer feature names with a given vocabulary\",\n  \"cause\": \"The report came from an old version where get_feature_names did not validate the vocabulary passed to the constructor, so it raised NotFittedError even though transform worked. In the current code get_feature_names_out calls _check_vocabulary, which builds the vocabulary from the constructor argument and raises NotFittedError only when none was provided. The old get_feature_names method no longer exists.\",\n  \"files\": [\n    {\"path\": \"sklearn/feature_extraction/text.py\", \"why\": \"_check_vocabulary (line 505) and get_feature_names_out (line 1470) now handle a vocabulary given at construction\"}\n  ],\n  \"plan\": [\"No change needed. Optionally add a regression test that get_feature_names_out works on an unfitted CountVectorizer(vocabulary=[...]).\"],\n  \"verification\": [\"Call CountVectorizer(vocabulary=['a','b']).get_feature_names_out() without fitting; it should return ['a','b'].\", \"CountVectorizer().get_feature_names_out() should still raise NotFittedError.\"],\n  \"userFacing\": true,\n  \"certainty\": \"likely\",\n  \"effort\": \"low\",\n  \"risk\": \"low\",\n  \"confidence\": 0.8,\n  \"intendedBehavior\": \"Getting feature names from a CountVectorizer built with a vocabulary works without fitting, and raises NotFittedError only when there is neither a fit nor a vocabulary.\",\n  \"fixType\": \"error\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"No intent evidence: the reported error was a gap in an older version, and the current code no longer has it.\"},\n  \"claims\": [\n    {\"id\": \"c1\", \"text\": \"_check_vocabulary raises NotFittedError only when no vocabulary was provided, after validating the constructor vocabulary.\", \"role\": \"rootCause\", \"citations\": [{\"type\": \"code\", \"ref\": \"sklearn/feature_extraction/text.py:507\", \"quote\": \"if not hasattr(self, \\\"vocabulary_\\\"):\\n            self._validate_vocabulary()\\n            if not self.fixed_vocabulary_:\\n                raise NotFittedError\"}]},\n    {\"id\": \"c2\", \"text\": \"get_feature_names_out uses that check, so a given vocabulary works unfitted.\", \"role\": \"other\", \"citations\": [{\"type\": \"code\", \"ref\": \"sklearn/feature_extraction/text.py:1483\", \"quote\": \"self._check_vocabulary()\\n        return np.asarray(\"}]}\n  ],\n  \"ruledOut\": [],\n  \"plain\": {\n    \"headline\": \"A user saw a 'not fitted' error when asking a text vectorizer for its word list even though it had been given the words up front.\",\n    \"happened\": \"The vectorizer let people transform text using a word list supplied at creation. Asking it for that word list wrongly claimed it had not been trained. The current code checks the supplied word list first, so this no longer happens.\",\n    \"matters\": \"It affected anyone who supplies their own vocabulary and wants to read back the feature names.\",\n    \"fix\": \"Nothing to change; the current version already handles it, and an optional test could lock it in.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 9,
+  "inputTokens": {
+   "avg": 15510.222222222223,
+   "max": 19516
+  },
+  "mainUsage": {
+   "inputTokens": 139592,
+   "cachedInputTokens": 127080,
+   "outputTokens": 4854
+  },
+  "cacheHitPercent": 91.03673562954897,
+  "wallSeconds": 41.09999990463257,
+  "tools": {
+   "read": 8,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 1
+  },
+  "reads": 8,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 2,
+   "readFile": 2,
+   "shell": 0,
+   "sameFile": 3,
+   "readFileIgnoringRange": 3
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.105225,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.105225
+}

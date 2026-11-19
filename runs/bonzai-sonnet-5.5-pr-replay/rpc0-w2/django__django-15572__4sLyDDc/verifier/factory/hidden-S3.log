@@ -1,0 +1,38 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+__________ test_distinct_test_users_have_distinct_database_signatures __________
+
+    def test_distinct_test_users_have_distinct_database_signatures():
+        def make_creation(alias, test_user):
+            return DatabaseCreation(
+                SimpleNamespace(
+                    alias=alias,
+                    settings_dict={
+                        "ENGINE": "django.db.backends.oracle",
+                        "HOST": "localhost",
+                        "PORT": "1521",
+                        "NAME": "ORCL",
+                        "USER": "app_admin",
+                        "PASSWORD": "unused",
+                        "TEST": {"USER": test_user},
+                    },
+                )
+            )
+    
+        primary = make_creation("default", "test_primary")
+        reporting = make_creation("reporting", "test_reporting")
+    
+>       assert primary.test_db_signature() != reporting.test_db_signature(), (
+            "Explicitly different Oracle test users must identify separate test databases."
+        )
+E       AssertionError: Explicitly different Oracle test users must identify separate test databases.
+E       assert ('localhost', '1521', 'django.db.backends.oracle', 'ORCL', 'app_admin') != ('localhost', '1521', 'django.db.backends.oracle', 'ORCL', 'app_admin')
+E        +  where ('localhost', '1521', 'django.db.backends.oracle', 'ORCL', 'app_admin') = test_db_signature()
+E        +    where test_db_signature = <django.db.backends.oracle.creation.DatabaseCreation object at 0x7fa0c30c8520>.test_db_signature
+E        +  and   ('localhost', '1521', 'django.db.backends.oracle', 'ORCL', 'app_admin') = test_db_signature()
+E        +    where test_db_signature = <django.db.backends.oracle.creation.DatabaseCreation object at 0x7fa0c30c8670>.test_db_signature
+
+/tmp/test_hidden_S3.py:26: AssertionError
+=========================== short test summary info ============================
+FAILED ../tmp/test_hidden_S3.py::test_distinct_test_users_have_distinct_database_signatures
+1 failed in 0.44s

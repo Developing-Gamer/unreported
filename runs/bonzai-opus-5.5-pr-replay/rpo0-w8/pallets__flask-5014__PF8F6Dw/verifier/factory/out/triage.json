@@ -1,0 +1,27 @@
+[
+  {
+    "source": "S1",
+    "decision": "skip",
+    "reason": "Self-Driving verdict unknown: "
+  },
+  {
+    "source": "S2",
+    "decision": "skip",
+    "reason": "Self-Driving verdict unknown: "
+  },
+  {
+    "source": "S3",
+    "decision": "skip",
+    "reason": "Self-Driving verdict unknown: "
+  },
+  {
+    "source": "S4",
+    "decision": "skip",
+    "reason": "Self-Driving verdict unknown: "
+  },
+  {
+    "source": "S5",
+    "decision": "fix",
+    "reason": "Blueprint.__init__ only rejects names containing a dot, so an empty name is accepted. Endpoints are then built as f\"{name_prefix}.{name}.{endpoint}\".lstrip(\".\"), so a blueprint named \"\" registers un-p"
+  }
+]

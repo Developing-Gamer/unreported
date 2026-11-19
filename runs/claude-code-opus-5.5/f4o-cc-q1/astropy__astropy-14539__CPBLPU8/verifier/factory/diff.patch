@@ -1,0 +1,46 @@
+diff --git a/astropy/io/fits/diff.py b/astropy/io/fits/diff.py
+index 100cdf1b8..d3608ef01 100644
+--- a/astropy/io/fits/diff.py
++++ b/astropy/io/fits/diff.py
+@@ -1449,7 +1449,7 @@ class TableDataDiff(_BaseDiff):
+                 arrb.dtype, np.floating
+             ):
+                 diffs = where_not_allclose(arra, arrb, rtol=self.rtol, atol=self.atol)
+-            elif "P" in col.format:
++            elif "P" in col.format or "Q" in col.format:
+                 diffs = (
+                     [
+                         idx
+diff --git a/astropy/io/fits/tests/test_diff.py b/astropy/io/fits/tests/test_diff.py
+index adfebe6a5..71e957fdb 100644
+--- a/astropy/io/fits/tests/test_diff.py
++++ b/astropy/io/fits/tests/test_diff.py
+@@ -419,6 +419,28 @@ class TestDiff(FitsTestCase):
+         assert diff.diff_ratio == 0
+         assert diff.diff_total == 0
+ 
++    def test_identical_files_q_format_vla(self):
++        """
++        Regression test: comparing a file containing a 'Q' format
++        variable-length array column to itself must report no differences.
++        """
++        col = Column("a", format="QD", array=[[0], [0, 0]])
++        hdu = BinTableHDU.from_columns([col])
++        path = self.temp("diffbug.fits")
++        hdu.writeto(path)
++
++        diff = FITSDiff(path, path)
++        assert diff.identical
++        assert "No differences found" in diff.report()
++
++        # Real differences in a 'Q' column must still be detected.
++        colb = Column("a", format="QD", array=[[0], [0, 1]])
++        hdub = BinTableHDU.from_columns([colb])
++        diff = TableDataDiff(hdu.data, hdub.data)
++        assert not diff.identical
++        assert diff.diff_total == 1
++        assert diff.diff_values[0][0] == ("a", 1)
++
+     def test_diff_empty_tables(self):
+         """
+         Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/178

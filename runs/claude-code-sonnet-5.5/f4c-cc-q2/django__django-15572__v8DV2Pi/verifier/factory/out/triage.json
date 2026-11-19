@@ -1,0 +1,8 @@
+[
+{"source":"S1","decision":"fix","reason":"Empty string in TEMPLATES DIRS resolved to cwd, making template_changed always true; empty dirs are now ignored."},
+{"source":"S2","decision":"skip","reason":"ModelAdmin.get_inlines(request, obj) already exists and is used by get_inline_instances in this checkout."},
+{"source":"S3","decision":"skip","reason":"Anecdotal report with no reproduction or code reference; not enough to identify a defect in this repository."},
+{"source":"S4","decision":"skip","reason":"OOMKilled worker pod in an external export service; not a defect in this repository's code."},
+{"source":"S5","decision":"skip","reason":"Saved-search behavior in an application outside this repository; no Django code identified."},
+{"source":"S6","decision":"skip","reason":"get_child_arguments already uses spec.name for non-package modules run with -m, so the issue is already fixed."}
+]

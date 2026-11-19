@@ -1,0 +1,93 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+____________ test_uncompressed_body_survives_gzip_fallback[chunks0] ____________
+
+chunks = [b'{"status":"ok","count":3}']
+
+    @pytest.mark.parametrize('chunks', [
+        [b'{"status":"ok","count":3}'],
+        [b'{"status":', b'"ok","count":3}'],
+    ])
+    def test_uncompressed_body_survives_gzip_fallback(chunks):
+        expected = b''.join(chunks)
+    
+        actual = b''.join(stream_decompress(iter(chunks), mode='gzip'))
+    
+>       assert actual == expected
+E       assert b'' == b'{"status":"ok","count":3}'
+E         Use -v to get more diff
+
+/tmp/test_hidden_S1.py:15: AssertionError
+____________ test_uncompressed_body_survives_gzip_fallback[chunks1] ____________
+
+chunks = [b'{"status":', b'"ok","count":3}']
+
+    @pytest.mark.parametrize('chunks', [
+        [b'{"status":"ok","count":3}'],
+        [b'{"status":', b'"ok","count":3}'],
+    ])
+    def test_uncompressed_body_survives_gzip_fallback(chunks):
+        expected = b''.join(chunks)
+    
+        actual = b''.join(stream_decompress(iter(chunks), mode='gzip'))
+    
+>       assert actual == expected
+E       assert b'"ok","count":3}' == b'{"status":"ok","count":3}'
+E         At index 0 diff: b'"' != b'{'
+E         Use -v to get more diff
+
+/tmp/test_hidden_S1.py:15: AssertionError
+=============================== warnings summary ===============================
+requests/packages/urllib3/connectionpool.py:337
+  /testbed/requests/packages/urllib3/connectionpool.py:337: DeprecationWarning: invalid escape sequence \*
+    """
+
+requests/packages/urllib3/connectionpool.py:561
+  /testbed/requests/packages/urllib3/connectionpool.py:561: DeprecationWarning: invalid escape sequence \*
+    """
+
+requests/packages/urllib3/_collections.py:7
+  /testbed/requests/packages/urllib3/_collections.py:7: DeprecationWarning: Using or importing the ABCs from 'collections' instead of from 'collections.abc' is deprecated since Python 3.3, and in 3.10 it will stop working
+    from collections import MutableMapping
+
+requests/models.py:610
+  /testbed/requests/models.py:610: DeprecationWarning: invalid escape sequence \*
+    """Returns the json-encoded content of a response, if any.
+
+requests/models.py:563
+  /testbed/requests/models.py:563: SyntaxWarning: "is" with a literal. Did you mean "=="?
+    if self.status_code is 0:
+
+requests/api.py:52
+  /testbed/requests/api.py:52: DeprecationWarning: invalid escape sequence \*
+    """Sends a GET request. Returns :class:`Response` object.
+
+requests/api.py:63
+  /testbed/requests/api.py:63: DeprecationWarning: invalid escape sequence \*
+    """Sends a OPTIONS request. Returns :class:`Response` object.
+
+requests/api.py:74
+  /testbed/requests/api.py:74: DeprecationWarning: invalid escape sequence \*
+    """Sends a HEAD request. Returns :class:`Response` object.
+
+requests/api.py:84
+  /testbed/requests/api.py:84: DeprecationWarning: invalid escape sequence \*
+    """Sends a POST request. Returns :class:`Response` object.
+
+requests/api.py:95
+  /testbed/requests/api.py:95: DeprecationWarning: invalid escape sequence \*
+    """Sends a PUT request. Returns :class:`Response` object.
+
+requests/api.py:106
+  /testbed/requests/api.py:106: DeprecationWarning: invalid escape sequence \*
+    """Sends a PATCH request. Returns :class:`Response` object.
+
+requests/api.py:117
+  /testbed/requests/api.py:117: DeprecationWarning: invalid escape sequence \*
+    """Sends a DELETE request. Returns :class:`Response` object.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED ../tmp/test_hidden_S1.py::test_uncompressed_body_survives_gzip_fallback[chunks0]
+FAILED ../tmp/test_hidden_S1.py::test_uncompressed_body_survives_gzip_fallback[chunks1]
+2 failed, 12 warnings in 0.04s

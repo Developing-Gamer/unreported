@@ -1,0 +1,86 @@
+diff --git a/requests/models.py b/requests/models.py
+index f82f56a..2d49061 100644
+--- a/requests/models.py
++++ b/requests/models.py
+@@ -307,7 +307,7 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):
+         """Prepares the given HTTP method."""
+         self.method = method
+         if self.method is not None:
+-            self.method = self.method.upper()
++            self.method = to_native_string(self.method.upper())
+ 
+     def prepare_url(self, url, params):
+         """Prepares the given HTTP URL."""
+diff --git a/requests/sessions.py b/requests/sessions.py
+index cc72f65..c6700de 100644
+--- a/requests/sessions.py
++++ b/requests/sessions.py
+@@ -16,7 +16,7 @@ from .compat import cookielib, OrderedDict, urljoin, urlparse, urlunparse
+ from .cookies import cookiejar_from_dict, extract_cookies_to_jar, RequestsCookieJar
+ from .models import Request, PreparedRequest
+ from .hooks import default_hooks, dispatch_hook
+-from .utils import to_key_val_list, default_headers
++from .utils import to_key_val_list, default_headers, to_native_string
+ from .exceptions import TooManyRedirects, InvalidSchema
+ from .structures import CaseInsensitiveDict
+ 
+@@ -311,7 +311,7 @@ class Session(SessionRedirectMixin):
+         """
+         # Create the Request.
+         req = Request(
+-            method = method.upper(),
++            method = to_native_string(method.upper()),
+             url = url,
+             headers = headers,
+             files = files,
+diff --git a/test_requests.py b/test_requests.py
+index a593db3..24f7118 100755
+--- a/test_requests.py
++++ b/test_requests.py
+@@ -13,7 +13,7 @@ import requests
+ import pytest
+ from requests.auth import HTTPDigestAuth
+ from requests.adapters import HTTPAdapter
+-from requests.compat import str, cookielib, getproxies, urljoin, urlparse
++from requests.compat import str, builtin_str, cookielib, getproxies, urljoin, urlparse
+ from requests.cookies import cookiejar_from_dict
+ from requests.exceptions import InvalidURL, MissingSchema
+ from requests.structures import CaseInsensitiveDict
+@@ -434,6 +434,22 @@ class RequestsTestCase(unittest.TestCase):
+         assert b'name="stuff"' in prep.body
+         assert b'name="b\'stuff\'"' not in prep.body
+ 
++    def test_unicode_method_name(self):
++        # A unicode method must become a native string, otherwise httplib
++        # joins it with a binary multipart body and raises UnicodeDecodeError
++        # on Python 2.
++        files = {u'file': open(__file__, 'rb')}
++        r = requests.Request(method=u'POST', url=httpbin('post'),
++                             files=files)
++        prep = r.prepare()
++        assert prep.method == 'POST'
++        assert isinstance(prep.method, builtin_str)
++
++        s = requests.Session()
++        prep = s.prepare_request(requests.Request(u'post', httpbin('post'),
++                                                  files=files))
++        assert isinstance(prep.method, builtin_str)
++
+     def test_custom_content_type(self):
+         r = requests.post(httpbin('post'),
+                           data={'stuff': json.dumps({'a': 123})},
+@@ -662,6 +678,14 @@ class RequestsTestCase(unittest.TestCase):
+         assert 'unicode' in p.headers.keys()
+         assert 'byte' in p.headers.keys()
+ 
++    def test_method_is_native_string(self):
++        # unicode on Python 2 and bytes on Python 3 must become native strs,
++        # otherwise unicode methods break multipart bodies on Python 2.
++        for method in (u'post', 'post'.encode('ascii')):
++            p = requests.Request(method, httpbin('post')).prepare()
++            assert p.method == 'POST'
++            assert type(p.method) is type('')
++
+     def test_can_send_nonstring_objects_with_files(self):
+         data = {'a': 0.0}
+         files = {'b': 'foo'}

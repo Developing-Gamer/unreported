@@ -1,0 +1,42 @@
+[
+  {
+    "source": "S1",
+    "decision": "skip",
+    "reason": "Self-Driving verdict notActionable: The error is a refused connection from a billing-worker service calling api.stripe.com through requests/urllib3. This repository is xarray, a scientific array library. It has no Stripe or billing code"
+  },
+  {
+    "source": "S2",
+    "decision": "fix",
+    "reason": "as_compatible_data runs `data = getattr(data, \"values\", data)` on any input. Any object with a `values` attribute is replaced by that attribute's value before it reaches numpy. Variable.__setitem__ pa"
+  },
+  {
+    "source": "S3",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: In older versions, merging coordinates for `a + b` compared non-index dask coordinates by value, which computed them. `unique_variable` in merge.py now first compares with `lazy_array_equiv`, which us"
+  },
+  {
+    "source": "S4",
+    "decision": "fix",
+    "reason": "The top-level merge() converts each DataArray with to_dataset() before merging. Dataset.merge() passes `other` straight to dataset_merge_method and then merge_core. There, coerce_pandas_values treats "
+  },
+  {
+    "source": "S5",
+    "decision": "skip",
+    "reason": "Self-Driving verdict covered: combine_by_coords used to require monotonic coordinates on every dimension, even one that was identical across all datasets, so a non-sorted shared coordinate like y=['a','c','b'] raised ValueError. T"
+  },
+  {
+    "source": "S6",
+    "decision": "skip",
+    "reason": "Self-Driving fix found it already covered or could not fix it."
+  },
+  {
+    "source": "S7",
+    "decision": "fix",
+    "reason": "For large chunked (dask) data, the code that builds centered rolling windows pads the front of the array and then trims the result back to size. When the window is even and 4 or longer (4, 6, 8\u2026), it "
+  },
+  {
+    "source": "S8",
+    "decision": "fix",
+    "reason": "The descriptor that serves custom accessors (such as a calibration helper registered on Dataset) catches AttributeError from the accessor's __init__, sets the accessor to None, and caches that None on"
+  }
+]

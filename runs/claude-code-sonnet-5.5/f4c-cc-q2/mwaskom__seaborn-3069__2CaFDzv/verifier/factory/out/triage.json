@@ -1,0 +1,8 @@
+[
+ {"source":"S1","decision":"fix","reason":"pandas>=2.0 removed the mode.use_inf_as_null option still used in plot.py, _oldcore.py and categorical.py; replaced with mode.use_inf_as_na."},
+ {"source":"S2","decision":"fix","reason":"Plotter._finalize_figure did not give Nominal-scaled axes the categorical treatment (no grid, +/-.5 limits, inverted y); now it does."},
+ {"source":"S3","decision":"skip","reason":"An OOMKilled worker in an unrelated export service (export/worker.py, csv_writer.py); nothing in the seaborn repository is involved."},
+ {"source":"S4","decision":"fix","reason":"widgets._update_lut rewrote only the main LUT, so the over/under/bad colors stayed at the initial Greys extremes (near black); it now also calls _set_extremes."},
+ {"source":"S5","decision":"fix","reason":"histplot resolved multiple='stack' on the KDE curves too, so the overlay showed cumulative heights instead of each group's density."},
+ {"source":"S6","decision":"fix","reason":"locator_to_legend_entries used a strict < on the upper limit, dropping a tick equal to the data maximum (e.g. 100) from brief legends."}
+]

@@ -1,0 +1,56 @@
+{
+ "model": "claude-sub:claude-opus-5-5",
+ "effort": "high",
+ "timedOut": false,
+ "turnMs": 58320,
+ "finalText": "The current code doesn't have this bug: plain `GET` and `HEAD` requests are sent without a `Content-Length` header. The report came from an older version. The project's changelog says this was fixed in release 1.2.0 (2013-03-31), and the checkout is 2.0.1.\n\n**What I checked**\n- **The code:** the step that sets the body length in `requests/models.py` (lines 434\u2013444) adds the header only when there is a body, or when the method isn't `GET` or `HEAD`.\n- **Running it:** I called the request-building code with valid inputs:\n  - `GET` and `HEAD` to `http://amazon.com` \u2192 no headers.\n  - The same `GET` through a session with `data={}` \u2192 only User-Agent, Accept-Encoding and Accept.\n  - The same `GET` with `data=\"\"` \u2192 no headers.\n  - The same `GET` through a session with a username and password \u2192 Authorization added, still no length.\n  - `POST` and `DELETE` with no body \u2192 `Content-Length: 0`, which is intended.\n- **The changelog:** `HISTORY.rst` line 105, in the 1.2.0 notes, reads \"Don't send ``Content-Length`` header by default on ``GET`` or ``HEAD`` requests\".\n\n**What I couldn't check**\n- **Imports on this Python:** the bundled urllib3 won't import on the Python 3.11 here, so I patched its missing names in for the check.\n- **Existing tests:** pytest isn't installed, so I didn't run the existing tests.\n- **Which change fixed it:** the history is a single snapshot commit, so I can't name the commit or pull request.\n\nAnyone still seeing this, such as 503 errors from Amazon on plain `GET`s, should upgrade to 1.2.0 or newer.\n\n```json\n{\n  \"verdict\": \"covered\",\n  \"title\": \"GET requests no longer send a body length\",\n  \"cause\": \"In requests 1.1.x and earlier, prepare_content_length added a Content-Length header to every request, including GET with no body, and some servers (the reporter names amazon.com) answered with 503. Since 1.2.0, prepare_content_length only sets the header when there is a body, or '0' for methods other than GET/HEAD. A run against the current code shows GET/HEAD requests carry no Content-Length.\",\n  \"files\": [\n    {\"path\": \"requests/models.py\", \"why\": \"prepare_content_length (lines 434-444) decides when Content-Length is set; it now skips GET/HEAD with no body\"},\n    {\"path\": \"HISTORY.rst\", \"why\": \"Line 105, in the 1.2.0 notes, records the fix\"}\n  ],\n  \"plan\": [\n    \"No code change needed; tell the reporter to upgrade to requests 1.2.0 or newer\"\n  ],\n  \"verification\": [\n    \"requests.Request('GET','http://amazon.com').prepare().headers has no Content-Length (checked: {})\",\n    \"Same through Session.prepare_request with data={} and with auth: no Content-Length\",\n    \"POST/DELETE with no body still get Content-Length: 0\"\n  ],\n  \"userFacing\": true,\n  \"certainty\": \"confirmed\",\n  \"effort\": \"none\",\n  \"risk\": \"none\",\n  \"confidence\": 0.93,\n  \"fixedIn\": {\"release\": \"1.2.0\"},\n  \"claims\": [\n    {\"id\": \"c1\", \"role\": \"rootCause\", \"text\": \"The current code only adds Content-Length when there is a body, or '0' for methods other than GET and HEAD, so plain GETs no longer carry it.\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/models.py:443\", \"quote\": \"elif self.method not in ('GET', 'HEAD'):\"},\n      {\"type\": \"code\", \"ref\": \"requests/models.py:444\", \"quote\": \"self.headers['Content-Length'] = '0'\"}\n    ]},\n    {\"id\": \"c2\", \"role\": \"other\", \"text\": \"The project's changelog records that this behaviour was changed in 1.2.0, so the report is from an older version.\", \"citations\": [\n      {\"type\": \"doc\", \"ref\": \"HISTORY.rst\", \"quote\": \"- Don't send ``Content-Length`` header by default on ``GET`` or ``HEAD``\"}\n    ]},\n    {\"id\": \"c3\", \"role\": \"impact\", \"text\": \"The reporter saw 503 errors from amazon.com on GET requests because of the extra header.\", \"citations\": [\n      {\"type\": \"evidence\", \"ref\": \"ev_s4\", \"quote\": \"http://amazon.com returns 503 for every get request that contains 'content-length' header\"}\n    ]}\n  ],\n  \"ruledOut\": [\n    {\"hypothesis\": \"A session, empty data or the auth step adds Content-Length back to GET requests\", \"why\": \"A run of Session.prepare_request with data={} and with basic auth produced only User-Agent, Accept-Encoding, Accept and Authorization headers; prepare_auth recomputes the length through the same GET/HEAD-aware function\", \"citations\": [\n      {\"type\": \"code\", \"ref\": \"requests/models.py:466\", \"quote\": \"self.prepare_content_length(self.body)\"}\n    ]}\n  ],\n  \"intendedBehavior\": \"A GET or HEAD request with no body is sent without a Content-Length header.\",\n  \"intent\": {\"deliberate\": false, \"evidence\": \"Sending the header on GET was the old behaviour and was removed on purpose in 1.2.0 (HISTORY.rst line 105).\"},\n  \"fixType\": \"error\",\n  \"plain\": {\n    \"headline\": \"Some websites rejected simple page fetches because the library said each request had a body, even an empty one; newer versions no longer do that.\",\n    \"happened\": \"Older versions of the library told the server how long the request body was on every page fetch, even when there was no body. Some sites, such as Amazon, refuse requests like that. Version 1.2.0 stopped sending it for simple fetches, and the current code confirms this.\",\n    \"matters\": \"Only people still on versions older than 1.2.0 hit these refusals.\",\n    \"fix\": \"No code change is needed; the reporter should upgrade to version 1.2.0 or newer.\"\n  }\n}\n```",
+ "totals": {
+  "turns": 1,
+  "requests": 8,
+  "inputTokens": {
+   "avg": 15278.875,
+   "max": 19369
+  },
+  "mainUsage": {
+   "inputTokens": 122231,
+   "cachedInputTokens": 109868,
+   "outputTokens": 6341
+  },
+  "cacheHitPercent": 89.88554458361627,
+  "wallSeconds": 57.99499988555908,
+  "tools": {
+   "read": 4,
+   "edit": 0,
+   "test": 0,
+   "verify": 0,
+   "git": 0,
+   "exec-poll": 0,
+   "subagent": 0,
+   "other": 3
+  },
+  "reads": 4,
+  "edits": 0,
+  "runs": 0,
+  "reReads": {
+   "total": 0,
+   "readFile": 0,
+   "shell": 0,
+   "sameFile": 0,
+   "readFileIgnoringRange": 0
+  },
+  "subagents": {
+   "calls": 0,
+   "failed": 0,
+   "stepLimit": 0
+  },
+  "editedFiles": 0,
+  "editOperations": 0,
+  "subagentUsage": null,
+  "cost": {
+   "usd": 0.2105886,
+   "partial": false,
+   "estimated": false
+  }
+ },
+ "costUsd": 0.2105886
+}
